@@ -10,6 +10,9 @@ export const metadata: Metadata = {
     statusBarStyle: 'black-translucent',
     title: 'Finance',
   },
+  icons: {
+    icon: '/icon.svg',
+  },
 };
 
 export const viewport: Viewport = {
