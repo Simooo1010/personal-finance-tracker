@@ -94,6 +94,15 @@ export default function Calculator({ isOpen, onClose, onConfirm, initialValue }:
     }
   }, [display, prevValue, operator, calculate])
 
+  const handlePercent = useCallback(() => {
+    setDisplay(prev => {
+      const val = parseFloat(prev)
+      if (isNaN(val)) return '0'
+      // Standard calculator % divides current number by 100
+      return String(Math.round((val / 100) * 1000000) / 1000000)
+    })
+  }, [])
+
   const handleClear = useCallback(() => {
     setDisplay('0')
     setOperator(null)
@@ -112,8 +121,9 @@ export default function Calculator({ isOpen, onClose, onConfirm, initialValue }:
     }
   }, [display, onConfirm])
 
+  // Complete grid rows: each has exactly 4 slots (Row 5 has 3 items, but '0' spans 2 cols = 4 total)
   const buttons = [
-    ['C', '⌫', '÷'],
+    ['C', '⌫', '%', '÷'],
     ['7', '8', '9', '×'],
     ['4', '5', '6', '-'],
     ['1', '2', '3', '+'],
@@ -168,7 +178,7 @@ export default function Calculator({ isOpen, onClose, onConfirm, initialValue }:
               </div>
               <button
                 onClick={handleConfirm}
-                className="p-2.5 bg-income/10 text-income hover:bg-income hover:text-white rounded-full t"
+                className="p-2.5 bg-income/10 text-income hover:bg-income hover:text-white rounded-full t cursor-pointer"
               >
                 <Check className="w-5 h-5" strokeWidth={2} />
               </button>
@@ -179,7 +189,7 @@ export default function Calculator({ isOpen, onClose, onConfirm, initialValue }:
               {buttons.flat().map((btn, i) => {
                 const isOperator = ['+', '-', '×', '÷'].includes(btn)
                 const isEquals = btn === '='
-                const isSpecial = btn === 'C' || btn === '⌫'
+                const isSpecial = ['C', '⌫', '%'].includes(btn)
                 const isZero = btn === '0'
 
                 return (
@@ -189,12 +199,13 @@ export default function Calculator({ isOpen, onClose, onConfirm, initialValue }:
                     onClick={() => {
                       if (btn === 'C') handleClear()
                       else if (btn === '⌫') handleBackspace()
+                      else if (btn === '%') handlePercent()
                       else if (btn === '.') handleDecimal()
                       else if (btn === '=') handleEquals()
                       else if (isOperator) handleOperator(btn)
                       else handleDigit(btn)
                     }}
-                    className={`h-14 rounded-xl text-lg font-light t ${
+                    className={`h-14 rounded-xl text-lg font-light t cursor-pointer ${
                       isOperator
                         ? 'bg-elevated text-fg hover:bg-border/20'
                         : isEquals
