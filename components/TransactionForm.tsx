@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Calculator as CalcIcon, TrendingUp, TrendingDown } from 'lucide-react'
 import Calculator from './Calculator'
@@ -15,39 +16,54 @@ interface TransactionFormProps {
 }
 
 export default function TransactionForm({
-  isOpen,
-  onClose,
-  onSaved,
-  editTransaction,
-  defaultType = 'income',
+  isOpen, onClose, onSaved, editTransaction, defaultType = 'income',
 }: TransactionFormProps) {
-  const [title, setTitle] = useState(editTransaction?.title || '')
-  const [amount, setAmount] = useState(editTransaction?.amount?.toString() || '')
-  const [type, setType] = useState<'income' | 'expense'>(editTransaction?.type || defaultType)
+  const [title,    setTitle]    = useState('')
+  const [amount,   setAmount]   = useState('')
+  const [type,     setType]     = useState<'income' | 'expense'>(defaultType)
   const [showCalc, setShowCalc] = useState(false)
-  const [saving, setSaving] = useState(false)
+  const [saving,   setSaving]   = useState(false)
+  const [mounted,  setMounted]  = useState(false)
+  const [isMobile, setIsMobile] = useState(true)
+
+  // Initialize form when editing changes or opening
+  useEffect(() => {
+    if (isOpen) {
+      setTitle(editTransaction?.title || '')
+      setAmount(editTransaction?.amount?.toString() || '')
+      setType(editTransaction?.type || defaultType)
+    }
+  }, [isOpen, editTransaction, defaultType])
+
+  useEffect(() => {
+    setMounted(true)
+    setIsMobile(window.innerWidth < 640)
+    const handleResize = () => setIsMobile(window.innerWidth < 640)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  // Scroll lock background
+  useEffect(() => {
+    if (isOpen && mounted) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [isOpen, mounted])
 
   const handleSave = async () => {
     if (!title.trim() || !amount || parseFloat(amount) <= 0) return
     setSaving(true)
-
-    const data = {
-      title: title.trim(),
-      amount: parseFloat(amount),
-      type,
-    }
-
+    const payload = { title: title.trim(), amount: parseFloat(amount), type }
     if (editTransaction) {
-      await supabase
-        .from('transactions')
-        .update(data)
-        .eq('id', editTransaction.id)
+      await supabase.from('transactions').update(payload).eq('id', editTransaction.id)
     } else {
-      await supabase
-        .from('transactions')
-        .insert(data)
+      await supabase.from('transactions').insert(payload)
     }
-
     setSaving(false)
     onSaved()
     onClose()
@@ -55,130 +71,138 @@ export default function TransactionForm({
     setAmount('')
   }
 
-  const handleCalcConfirm = (value: number) => {
-    setAmount(value.toString())
-    setShowCalc(false)
+  if (!mounted) return null
+
+  const panelVariants = {
+    hidden: { y: isMobile ? '100%' : 20, opacity: isMobile ? 1 : 0 },
+    visible: { y: 0, opacity: 1 },
+    exit: { y: isMobile ? '100%' : 20, opacity: isMobile ? 0 : 0 }
   }
 
-  return (
-    <>
-      <AnimatePresence>
-        {isOpen && (
+  return createPortal(
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+          onClick={onClose}
+        >
+          {/* Overlay */}
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
+
+          {/* Sheet/Modal */}
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-40 flex items-end justify-center"
-            onClick={onClose}
+            variants={panelVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            transition={{ type: 'spring', damping: 28, stiffness: 280 }}
+            onClick={e => e.stopPropagation()}
+            className="relative w-full max-w-lg bg-surface rounded-t-[28px] sm:rounded-2xl p-6 sm:p-8 safe-b shadow-2xl border-t sm:border border-border/10"
           >
-            <div className="absolute inset-0 bg-black/40" />
+            {/* Drag handle (mobile only) */}
+            <div className="w-8 h-1 bg-elevated rounded-full mx-auto mb-6 sm:hidden" />
 
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-              onClick={(e) => e.stopPropagation()}
-              className="relative w-full max-w-md bg-surface-container-high rounded-t-3xl p-8 safe-bottom shadow-2xl"
-            >
-              {/* Header */}
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-extralight tracking-wider">
-                  {editTransaction ? 'Modifica' : 'Nuova Transazione'}
-                </h2>
-                <button onClick={onClose} className="p-2 text-muted">
-                  <X className="w-5 h-5" strokeWidth={1} />
-                </button>
-              </div>
+            {/* Header row */}
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-[10px] tracking-[0.25em] uppercase font-light text-muted">
+                {editTransaction ? 'Modifica Transazione' : 'Nuova Transazione'}
+              </h2>
+              <button
+                onClick={onClose}
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-elevated text-muted hover:text-fg t"
+              >
+                <X className="w-4 h-4" strokeWidth={1.5} />
+              </button>
+            </div>
 
-              {/* Type Toggle */}
-              <div className="flex gap-8 mb-12">
-                <button
-                  onClick={() => setType('income')}
-                  className={`flex items-center gap-2 pb-2 text-[10px] font-light tracking-[0.2em] uppercase transition-smooth border-b ${
-                    type === 'income'
-                      ? 'text-income border-income'
-                      : 'text-muted border-transparent hover:text-foreground'
-                  }`}
-                >
-                  <TrendingUp className="w-3 h-3" strokeWidth={2} />
-                  Entrata
-                </button>
-                <button
-                  onClick={() => setType('expense')}
-                  className={`flex items-center gap-2 pb-2 text-[10px] font-light tracking-[0.2em] uppercase transition-smooth border-b ${
-                    type === 'expense'
-                      ? 'text-expense border-expense'
-                      : 'text-muted border-transparent hover:text-foreground'
-                  }`}
-                >
-                  <TrendingDown className="w-3 h-3" strokeWidth={2} />
-                  Uscita
-                </button>
-              </div>
+            {/* Segmented control */}
+            <div className="flex gap-1 p-1 bg-elevated rounded-xl mb-8">
+              <button
+                onClick={() => setType('income')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-normal t ${
+                  type === 'income' ? 'bg-income text-white shadow-sm' : 'text-muted hover:text-fg'
+                }`}
+              >
+                <TrendingUp className="w-3.5 h-3.5" strokeWidth={2} />
+                Entrata
+              </button>
+              <button
+                onClick={() => setType('expense')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-normal t ${
+                  type === 'expense' ? 'bg-expense text-white shadow-sm' : 'text-muted hover:text-fg'
+                }`}
+              >
+                <TrendingDown className="w-3.5 h-3.5" strokeWidth={2} />
+                Uscita
+              </button>
+            </div>
 
-              {/* Title Input */}
-              <div className="mb-8">
-                <label className="text-[9px] text-muted font-light tracking-[0.3em] uppercase block mb-1">
-                  Nome
+            {/* Ghost Inputs Fields */}
+            <div className="space-y-6 mb-8">
+              {/* Name */}
+              <div>
+                <label className="text-[9px] tracking-[0.2em] uppercase text-muted block mb-1">
+                  Descrizione
                 </label>
                 <input
                   type="text"
                   value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="es. Stipendio, Affitto..."
-                  className="ghost-input w-full py-2 text-2xl font-light placeholder:text-muted/30 text-foreground"
+                  onChange={e => setTitle(e.target.value)}
+                  placeholder="es. Stipendio, Spesa..."
+                  className="w-full bg-transparent border-b border-border/30 py-2.5 text-base font-light text-fg placeholder:text-muted/40 focus:outline-none focus:border-fg t"
                 />
               </div>
 
-              {/* Amount Input with Calculator */}
-              <div className="mb-12">
-                <label className="text-[9px] text-muted font-light tracking-[0.3em] uppercase block mb-1">
+              {/* Amount */}
+              <div>
+                <label className="text-[9px] tracking-[0.2em] uppercase text-muted block mb-1">
                   Importo
                 </label>
                 <div className="relative">
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 text-muted font-extralight text-2xl">€</span>
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 text-muted text-base font-light">€</span>
                   <input
                     type="number"
                     value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
+                    onChange={e => setAmount(e.target.value)}
                     placeholder="0.00"
                     step="0.01"
-                    className="ghost-input w-full pl-6 pr-12 py-2 text-2xl font-light placeholder:text-muted/30 text-foreground"
+                    className="w-full bg-transparent border-b border-border/30 pl-5 pr-10 py-2.5 text-base font-light text-fg placeholder:text-muted/40 focus:outline-none focus:border-fg t"
                   />
                   <button
                     onClick={() => setShowCalc(true)}
-                    className="absolute right-0 top-1/2 -translate-y-1/2 p-2 text-muted hover:text-foreground transition-smooth"
+                    className="absolute right-0 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg text-muted hover:text-fg hover:bg-elevated t"
                   >
-                    <CalcIcon className="w-5 h-5" strokeWidth={1.5} />
+                    <CalcIcon className="w-4 h-4" strokeWidth={1.5} />
                   </button>
                 </div>
               </div>
+            </div>
 
-              {/* Save Button */}
-              <motion.button
-                whileTap={{ scale: 0.97 }}
-                onClick={handleSave}
-                disabled={saving || !title.trim() || !amount}
-                className={`w-full py-5 rounded-full text-[10px] font-light tracking-[0.3em] uppercase transition-smooth shadow-inner-glow ${
-                  type === 'income'
-                    ? 'bg-income text-white'
-                    : 'bg-expense text-white'
-                } disabled:opacity-30`}
-              >
-                {saving ? 'Salvataggio...' : editTransaction ? 'Aggiorna' : 'Salva'}
-              </motion.button>
-            </motion.div>
+            {/* CTA */}
+            <motion.button
+              whileTap={{ scale: 0.98 }}
+              onClick={handleSave}
+              disabled={saving || !title.trim() || !amount}
+              className={`w-full py-3.5 rounded-xl text-xs tracking-widest uppercase font-medium t disabled:opacity-40 shadow-sm ${
+                type === 'income' ? 'bg-income text-white' : 'bg-expense text-white'
+              }`}
+            >
+              {saving ? 'Salvataggio...' : editTransaction ? 'Aggiorna' : 'Salva'}
+            </motion.button>
           </motion.div>
-        )}
-      </AnimatePresence>
+        </motion.div>
+      )}
 
       <Calculator
         isOpen={showCalc}
         onClose={() => setShowCalc(false)}
-        onConfirm={handleCalcConfirm}
+        onConfirm={(v) => { setAmount(v.toString()); setShowCalc(false) }}
         initialValue={amount ? parseFloat(amount) : undefined}
       />
-    </>
+    </AnimatePresence>,
+    document.body
   )
 }

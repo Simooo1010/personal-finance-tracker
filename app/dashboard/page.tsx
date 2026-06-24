@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
-import { TrendingUp, TrendingDown, Plus } from 'lucide-react'
+import { TrendingUp, TrendingDown, Plus, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 import { supabase, Transaction } from '@/lib/supabase'
 import TransactionForm from '@/components/TransactionForm'
 
@@ -17,139 +17,139 @@ export default function DashboardHome() {
       .from('transactions')
       .select('*')
       .order('created_at', { ascending: false })
-
     if (data) setTransactions(data)
     setLoading(false)
   }, [])
 
-  useEffect(() => {
-    fetchTransactions()
-  }, [fetchTransactions])
+  useEffect(() => { fetchTransactions() }, [fetchTransactions])
 
-  const totalIncome = transactions
-    .filter(t => t.type === 'income')
-    .reduce((sum, t) => sum + Number(t.amount), 0)
-
-  const totalExpense = transactions
-    .filter(t => t.type === 'expense')
-    .reduce((sum, t) => sum + Number(t.amount), 0)
-
+  const totalIncome  = transactions.filter(t => t.type === 'income' ).reduce((s, t) => s + Number(t.amount), 0)
+  const totalExpense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0)
   const balance = totalIncome - totalExpense
-  const recentTransactions = transactions.slice(0, 5)
+  const recent = transactions.slice(0, 6)
 
-  const openForm = (type: 'income' | 'expense') => {
-    setFormType(type)
-    setShowForm(true)
-  }
+  const fmt = (n: number) => n.toLocaleString('it-IT', { minimumFractionDigits: 2 })
 
   return (
-    <div className="pt-6 lg:pt-0 h-full flex flex-col lg:flex-row gap-12 lg:gap-24">
-      
-      {/* Left Area (Balance & Actions) */}
-      <div className="flex-1 space-y-12 lg:space-y-20">
-        
-        {/* Balance Section - Pure minimal */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="relative"
-        >
-          <p className="text-[10px] text-muted font-light tracking-[0.3em] uppercase mb-4">
-            Saldo Disponibile
-          </p>
-          <h2 className={`text-6xl lg:text-8xl font-extralight tracking-tighter leading-none ${
-            balance >= 0 ? 'text-foreground' : 'text-expense'
-          }`}>
-            €{balance.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </h2>
+    <div className="space-y-12 py-4">
 
-          {/* Income/Expense Summary */}
-          <div className="flex gap-12 mt-12">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="w-3 h-3 text-income" strokeWidth={2} />
-                <span className="text-[9px] text-muted font-light tracking-[0.25em] uppercase">Entrate</span>
-              </div>
-              <p className="text-2xl lg:text-3xl font-extralight text-foreground">
-                €{totalIncome.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
-              </p>
-            </div>
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingDown className="w-3 h-3 text-expense" strokeWidth={2} />
-                <span className="text-[9px] text-muted font-light tracking-[0.25em] uppercase">Uscite</span>
-              </div>
-              <p className="text-2xl lg:text-3xl font-extralight text-foreground">
-                €{totalExpense.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
-              </p>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Quick Actions */}
-        <div className="flex gap-4">
-          <motion.button
-            whileTap={{ scale: 0.98 }}
-            onClick={() => openForm('income')}
-            className="flex-1 flex items-center justify-center gap-2 py-5 bg-surface-container-high hover:bg-surface-variant rounded-2xl text-foreground text-xs font-light tracking-[0.2em] uppercase transition-smooth"
-          >
-            <Plus className="w-4 h-4 text-income" strokeWidth={1.5} />
-            Aggiungi
-          </motion.button>
-          <motion.button
-            whileTap={{ scale: 0.98 }}
-            onClick={() => openForm('expense')}
-            className="flex-1 flex items-center justify-center gap-2 py-5 bg-surface-container-high hover:bg-surface-variant rounded-2xl text-foreground text-xs font-light tracking-[0.2em] uppercase transition-smooth"
-          >
-            <Plus className="w-4 h-4 text-expense" strokeWidth={1.5} />
-            Sottrai
-          </motion.button>
+      {/* Hero Balance Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="space-y-6"
+      >
+        <div>
+          <span className="text-[10px] tracking-[0.3em] uppercase text-muted font-normal block mb-2">
+            Disponibilità Attuale
+          </span>
+          <h1 className={`text-6xl sm:text-7xl font-thin tracking-tight text-fg ${balance < 0 ? 'text-expense' : ''}`}>
+            €{fmt(balance)}
+          </h1>
         </div>
+
+        {/* Quick Stats Grid */}
+        <div className="grid grid-cols-2 gap-8 border-t border-border/10 pt-8">
+          <div className="space-y-1">
+            <div className="flex items-center gap-1.5 text-muted">
+              <TrendingUp className="w-3.5 h-3.5 text-income" strokeWidth={1.5} />
+              <span className="text-[9px] tracking-[0.25em] uppercase font-light">Entrate</span>
+            </div>
+            <p className="text-xl font-light text-income">€{fmt(totalIncome)}</p>
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center gap-1.5 text-muted">
+              <TrendingDown className="w-3.5 h-3.5 text-expense" strokeWidth={1.5} />
+              <span className="text-[9px] tracking-[0.25em] uppercase font-light">Uscite</span>
+            </div>
+            <p className="text-xl font-light text-expense">€{fmt(totalExpense)}</p>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Quick Actions Buttons */}
+      <div className="grid grid-cols-2 gap-4">
+        <motion.button
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          whileTap={{ scale: 0.96 }}
+          onClick={() => { setFormType('income'); setShowForm(true) }}
+          className="flex items-center justify-center gap-2 py-4 rounded-xl bg-income/10 text-income hover:bg-income hover:text-white text-xs tracking-wider uppercase font-medium t cursor-pointer"
+        >
+          <Plus className="w-4 h-4" strokeWidth={1.5} />
+          Entrata
+        </motion.button>
+        <motion.button
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.12 }}
+          whileTap={{ scale: 0.96 }}
+          onClick={() => { setFormType('expense'); setShowForm(true) }}
+          className="flex items-center justify-center gap-2 py-4 rounded-xl bg-expense/10 text-expense hover:bg-expense hover:text-white text-xs tracking-wider uppercase font-medium t cursor-pointer"
+        >
+          <Plus className="w-4 h-4" strokeWidth={1.5} />
+          Uscita
+        </motion.button>
       </div>
 
-      {/* Right Area (Recent Transactions) */}
-      <div className="w-full lg:w-[380px] shrink-0">
-        <h2 className="text-[10px] text-muted font-light tracking-[0.25em] uppercase mb-8">
-          Il Ledger
-        </h2>
+      {/* Recent Ledger List */}
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2, duration: 0.5 }}
+        className="space-y-6"
+      >
+        <div className="flex items-center justify-between pb-3 border-b border-border/10">
+          <span className="text-[10px] tracking-[0.3em] uppercase text-muted font-normal">
+            Ledger Recente
+          </span>
+        </div>
 
         {loading ? (
-          <div className="py-8">
-            <div className="w-4 h-4 border border-foreground/20 border-t-foreground/60 rounded-full animate-spin" />
+          <div className="flex justify-center py-12">
+            <div className="w-5 h-5 border border-muted/20 border-t-muted/80 rounded-full animate-spin" />
           </div>
-        ) : recentTransactions.length === 0 ? (
-          <div className="py-12">
-            <p className="text-muted font-extralight text-sm">Nessuna transazione</p>
+        ) : recent.length === 0 ? (
+          <div className="py-12 text-center">
+            <p className="text-sm text-muted font-light">Nessuna operazione registrata</p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {recentTransactions.map((t, i) => (
+          <div className="divide-y divide-border/5">
+            {recent.map((t, i) => (
               <motion.div
                 key={t.id}
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05 }}
-                className="group flex items-start justify-between py-4 border-b border-outline-variant hover:border-foreground transition-smooth"
+                transition={{ delay: 0.25 + i * 0.03 }}
+                className="flex items-center justify-between py-4 group"
               >
-                <div>
-                  <p className="text-base font-light text-foreground">{t.title}</p>
-                  <p className="text-[10px] text-muted font-light tracking-wider uppercase mt-1">
-                    {new Date(t.created_at).toLocaleDateString('it-IT', {
-                      day: 'numeric',
-                      month: 'short',
-                    })}
-                  </p>
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                    t.type === 'income' ? 'bg-income/5 text-income' : 'bg-expense/5 text-expense'
+                  }`}>
+                    {t.type === 'income' ? (
+                      <ArrowUpRight className="w-4 h-4" strokeWidth={1.5} />
+                    ) : (
+                      <ArrowDownRight className="w-4 h-4" strokeWidth={1.5} />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-light text-fg truncate">{t.title}</p>
+                    <p className="text-[10px] text-muted tracking-wider mt-0.5">
+                      {new Date(t.created_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}
+                    </p>
+                  </div>
                 </div>
-                <p className={`text-base font-light ${
-                  t.type === 'income' ? 'text-income' : 'text-foreground'
-                }`}>
-                  {t.type === 'income' ? '+' : '-'}€{Number(t.amount).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
-                </p>
+                <span className={`text-sm font-light ${t.type === 'income' ? 'text-income' : 'text-expense'}`}>
+                  {t.type === 'income' ? '+' : '-'}€{fmt(Number(t.amount))}
+                </span>
               </motion.div>
             ))}
           </div>
         )}
-      </div>
+      </motion.div>
 
       <TransactionForm
         isOpen={showForm}

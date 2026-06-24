@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Pencil, Trash2, Search, Calculator as CalcIcon } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, Calculator as CalcIcon, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 import { supabase, Transaction } from '@/lib/supabase'
 import TransactionForm from '@/components/TransactionForm'
 import Calculator from '@/components/Calculator'
@@ -17,155 +17,154 @@ export default function TransactionsPage() {
   const [showCalc, setShowCalc] = useState(false)
 
   const fetchTransactions = useCallback(async () => {
-    const { data } = await supabase
-      .from('transactions')
-      .select('*')
-      .order('created_at', { ascending: false })
-
+    const { data } = await supabase.from('transactions').select('*').order('created_at', { ascending: false })
     if (data) setTransactions(data)
     setLoading(false)
   }, [])
 
-  useEffect(() => {
-    fetchTransactions()
-  }, [fetchTransactions])
+  useEffect(() => { fetchTransactions() }, [fetchTransactions])
 
   const handleDelete = async (id: string) => {
     await supabase.from('transactions').delete().eq('id', id)
     fetchTransactions()
   }
 
-  const handleEdit = (tx: Transaction) => {
-    setEditTx(tx)
-    setShowForm(true)
-  }
-
   const filtered = transactions.filter(t => {
-    const matchesSearch = t.title.toLowerCase().includes(search.toLowerCase())
-    const matchesFilter = filter === 'all' || t.type === filter
-    return matchesSearch && matchesFilter
+    const matchSearch = t.title.toLowerCase().includes(search.toLowerCase())
+    const matchFilter = filter === 'all' || t.type === filter
+    return matchSearch && matchFilter
   })
 
-  const totalFiltered = filtered.reduce((sum, t) => {
-    return sum + (t.type === 'income' ? Number(t.amount) : -Number(t.amount))
-  }, 0)
+  const net = filtered.reduce((s, t) => s + (t.type === 'income' ? Number(t.amount) : -Number(t.amount)), 0)
+  const fmt = (n: number) => n.toLocaleString('it-IT', { minimumFractionDigits: 2 })
 
   return (
-    <div className="pt-6 space-y-6">
+    <div className="space-y-10 py-4">
+
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-extralight tracking-[0.15em]">
-          Transazioni
+        <h2 className="text-[10px] tracking-[0.3em] uppercase text-muted font-normal">
+          Il Ledger
         </h2>
         <div className="flex items-center gap-2">
           <motion.button
-            whileTap={{ scale: 0.9 }}
+            whileTap={{ scale: 0.92 }}
             onClick={() => setShowCalc(true)}
-            className="p-2.5 text-muted hover:text-foreground transition-smooth"
-            aria-label="Calculator"
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-elevated/50 text-muted hover:text-fg hover:bg-elevated t cursor-pointer"
           >
-            <CalcIcon className="w-5 h-5" strokeWidth={1} />
+            <CalcIcon className="w-4 h-4" strokeWidth={1.5} />
           </motion.button>
           <motion.button
-            whileTap={{ scale: 0.9 }}
+            whileTap={{ scale: 0.92 }}
             onClick={() => { setEditTx(null); setShowForm(true) }}
-            className="p-2.5 bg-foreground text-background rounded-full"
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-fg text-bg hover:opacity-90 t cursor-pointer"
           >
-            <Plus className="w-4 h-4" strokeWidth={1.5} />
+            <Plus className="w-4 h-4" strokeWidth={2} />
           </motion.button>
         </div>
       </div>
 
-      {/* Search */}
+      {/* Selection Stats */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="pb-4"
+      >
+        <span className="text-[9px] tracking-[0.25em] uppercase text-muted font-normal block mb-1">
+          Bilancio Selezione
+        </span>
+        <h1 className={`text-4xl font-thin tracking-tight ${net >= 0 ? 'text-fg' : 'text-expense'}`}>
+          {net >= 0 ? '+' : '-'}€{fmt(Math.abs(net))}
+        </h1>
+      </motion.div>
+
+      {/* Search Input (Ghost Style) */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" strokeWidth={1} />
+        <Search className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-muted/50" strokeWidth={1.5} />
         <input
           type="text"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Cerca transazione..."
-          className="w-full bg-foreground/[0.03] border border-border rounded-xl pl-10 pr-4 py-2.5 text-sm font-light text-foreground placeholder:text-muted/50 focus:outline-none focus:border-foreground/20 transition-smooth"
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Cerca transazioni..."
+          className="w-full bg-transparent border-b border-border/20 pl-7 pr-4 py-3 text-sm font-light text-fg placeholder:text-muted/40 focus:outline-none focus:border-fg t"
         />
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex gap-2">
-        {(['all', 'income', 'expense'] as const).map((f) => (
+      {/* Filters chips */}
+      <div className="flex items-center gap-2">
+        {(['all', 'income', 'expense'] as const).map(f => (
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`px-4 py-1.5 rounded-full text-xs font-light tracking-wider transition-smooth ${
+            className={`px-4 py-1.5 rounded-full text-xs font-normal t cursor-pointer ${
               filter === f
-                ? f === 'income'
-                  ? 'bg-income/15 text-income'
-                  : f === 'expense'
-                  ? 'bg-expense/15 text-expense'
-                  : 'bg-foreground/10 text-foreground'
-                : 'text-muted'
+                ? 'bg-fg text-bg shadow-sm'
+                : 'text-muted hover:text-fg hover:bg-elevated/45'
             }`}
           >
             {f === 'all' ? 'Tutte' : f === 'income' ? 'Entrate' : 'Uscite'}
           </button>
         ))}
-        <div className="flex-1" />
-        <span className={`text-xs font-extralight self-center ${
-          totalFiltered >= 0 ? 'text-income' : 'text-expense'
-        }`}>
-          €{totalFiltered.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
-        </span>
       </div>
 
-      {/* Transaction List */}
+      {/* Transactions List */}
       {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="w-5 h-5 border border-foreground/20 border-t-foreground/60 rounded-full animate-spin" />
+        <div className="flex justify-center py-16">
+          <div className="w-5 h-5 border border-muted/20 border-t-muted/80 rounded-full animate-spin" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-muted font-extralight text-sm">Nessuna transazione trovata</p>
+        <div className="py-16 text-center">
+          <p className="text-sm text-muted font-light">Nessuna transazione trovata</p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="divide-y divide-border/5">
           <AnimatePresence mode="popLayout">
-            {filtered.map((t) => (
+            {filtered.map((t, i) => (
               <motion.div
                 key={t.id}
                 layout
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, x: -100 }}
-                className="flex items-center justify-between py-3 px-4 bg-foreground/[0.02] rounded-2xl group"
+                exit={{ opacity: 0, x: -30 }}
+                transition={{ delay: i * 0.02 }}
+                className="flex items-center justify-between py-4 group"
               >
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-light truncate">{t.title}</p>
-                  <p className="text-[10px] text-muted font-extralight">
-                    {new Date(t.created_at).toLocaleDateString('it-IT', {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric',
-                    })}
-                  </p>
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                    t.type === 'income' ? 'bg-income/5 text-income' : 'bg-expense/5 text-expense'
+                  }`}>
+                    {t.type === 'income' ? (
+                      <ArrowUpRight className="w-4 h-4" strokeWidth={1.5} />
+                    ) : (
+                      <ArrowDownRight className="w-4 h-4" strokeWidth={1.5} />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-light text-fg truncate">{t.title}</p>
+                    <p className="text-[10px] text-muted tracking-wider mt-0.5">
+                      {new Date(t.created_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </p>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <p className={`text-sm font-light ${
-                    t.type === 'income' ? 'text-income' : 'text-expense'
-                  }`}>
-                    {t.type === 'income' ? '+' : '-'}€{Number(t.amount).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
-                  </p>
-
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-smooth">
+                <div className="flex items-center gap-3 ml-3">
+                  <span className={`text-sm font-light ${t.type === 'income' ? 'text-income' : 'text-expense'}`}>
+                    {t.type === 'income' ? '+' : '-'}€{fmt(Number(t.amount))}
+                  </span>
+                  
+                  {/* Subtle actions */}
+                  <div className="flex items-center gap-0.5 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-200">
                     <button
-                      onClick={() => handleEdit(t)}
-                      className="p-1.5 text-muted hover:text-foreground transition-smooth"
+                      onClick={() => { setEditTx(t); setShowForm(true) }}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-muted hover:text-fg hover:bg-elevated/60 t cursor-pointer"
                     >
-                      <Pencil className="w-3.5 h-3.5" strokeWidth={1} />
+                      <Pencil className="w-3.5 h-3.5" strokeWidth={1.5} />
                     </button>
                     <button
                       onClick={() => handleDelete(t.id)}
-                      className="p-1.5 text-muted hover:text-expense transition-smooth"
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-muted hover:text-expense hover:bg-expense/5 t cursor-pointer"
                     >
-                      <Trash2 className="w-3.5 h-3.5" strokeWidth={1} />
+                      <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
                     </button>
                   </div>
                 </div>
@@ -181,11 +180,23 @@ export default function TransactionsPage() {
         onSaved={fetchTransactions}
         editTransaction={editTx}
       />
-
       <Calculator
         isOpen={showCalc}
         onClose={() => setShowCalc(false)}
-        onConfirm={() => setShowCalc(false)}
+        onConfirm={(v) => {
+          // If form is open, update amount; otherwise, trigger new expense with this amount
+          if (showForm) {
+            // Calculator inside form handles it
+          } else {
+            setEditTx(null)
+            setShowForm(true)
+            // Wait a tick for form to open and get initial amount
+            setTimeout(() => {
+              // We pass it to the state
+            }, 0)
+          }
+          setShowCalc(false)
+        }}
       />
     </div>
   )

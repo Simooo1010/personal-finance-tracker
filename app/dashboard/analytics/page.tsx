@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
-import { TrendingUp, TrendingDown, Activity } from 'lucide-react'
+import { TrendingUp, TrendingDown, Activity, Calendar, BarChart3 } from 'lucide-react'
 import { supabase, Transaction } from '@/lib/supabase'
 
 export default function AnalyticsPage() {
@@ -10,213 +10,199 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true)
 
   const fetchTransactions = useCallback(async () => {
-    const { data } = await supabase
-      .from('transactions')
-      .select('*')
-      .order('created_at', { ascending: false })
-
+    const { data } = await supabase.from('transactions').select('*').order('created_at', { ascending: false })
     if (data) setTransactions(data)
     setLoading(false)
   }, [])
 
-  useEffect(() => {
-    fetchTransactions()
-  }, [fetchTransactions])
+  useEffect(() => { fetchTransactions() }, [fetchTransactions])
 
-  const totalIncome = transactions
-    .filter(t => t.type === 'income')
-    .reduce((sum, t) => sum + Number(t.amount), 0)
-
-  const totalExpense = transactions
-    .filter(t => t.type === 'expense')
-    .reduce((sum, t) => sum + Number(t.amount), 0)
-
-  const balance = totalIncome - totalExpense
+  const totalIncome  = transactions.filter(t => t.type === 'income' ).reduce((s, t) => s + Number(t.amount), 0)
+  const totalExpense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0)
   const total = totalIncome + totalExpense
-  const incomePercent = total > 0 ? (totalIncome / total) * 100 : 50
-  const expensePercent = total > 0 ? (totalExpense / total) * 100 : 50
+  const incPct = total > 0 ? (totalIncome  / total) * 100 : 50
+  const expPct = total > 0 ? (totalExpense / total) * 100 : 50
 
-  // Group by month
-  const monthlyData = transactions.reduce<Record<string, { income: number; expense: number }>>(
-    (acc, t) => {
-      const month = new Date(t.created_at).toLocaleDateString('it-IT', {
-        month: 'short',
-        year: 'numeric',
-      })
-      if (!acc[month]) acc[month] = { income: 0, expense: 0 }
-      if (t.type === 'income') acc[month].income += Number(t.amount)
-      else acc[month].expense += Number(t.amount)
-      return acc
-    },
-    {}
-  )
+  const monthly = transactions.reduce<Record<string, { income: number; expense: number }>>((acc, t) => {
+    const key = new Date(t.created_at).toLocaleDateString('it-IT', { month: 'short', year: 'numeric' })
+    if (!acc[key]) acc[key] = { income: 0, expense: 0 }
+    if (t.type === 'income') acc[key].income += Number(t.amount)
+    else acc[key].expense += Number(t.amount)
+    return acc
+  }, {})
 
-  // Top expenses
-  const topExpenses = transactions
+  const topExpenses = [...transactions]
     .filter(t => t.type === 'expense')
     .sort((a, b) => Number(b.amount) - Number(a.amount))
     .slice(0, 5)
 
+  const fmt = (n: number) => n.toLocaleString('it-IT', { minimumFractionDigits: 2 })
+
   if (loading) {
     return (
       <div className="flex justify-center py-20">
-        <div className="w-5 h-5 border border-foreground/20 border-t-foreground/60 rounded-full animate-spin" />
+        <div className="w-5 h-5 border border-muted/20 border-t-muted/80 rounded-full animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="pt-6 lg:pt-0 h-full flex flex-col">
-      <h2 className="text-[10px] text-muted font-light tracking-[0.3em] uppercase mb-12">
-        Analisi Finanziaria
-      </h2>
+    <div className="space-y-12 py-4">
 
-      <div className="space-y-16 lg:space-y-0 lg:flex lg:gap-24 flex-1">
-        
-        {/* Left Column */}
-        <div className="space-y-16 flex-1">
-          {/* Summary Cards */}
-          <div className="grid grid-cols-2 gap-12">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
-              <div className="flex items-center gap-2 mb-4">
-                <TrendingUp className="w-3 h-3 text-income" strokeWidth={2} />
-                <span className="text-[9px] text-muted font-light tracking-[0.25em] uppercase">Entrate</span>
-              </div>
-              <p className="text-4xl lg:text-5xl font-extralight text-foreground">
-                €{totalIncome.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
-              </p>
-              <p className="text-[10px] text-muted font-light mt-2 tracking-wider uppercase">
-                {transactions.filter(t => t.type === 'income').length} Transazioni
-              </p>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.05 }}
-            >
-              <div className="flex items-center gap-2 mb-4">
-                <TrendingDown className="w-3 h-3 text-expense" strokeWidth={2} />
-                <span className="text-[9px] text-muted font-light tracking-[0.25em] uppercase">Uscite</span>
-              </div>
-              <p className="text-4xl lg:text-5xl font-extralight text-foreground">
-                €{totalExpense.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
-              </p>
-              <p className="text-[10px] text-muted font-light mt-2 tracking-wider uppercase">
-                {transactions.filter(t => t.type === 'expense').length} Transazioni
-              </p>
-            </motion.div>
-          </div>
-
-          {/* Ratio Bar */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.1 }}
-          >
-            <div className="flex items-center gap-2 mb-6">
-              <Activity className="w-3 h-3 text-foreground/40" strokeWidth={2} />
-              <span className="text-[9px] text-muted font-light tracking-[0.25em] uppercase">Rapporto E/U</span>
-            </div>
-            <div className="flex rounded-full overflow-hidden h-2 bg-surface-container-high">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${incomePercent}%` }}
-                transition={{ duration: 1, ease: 'easeOut' }}
-                className="bg-income"
-              />
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${expensePercent}%` }}
-                transition={{ duration: 1, ease: 'easeOut', delay: 0.2 }}
-                className="bg-expense"
-              />
-            </div>
-            <div className="flex justify-between mt-4">
-              <span className="text-[10px] font-light tracking-widest text-income">{incomePercent.toFixed(0)}%</span>
-              <span className="text-[10px] font-light tracking-widest text-expense">{expensePercent.toFixed(0)}%</span>
-            </div>
-          </motion.div>
-        </div>
-
-        {/* Right Column */}
-        <div className="space-y-16 flex-1">
-          {/* Monthly Breakdown */}
-          {Object.keys(monthlyData).length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.15 }}
-            >
-              <h3 className="text-[9px] text-muted font-light tracking-[0.25em] uppercase mb-8">
-                Per Mese
-              </h3>
-              <div className="space-y-6">
-                {Object.entries(monthlyData).slice(0, 6).map(([month, data]) => {
-                  const monthTotal = data.income + data.expense
-                  const incPct = monthTotal > 0 ? (data.income / monthTotal) * 100 : 0
-                  return (
-                    <div key={month}>
-                      <div className="flex justify-between mb-2">
-                        <span className="text-sm font-light capitalize">{month}</span>
-                        <span className={`text-sm font-light ${
-                          data.income - data.expense >= 0 ? 'text-income' : 'text-foreground'
-                        }`}>
-                          {data.income - data.expense >= 0 ? '+' : ''}€{(data.income - data.expense).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
-                        </span>
-                      </div>
-                      <div className="flex rounded-full overflow-hidden h-1 bg-surface-container-high">
-                        <div className="bg-income" style={{ width: `${incPct}%` }} />
-                        <div className="bg-expense" style={{ width: `${100 - incPct}%` }} />
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </motion.div>
-          )}
-
-          {/* Top Expenses */}
-          {topExpenses.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-            >
-              <h3 className="text-[9px] text-muted font-light tracking-[0.25em] uppercase mb-8">
-                Top Uscite
-              </h3>
-              <div className="space-y-6">
-                {topExpenses.map((t, i) => {
-                  const pct = totalExpense > 0 ? (Number(t.amount) / totalExpense) * 100 : 0
-                  return (
-                    <div key={t.id} className="flex items-center gap-4 group">
-                      <span className="text-[10px] text-muted font-light w-4">{i + 1}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-base font-light truncate group-hover:text-expense transition-colors">{t.title}</p>
-                        <div className="flex rounded-full overflow-hidden h-1 bg-surface-container-high mt-2">
-                          <motion.div
-                            initial={{ width: 0 }}
-                            animate={{ width: `${pct}%` }}
-                            transition={{ duration: 0.8, delay: 0.3 + i * 0.1 }}
-                            className="bg-expense"
-                          />
-                        </div>
-                      </div>
-                      <span className="text-sm font-light text-foreground">
-                        €{Number(t.amount).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            </motion.div>
-          )}
-        </div>
+      {/* Header */}
+      <div className="flex items-center justify-between pb-3 border-b border-border/10">
+        <h2 className="text-[10px] tracking-[0.3em] uppercase text-muted font-normal">
+          Analisi Finanziaria
+        </h2>
       </div>
+
+      {/* Summary Row */}
+      <div className="grid grid-cols-2 gap-8 border-b border-border/10 pb-8">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-2"
+        >
+          <div className="flex items-center gap-1.5 text-muted">
+            <TrendingUp className="w-3.5 h-3.5 text-income" strokeWidth={1.5} />
+            <span className="text-[9px] tracking-[0.25em] uppercase font-light">Entrate</span>
+          </div>
+          <h3 className="text-3xl font-thin tracking-tight text-fg">€{fmt(totalIncome)}</h3>
+          <p className="text-[10px] text-muted tracking-wider">
+            {transactions.filter(t => t.type === 'income').length} operazioni
+          </p>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.04 }}
+          className="space-y-2"
+        >
+          <div className="flex items-center gap-1.5 text-muted">
+            <TrendingDown className="w-3.5 h-3.5 text-expense" strokeWidth={1.5} />
+            <span className="text-[9px] tracking-[0.25em] uppercase font-light">Uscite</span>
+          </div>
+          <h3 className="text-3xl font-thin tracking-tight text-fg">€{fmt(totalExpense)}</h3>
+          <p className="text-[10px] text-muted tracking-wider">
+            {transactions.filter(t => t.type === 'expense').length} operazioni
+          </p>
+        </motion.div>
+      </div>
+
+      {/* Ratio bar Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.08 }}
+        className="space-y-4"
+      >
+        <div className="flex items-center gap-2 text-muted">
+          <Activity className="w-3.5 h-3.5" strokeWidth={1.5} />
+          <span className="text-[10px] tracking-[0.25em] uppercase font-normal">
+            Rapporto Entrate / Uscite
+          </span>
+        </div>
+        <div className="space-y-2">
+          <div className="flex rounded-full overflow-hidden h-1.5 bg-elevated">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${incPct}%` }}
+              transition={{ duration: 0.7, ease: 'easeOut' }}
+              className="bg-income"
+            />
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${expPct}%` }}
+              transition={{ duration: 0.7, ease: 'easeOut', delay: 0.1 }}
+              className="bg-expense"
+            />
+          </div>
+          <div className="flex justify-between text-[11px] font-light tracking-wider">
+            <span className="text-income">Entrate {incPct.toFixed(0)}%</span>
+            <span className="text-expense">Uscite {expPct.toFixed(0)}%</span>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Monthly Stats Section */}
+      {Object.keys(monthly).length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.12 }}
+          className="space-y-6"
+        >
+          <div className="flex items-center gap-2 text-muted pb-2 border-b border-border/10">
+            <Calendar className="w-3.5 h-3.5" strokeWidth={1.5} />
+            <span className="text-[10px] tracking-[0.25em] uppercase font-normal">
+              Profilo Mensile
+            </span>
+          </div>
+          <div className="space-y-6">
+            {Object.entries(monthly).slice(0, 6).map(([month, data]) => {
+              const mt = data.income + data.expense
+              const ip = mt > 0 ? (data.income / mt) * 100 : 0
+              const net = data.income - data.expense
+              return (
+                <div key={month} className="space-y-2">
+                  <div className="flex justify-between items-end">
+                    <span className="text-sm font-light text-fg capitalize">{month}</span>
+                    <span className={`text-sm font-light ${net >= 0 ? 'text-income' : 'text-expense'}`}>
+                      {net >= 0 ? '+' : ''}€{fmt(net)}
+                    </span>
+                  </div>
+                  <div className="flex rounded-full overflow-hidden h-1 bg-elevated">
+                    <div className="bg-income" style={{ width: `${ip}%` }} />
+                    <div className="bg-expense" style={{ width: `${100 - ip}%` }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Top expenses Section */}
+      {topExpenses.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.16 }}
+          className="space-y-6"
+        >
+          <div className="flex items-center gap-2 text-muted pb-2 border-b border-border/10">
+            <BarChart3 className="w-3.5 h-3.5" strokeWidth={1.5} />
+            <span className="text-[10px] tracking-[0.25em] uppercase font-normal">
+              Classifica Uscite
+            </span>
+          </div>
+          <div className="space-y-5">
+            {topExpenses.map((t, i) => {
+              const pct = totalExpense > 0 ? (Number(t.amount) / totalExpense) * 100 : 0
+              return (
+                <div key={t.id} className="flex items-start gap-4">
+                  <span className="text-xs text-muted w-4 shrink-0 mt-0.5 font-light">{i + 1}</span>
+                  <div className="flex-1 min-w-0 space-y-1.5">
+                    <div className="flex justify-between items-baseline">
+                      <p className="text-sm font-light text-fg truncate">{t.title}</p>
+                      <p className="text-sm font-normal text-expense ml-2 shrink-0">€{fmt(Number(t.amount))}</p>
+                    </div>
+                    <div className="h-1 rounded-full bg-elevated overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${pct}%` }}
+                        transition={{ duration: 0.6, delay: 0.2 + i * 0.05 }}
+                        className="h-full bg-expense/40 rounded-full"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </motion.div>
+      )}
     </div>
   )
 }

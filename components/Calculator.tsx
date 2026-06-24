@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Check, Delete } from 'lucide-react'
 
@@ -12,10 +13,30 @@ interface CalculatorProps {
 }
 
 export default function Calculator({ isOpen, onClose, onConfirm, initialValue }: CalculatorProps) {
-  const [display, setDisplay] = useState(initialValue?.toString() || '0')
+  const [display, setDisplay] = useState('0')
   const [operator, setOperator] = useState<string | null>(null)
   const [prevValue, setPrevValue] = useState<number | null>(null)
   const [waitingForOperand, setWaitingForOperand] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  const [isMobile, setIsMobile] = useState(true)
+
+  // Sync display with initialValue when opening
+  useEffect(() => {
+    if (isOpen) {
+      setDisplay(initialValue?.toString() || '0')
+      setOperator(null)
+      setPrevValue(null)
+      setWaitingForOperand(false)
+    }
+  }, [isOpen, initialValue])
+
+  useEffect(() => {
+    setMounted(true)
+    setIsMobile(window.innerWidth < 640)
+    const handleResize = () => setIsMobile(window.innerWidth < 640)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   const handleDigit = useCallback((digit: string) => {
     if (waitingForOperand) {
@@ -99,48 +120,57 @@ export default function Calculator({ isOpen, onClose, onConfirm, initialValue }:
     ['0', '.', '='],
   ]
 
-  return (
+  if (!mounted) return null
+
+  const panelVariants = {
+    hidden: { y: isMobile ? '100%' : 20, opacity: isMobile ? 1 : 0 },
+    visible: { y: 0, opacity: 1 },
+    exit: { y: isMobile ? '100%' : 20, opacity: isMobile ? 0 : 0 }
+  }
+
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-end justify-center"
+          className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4"
           onClick={onClose}
         >
           {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/40" />
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
 
           {/* Calculator Panel */}
           <motion.div
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
+            variants={panelVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
             onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-md glass rounded-t-3xl p-6 safe-bottom"
+            className="relative w-full max-w-md bg-surface rounded-t-[28px] sm:rounded-2xl p-6 safe-b border-t sm:border border-border/10 shadow-2xl"
           >
             {/* Display */}
             <div className="flex items-center justify-between mb-6">
-              <button onClick={onClose} className="p-2 text-muted">
-                <X className="w-5 h-5" strokeWidth={1} />
+              <button onClick={onClose} className="p-2 text-muted hover:text-fg t">
+                <X className="w-5 h-5" strokeWidth={1.5} />
               </button>
               <div className="text-right flex-1 mx-4">
                 {operator && prevValue !== null && (
-                  <p className="text-xs text-muted font-extralight">
+                  <p className="text-xs text-muted font-extralight tracking-wider">
                     {prevValue} {operator}
                   </p>
                 )}
-                <p className="text-3xl font-extralight tracking-wide">
+                <p className="text-3xl font-thin tracking-wide text-fg">
                   {display}
                 </p>
               </div>
               <button
                 onClick={handleConfirm}
-                className="p-2.5 bg-income/20 text-income rounded-full"
+                className="p-2.5 bg-income/10 text-income hover:bg-income hover:text-white rounded-full t"
               >
-                <Check className="w-5 h-5" strokeWidth={1.5} />
+                <Check className="w-5 h-5" strokeWidth={2} />
               </button>
             </div>
 
@@ -164,17 +194,17 @@ export default function Calculator({ isOpen, onClose, onConfirm, initialValue }:
                       else if (isOperator) handleOperator(btn)
                       else handleDigit(btn)
                     }}
-                    className={`h-14 rounded-2xl text-lg font-light transition-smooth ${
+                    className={`h-14 rounded-xl text-lg font-light t ${
                       isOperator
-                        ? 'bg-foreground/10 text-foreground'
+                        ? 'bg-elevated text-fg hover:bg-border/20'
                         : isEquals
                         ? 'bg-income text-white'
                         : isSpecial
-                        ? 'bg-foreground/5 text-muted'
-                        : 'bg-foreground/[0.03] text-foreground active:bg-foreground/10'
+                        ? 'bg-elevated/50 text-muted hover:bg-elevated'
+                        : 'bg-elevated/30 text-fg hover:bg-elevated/80'
                     } ${isZero ? 'col-span-2' : ''}`}
                   >
-                    {btn === '⌫' ? <Delete className="w-5 h-5 mx-auto" strokeWidth={1} /> : btn}
+                    {btn === '⌫' ? <Delete className="w-5 h-5 mx-auto" strokeWidth={1.5} /> : btn}
                   </motion.button>
                 )
               })}
@@ -182,6 +212,7 @@ export default function Calculator({ isOpen, onClose, onConfirm, initialValue }:
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   )
 }

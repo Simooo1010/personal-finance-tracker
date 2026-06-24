@@ -2,30 +2,20 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { checkAuth } from '@/app/actions'
+import { checkAuth, logout } from '@/app/actions'
 import BottomNav from '@/components/BottomNav'
+import Sidebar from '@/components/Sidebar'
 import ThemeToggle from '@/components/ThemeToggle'
 import { LogOut } from 'lucide-react'
-import { logout } from '@/app/actions'
-import { motion } from 'framer-motion'
 
-import Sidebar from '@/components/Sidebar'
-
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const [authed, setAuthed] = useState(false)
 
   useEffect(() => {
     checkAuth().then((ok) => {
-      if (!ok) {
-        router.replace('/')
-      } else {
-        setAuthed(true)
-      }
+      if (!ok) router.replace('/')
+      else setAuthed(true)
     })
   }, [router])
 
@@ -36,46 +26,44 @@ export default function DashboardLayout({
 
   if (!authed) {
     return (
-      <div className="fixed inset-0 bg-background flex items-center justify-center">
-        <div className="w-6 h-6 border border-foreground/20 border-t-foreground/60 rounded-full animate-spin" />
+      <div className="fixed inset-0 bg-bg flex items-center justify-center">
+        <div className="w-5 h-5 border-2 border-muted/30 border-t-muted rounded-full animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col lg:flex-row min-h-dvh bg-background w-full relative">
-      <Sidebar />
-      
-      <div className="flex flex-col flex-1 min-w-0">
-        {/* Top Bar (Mobile Only) */}
-        <header className="flex items-center justify-between px-6 pt-4 safe-top lg:hidden">
-          <h1 className="text-lg font-extralight tracking-[0.15em] uppercase text-foreground">
-            Finance
-          </h1>
+    <div className="flex min-h-dvh bg-bg">
+      {/* Desktop Sidebar */}
+      <Sidebar onLogout={handleLogout} />
+
+      {/* Main column */}
+      <div className="flex flex-col flex-1 min-w-0 min-h-dvh">
+
+        {/* Mobile top bar */}
+        <header className="lg:hidden flex items-center justify-between px-5 py-4 bg-bg border-b border-border safe-t">
+          <span className="text-sm font-light tracking-widest uppercase text-fg">Finance</span>
           <div className="flex items-center gap-1">
             <ThemeToggle />
-            <motion.button
-              whileTap={{ scale: 0.9 }}
+            <button
               onClick={handleLogout}
-              className="p-2 text-muted hover:text-foreground transition-smooth"
-              aria-label="Logout"
+              className="w-9 h-9 flex items-center justify-center rounded-full text-muted hover:text-fg t"
             >
-              <LogOut className="w-5 h-5" strokeWidth={1} />
-            </motion.button>
+              <LogOut className="w-4 h-4" strokeWidth={1.5} />
+            </button>
           </div>
         </header>
 
-        {/* Content */}
-        <main className="flex-1 px-6 pb-28 lg:pb-8 lg:pt-8 overflow-y-auto">
-          <div className="max-w-5xl mx-auto w-full h-full">
+        {/* Page content */}
+        <main className="flex-1 overflow-y-auto px-4 py-4 lg:px-8 lg:py-8 pb-28 lg:pb-8">
+          <div className="max-w-3xl mx-auto">
             {children}
           </div>
         </main>
       </div>
 
-      {/* Bottom Navigation - Pill design with glassmorphism */}
+      {/* Mobile bottom nav */}
       <BottomNav />
     </div>
   )
 }
-

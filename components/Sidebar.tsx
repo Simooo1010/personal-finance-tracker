@@ -4,76 +4,64 @@ import { usePathname, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Home, ArrowLeftRight, BarChart3, LogOut } from 'lucide-react'
 import ThemeToggle from './ThemeToggle'
-import { logout } from '@/app/actions'
 
 const navItems = [
-  { href: '/dashboard', icon: Home, label: 'Home' },
+  { href: '/dashboard',              icon: Home,           label: 'Home' },
   { href: '/dashboard/transactions', icon: ArrowLeftRight, label: 'Transazioni' },
-  { href: '/dashboard/analytics', icon: BarChart3, label: 'Analisi' },
+  { href: '/dashboard/analytics',    icon: BarChart3,      label: 'Analisi' },
 ]
 
-export default function Sidebar() {
+interface SidebarProps {
+  onLogout: () => void
+}
+
+export default function Sidebar({ onLogout }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
 
-  const handleLogout = async () => {
-    await logout()
-    router.replace('/')
-  }
-
   return (
-    <aside className="hidden lg:flex flex-col w-[280px] min-w-[280px] h-dvh sticky top-0 bg-surface-container-low p-8 z-20 transition-colors">
+    <aside className="hidden lg:flex flex-col w-64 shrink-0 h-dvh sticky top-0 bg-surface border-r border-border px-4 py-6">
       {/* Brand */}
-      <div className="mb-12 px-4 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-full bg-foreground flex items-center justify-center">
-          <div className="w-3 h-3 rounded-full bg-background" />
-        </div>
-        <h1 className="text-xl font-extralight tracking-[0.2em] uppercase text-foreground">
-          Finance
-        </h1>
+      <div className="px-3 mb-8">
+        <span className="text-sm font-light tracking-widest uppercase text-fg">Finance</span>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 flex flex-col gap-2">
+      {/* Nav links */}
+      <nav className="flex-1 flex flex-col gap-1">
         {navItems.map((item) => {
-          const isActive = pathname === item.href
+          const active = pathname === item.href
           return (
             <button
               key={item.href}
               onClick={() => router.push(item.href)}
-              className={`relative flex items-center gap-4 px-4 py-3 rounded-2xl transition-smooth w-full text-left ${
-                isActive
-                  ? 'text-foreground bg-foreground/[0.03]'
-                  : 'text-muted hover:text-foreground/70 hover:bg-foreground/[0.01]'
+              className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-light t w-full text-left ${
+                active ? 'bg-elevated text-fg' : 'text-muted hover:text-fg hover:bg-elevated/50'
               }`}
             >
-              <item.icon className="w-5 h-5 relative z-10" strokeWidth={1.2} />
-              <span className="text-sm font-light tracking-wider relative z-10">
-                {item.label}
-              </span>
-              {isActive && (
+              {active && (
                 <motion.div
                   layoutId="sidebarActive"
-                  className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-foreground rounded-r-full"
-                  transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                  className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-fg rounded-r"
+                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                 />
               )}
+              <item.icon className="w-4 h-4 shrink-0" strokeWidth={active ? 2 : 1.5} />
+              {item.label}
             </button>
           )
         })}
       </nav>
 
-      {/* Footer / Controls */}
-      <div className="mt-auto pt-6 border-t border-border flex items-center justify-between px-2">
+      {/* Footer */}
+      <div className="flex items-center justify-between px-3 pt-4 border-t border-border">
         <ThemeToggle />
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          onClick={handleLogout}
-          className="p-2 flex items-center gap-2 text-muted hover:text-foreground transition-smooth text-sm font-light tracking-wider"
+        <button
+          onClick={onLogout}
+          className="flex items-center gap-2 text-xs text-muted hover:text-fg t"
         >
-          <span>Esci</span>
-          <LogOut className="w-4 h-4" strokeWidth={1.2} />
-        </motion.button>
+          <LogOut className="w-4 h-4" strokeWidth={1.5} />
+          Esci
+        </button>
       </div>
     </aside>
   )
