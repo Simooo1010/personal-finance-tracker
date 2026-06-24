@@ -191,6 +191,7 @@ export default function AnalyticsPage() {
 
       let dayIncome = 0
       let dayExpense = 0
+      let dayOutsideExpense = 0
       let dayBustaDelta = 0
       let dayFuoriDelta = 0
       let dayNetWorthDelta = 0
@@ -207,7 +208,10 @@ export default function AnalyticsPage() {
 
         if (!isTransfer) {
           if (t.type === 'income') dayIncome += amt
-          else dayExpense += amt
+          else {
+            dayExpense += amt
+            if (!isBusta) dayOutsideExpense += amt
+          }
         }
       })
 
@@ -222,7 +226,8 @@ export default function AnalyticsPage() {
         fuori: runningFuori,
         netWorth: runningNetWorth,
         income: dayIncome,
-        expense: dayExpense
+        expense: dayExpense,
+        outsideExpense: dayOutsideExpense
       }
     })
 
@@ -338,7 +343,7 @@ export default function AnalyticsPage() {
     } else if (activeMetric === 'busta-vs-fuori') {
       values = daily.map(d => ({ y1: d.busta, y2: d.fuori }))
     } else if (activeMetric === 'burn-rate') {
-      values = daily.map(d => ({ y1: d.fuori }))
+      values = daily.map(d => ({ y1: d.outsideExpense }))
     } else if (activeMetric === 'withdrawals') {
       const daysCount = daily.length
       const wMap = new Array(daysCount).fill(0)
@@ -443,7 +448,7 @@ export default function AnalyticsPage() {
           label: 'Consumo Fuori',
           icon: Flame,
           getValue: () => `€${fmt(analyticsData.totals.avgDailyOutsideExpense || 0)} / gg`,
-          getSparklineData: () => analyticsData.daily.map(d => d.fuori)
+          getSparklineData: () => analyticsData.daily.map(d => d.outsideExpense)
         },
         {
           id: 'withdrawals',
