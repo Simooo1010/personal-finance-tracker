@@ -22,10 +22,13 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="hidden lg:flex flex-col w-64 min-w-[16rem] h-dvh sticky top-0 bg-background border-r border-border p-6">
+    <aside className="hidden lg:flex flex-col w-[280px] min-w-[280px] h-dvh sticky top-0 bg-background/60 backdrop-blur-2xl border-r border-border p-8 z-20">
       {/* Brand */}
-      <div className="mb-10 px-4">
-        <h1 className="text-xl font-extralight tracking-[0.15em] uppercase text-foreground">
+      <div className="mb-12 px-4 flex items-center gap-3">
+        <div className="w-8 h-8 rounded-full bg-foreground flex items-center justify-center">
+          <div className="w-3 h-3 rounded-full bg-background" />
+        </div>
+        <h1 className="text-xl font-extralight tracking-[0.2em] uppercase text-foreground">
           Finance
         </h1>
       </div>

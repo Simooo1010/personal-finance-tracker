@@ -32,7 +32,7 @@ export default function BottomNav() {
               {isActive && (
                 <motion.div
                   layoutId="activeTab"
-                  className="absolute inset-0 bg-foreground/8 rounded-full"
+                  className="absolute inset-0 bg-foreground/[0.08] rounded-full"
                   transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                 />
               )}

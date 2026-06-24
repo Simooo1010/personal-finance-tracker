@@ -51,38 +51,47 @@ export default function DashboardHome() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="glass rounded-3xl p-6 lg:p-10"
+          className="glass rounded-3xl p-6 lg:p-8 relative overflow-hidden"
         >
-          <p className="text-xs text-muted font-extralight tracking-[0.2em] uppercase mb-2">
-            Saldo Totale
-          </p>
-          <p className={`text-4xl lg:text-6xl font-extralight tracking-wide ${
-            balance >= 0 ? 'text-income' : 'text-expense'
-          }`}>
-            €{balance.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </p>
+          {/* Subtle glow effect */}
+          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-foreground/[0.03] to-transparent pointer-events-none" />
+          
+          <div className="relative z-10">
+            <p className="text-[10px] lg:text-xs text-muted font-extralight tracking-[0.2em] uppercase mb-2">
+              Saldo Totale
+            </p>
+            <p className={`text-4xl lg:text-5xl font-light tracking-wide ${
+              balance >= 0 ? 'text-income' : 'text-expense'
+            }`}>
+              €{balance.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
 
           {/* Income/Expense Summary */}
-          <div className="flex gap-4 mt-6 lg:mt-10">
+          <div className="flex gap-6 mt-8 lg:mt-10 relative z-10">
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
-                <TrendingUp className="w-3.5 h-3.5 text-income" strokeWidth={1.5} />
+                <div className="p-1 rounded-full bg-income/10">
+                  <TrendingUp className="w-3.5 h-3.5 text-income" strokeWidth={1.5} />
+                </div>
                 <span className="text-[10px] text-muted font-extralight tracking-widest uppercase">Entrate</span>
               </div>
-              <p className="text-lg lg:text-2xl font-extralight text-income">
+              <p className="text-xl lg:text-2xl font-light text-income">
                 €{totalIncome.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
               </p>
             </div>
-            <div className="w-px bg-border" />
+            <div className="w-px bg-border/50" />
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
-                <TrendingDown className="w-3.5 h-3.5 text-expense" strokeWidth={1.5} />
+                <div className="p-1 rounded-full bg-expense/10">
+                  <TrendingDown className="w-3.5 h-3.5 text-expense" strokeWidth={1.5} />
+                </div>
                 <span className="text-[10px] text-muted font-extralight tracking-widest uppercase">Uscite</span>
               </div>
-              <p className="text-lg lg:text-2xl font-extralight text-expense">
+              <p className="text-xl lg:text-2xl font-light text-expense">
                 €{totalExpense.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
               </p>
             </div>
+          </div>
           </div>
         </motion.div>
 
@@ -108,8 +117,8 @@ export default function DashboardHome() {
       </div>
 
       {/* Right Column (Recent Transactions) */}
-      <div className="mt-8 lg:mt-0 lg:col-span-1 lg:bg-foreground/[0.01] lg:border lg:border-border lg:rounded-3xl lg:p-6 lg:h-full">
-        <h2 className="text-xs text-muted font-extralight tracking-[0.2em] uppercase mb-4">
+      <div className="mt-8 lg:mt-0 lg:col-span-1 glass lg:rounded-3xl lg:p-6 lg:h-full relative overflow-hidden">
+        <h2 className="text-[10px] lg:text-xs text-muted font-extralight tracking-[0.2em] uppercase mb-4 lg:mb-6">
           Transazioni Recenti
         </h2>
 

@@ -8,14 +8,34 @@ export default function ThemeToggle() {
   const [dark, setDark] = useState(true)
 
   useEffect(() => {
+    // Check local storage or system preference
     const stored = localStorage.getItem('theme')
-    if (stored === 'light') {
-      setDark(false)
-      document.documentElement.classList.remove('dark')
-    } else {
-      setDark(true)
+    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+
+    const isDark = stored === 'dark' || (!stored && systemPrefersDark)
+    
+    setDark(isDark)
+    if (isDark) {
       document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
     }
+
+    // Listen to system changes if no manual override
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    const handleChange = (e: MediaQueryListEvent) => {
+      if (!localStorage.getItem('theme')) {
+        setDark(e.matches)
+        if (e.matches) {
+          document.documentElement.classList.add('dark')
+        } else {
+          document.documentElement.classList.remove('dark')
+        }
+      }
+    }
+
+    mediaQuery.addEventListener('change', handleChange)
+    return () => mediaQuery.removeEventListener('change', handleChange)
   }, [])
 
   const toggle = () => {
