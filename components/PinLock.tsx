@@ -20,8 +20,8 @@ export default function PinLock({ onSuccess }: PinLockProps) {
     setPin(newPin)
     setError(false)
 
-    if (newPin.length >= 4) {
-      // Auto-submit when 4+ digits entered
+    if (newPin.length >= 6) {
+      // Auto-submit when 6 digits entered
       setLoading(true)
       verifyPin(newPin).then((success) => {
         if (success) {
@@ -63,8 +63,8 @@ export default function PinLock({ onSuccess }: PinLockProps) {
         </p>
 
         {/* PIN Dots */}
-        <div className="flex gap-4">
-          {[0, 1, 2, 3].map((i) => (
+        <div className="flex gap-3">
+          {[0, 1, 2, 3, 4, 5].map((i) => (
             <motion.div
               key={i}
               className={`w-3 h-3 rounded-full border transition-smooth ${
