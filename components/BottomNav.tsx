@@ -15,7 +15,7 @@ export default function BottomNav() {
   const router = useRouter()
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 safe-bottom">
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 safe-bottom lg:hidden">
       <nav className="pill-nav flex items-center gap-1 px-2 py-2">
         {navItems.map((item) => {
           const isActive = pathname === item.href

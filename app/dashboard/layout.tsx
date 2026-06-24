@@ -9,6 +9,8 @@ import { LogOut } from 'lucide-react'
 import { logout } from '@/app/actions'
 import { motion } from 'framer-motion'
 
+import Sidebar from '@/components/Sidebar'
+
 export default function DashboardLayout({
   children,
 }: {
@@ -41,32 +43,37 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex flex-col min-h-dvh bg-background">
-      {/* Top Bar */}
-      <header className="flex items-center justify-between px-6 pt-4 safe-top">
-        <h1 className="text-lg font-extralight tracking-[0.15em] uppercase text-foreground">
-          Finance
-        </h1>
-        <div className="flex items-center gap-1">
-          <ThemeToggle />
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            onClick={handleLogout}
-            className="p-2 text-muted hover:text-foreground transition-smooth"
-            aria-label="Logout"
-          >
-            <LogOut className="w-5 h-5" strokeWidth={1} />
-          </motion.button>
-        </div>
-      </header>
+    <div className="flex flex-col lg:flex-row min-h-dvh bg-background w-full relative">
+      <Sidebar />
+      
+      <div className="flex flex-col flex-1 min-w-0">
+        {/* Top Bar (Mobile Only) */}
+        <header className="flex items-center justify-between px-6 pt-4 safe-top lg:hidden">
+          <h1 className="text-lg font-extralight tracking-[0.15em] uppercase text-foreground">
+            Finance
+          </h1>
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={handleLogout}
+              className="p-2 text-muted hover:text-foreground transition-smooth"
+              aria-label="Logout"
+            >
+              <LogOut className="w-5 h-5" strokeWidth={1} />
+            </motion.button>
+          </div>
+        </header>
 
-      {/* Content */}
-      <main className="flex-1 px-6 pb-28 overflow-y-auto">
-        {children}
-      </main>
+        {/* Content */}
+        <main className="flex-1 px-6 pb-28 lg:pb-8 lg:pt-8 overflow-y-auto">
+          {children}
+        </main>
+      </div>
 
       {/* Bottom Navigation - Pill design with glassmorphism */}
       <BottomNav />
     </div>
   )
 }
+
