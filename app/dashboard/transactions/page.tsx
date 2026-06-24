@@ -119,33 +119,35 @@ export default function TransactionsPage() {
       ) : (
         <div className="divide-y divide-border/5">
           <AnimatePresence mode="popLayout">
-            {filtered.map((t, i) => (
-              <motion.div
-                key={t.id}
-                layout
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, x: -30 }}
-                transition={{ delay: i * 0.02 }}
-                className="flex items-center justify-between py-4 group"
-              >
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                    t.type === 'income' ? 'bg-income/5 text-income' : 'bg-expense/5 text-expense'
-                  }`}>
-                    {t.type === 'income' ? (
-                      <ArrowUpRight className="w-4 h-4" strokeWidth={1.5} />
-                    ) : (
-                      <ArrowDownRight className="w-4 h-4" strokeWidth={1.5} />
-                    )}
+            {filtered.map((t, i) => {
+              const cleanTitle = t.title.replace(/ \[(busta|fuori|busta-transfer|fuori-transfer)\]$/, '')
+              return (
+                <motion.div
+                  key={t.id}
+                  layout
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, x: -30 }}
+                  transition={{ delay: i * 0.02 }}
+                  className="flex items-center justify-between py-4 group"
+                >
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                      t.type === 'income' ? 'bg-income/5 text-income' : 'bg-expense/5 text-expense'
+                    }`}>
+                      {t.type === 'income' ? (
+                        <ArrowUpRight className="w-4 h-4" strokeWidth={1.5} />
+                      ) : (
+                        <ArrowDownRight className="w-4 h-4" strokeWidth={1.5} />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-light text-fg truncate">{cleanTitle}</p>
+                      <p className="text-[10px] text-muted tracking-wider mt-0.5">
+                        {new Date(t.created_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })} • {new Date(t.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-light text-fg truncate">{t.title}</p>
-                    <p className="text-[10px] text-muted tracking-wider mt-0.5">
-                      {new Date(t.created_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })} • {new Date(t.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
-                </div>
 
                 <div className="flex items-center gap-3 ml-3">
                   <span className={`text-sm font-light ${t.type === 'income' ? 'text-income' : 'text-expense'}`}>
@@ -169,7 +171,7 @@ export default function TransactionsPage() {
                   </div>
                 </div>
               </motion.div>
-            ))}
+            )})}
           </AnimatePresence>
         </div>
       )}

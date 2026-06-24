@@ -21,11 +21,15 @@ export default function TransactionForm({
   const [title,    setTitle]    = useState('')
   const [amount,   setAmount]   = useState('')
   const [type,     setType]     = useState<'income' | 'expense'>(defaultType)
+  const [wallet,   setWallet]   = useState<'busta' | 'fuori'>('fuori')
   const [createdAt, setCreatedAt] = useState('')
   const [showCalc, setShowCalc] = useState(false)
   const [saving,   setSaving]   = useState(false)
   const [mounted,  setMounted]  = useState(false)
   const [isMobile, setIsMobile] = useState(true)
+
+  // Clean tag suffix from transaction title
+  const cleanTitle = (t: string) => t.replace(/ \[(busta|fuori|busta-transfer|fuori-transfer)\]$/, '')
 
   // Format date to local ISO string YYYY-MM-DDTHH:MM for input datetime-local
   const formatForInput = (dateStr?: string) => {
@@ -37,7 +41,9 @@ export default function TransactionForm({
   // Initialize form when editing changes or opening
   useEffect(() => {
     if (isOpen) {
-      setTitle(editTransaction?.title || '')
+      const isBusta = editTransaction?.title.endsWith(' [busta]') || editTransaction?.title.endsWith(' [busta-transfer]')
+      setWallet(isBusta ? 'busta' : 'fuori')
+      setTitle(editTransaction ? cleanTitle(editTransaction.title) : '')
       setAmount(editTransaction?.amount?.toString() || '')
       setType(editTransaction?.type || defaultType)
       setCreatedAt(formatForInput(editTransaction?.created_at))
@@ -68,9 +74,10 @@ export default function TransactionForm({
     if (!title.trim() || !amount || parseFloat(amount) <= 0) return
     setSaving(true)
     
-    // Construct the payload with the modified date/time
+    // Append the tag to the title
+    const suffix = wallet === 'busta' ? ' [busta]' : ' [fuori]'
     const payload = { 
-      title: title.trim(), 
+      title: title.trim() + suffix, 
       amount: parseFloat(amount), 
       type,
       created_at: new Date(createdAt).toISOString()
@@ -135,11 +142,11 @@ export default function TransactionForm({
               </button>
             </div>
 
-            {/* Segmented control */}
-            <div className="flex gap-1 p-1 bg-elevated rounded-xl mb-8">
+            {/* Segmented control for Type */}
+            <div className="flex gap-1 p-1 bg-elevated rounded-xl mb-6">
               <button
                 onClick={() => setType('income')}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-normal t ${
+                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-normal t cursor-pointer ${
                   type === 'income' ? 'bg-income text-white shadow-sm' : 'text-muted hover:text-fg'
                 }`}
               >
@@ -148,13 +155,40 @@ export default function TransactionForm({
               </button>
               <button
                 onClick={() => setType('expense')}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-normal t ${
+                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-normal t cursor-pointer ${
                   type === 'expense' ? 'bg-expense text-white shadow-sm' : 'text-muted hover:text-fg'
                 }`}
               >
                 <TrendingDown className="w-3.5 h-3.5" strokeWidth={2} />
                 Uscita
               </button>
+            </div>
+
+            {/* Segmented control for Wallet */}
+            <div className="mb-8">
+              <label className="text-[9px] tracking-[0.2em] uppercase text-muted block mb-1.5">
+                {type === 'income' ? 'Deposita in' : 'Preleva da'}
+              </label>
+              <div className="flex gap-1 p-1 bg-elevated rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setWallet('busta')}
+                  className={`flex-1 py-2 rounded-lg text-xs font-normal t cursor-pointer ${
+                    wallet === 'busta' ? 'bg-fg text-bg shadow-sm' : 'text-muted hover:text-fg'
+                  }`}
+                >
+                  ✉️ Busta
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWallet('fuori')}
+                  className={`flex-1 py-2 rounded-lg text-xs font-normal t cursor-pointer ${
+                    wallet === 'fuori' ? 'bg-fg text-bg shadow-sm' : 'text-muted hover:text-fg'
+                  }`}
+                >
+                  ✈️ Fuori
+                </button>
+              </div>
             </div>
 
             {/* Ghost Inputs Fields */}

@@ -17,13 +17,15 @@ export default function AnalyticsPage() {
 
   useEffect(() => { fetchTransactions() }, [fetchTransactions])
 
-  const totalIncome  = transactions.filter(t => t.type === 'income' ).reduce((s, t) => s + Number(t.amount), 0)
-  const totalExpense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0)
+  const realTransactions = transactions.filter(t => !t.title.endsWith('-transfer]'))
+
+  const totalIncome  = realTransactions.filter(t => t.type === 'income' ).reduce((s, t) => s + Number(t.amount), 0)
+  const totalExpense = realTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0)
   const total = totalIncome + totalExpense
   const incPct = total > 0 ? (totalIncome  / total) * 100 : 50
   const expPct = total > 0 ? (totalExpense / total) * 100 : 50
 
-  const monthly = transactions.reduce<Record<string, { income: number; expense: number }>>((acc, t) => {
+  const monthly = realTransactions.reduce<Record<string, { income: number; expense: number }>>((acc, t) => {
     const key = new Date(t.created_at).toLocaleDateString('it-IT', { month: 'short', year: 'numeric' })
     if (!acc[key]) acc[key] = { income: 0, expense: 0 }
     if (t.type === 'income') acc[key].income += Number(t.amount)
@@ -31,7 +33,7 @@ export default function AnalyticsPage() {
     return acc
   }, {})
 
-  const topExpenses = [...transactions]
+  const topExpenses = [...realTransactions]
     .filter(t => t.type === 'expense')
     .sort((a, b) => Number(b.amount) - Number(a.amount))
     .slice(0, 5)
@@ -69,7 +71,7 @@ export default function AnalyticsPage() {
           </div>
           <h3 className="text-3xl font-thin tracking-tight text-fg">€{fmt(totalIncome)}</h3>
           <p className="text-[10px] text-muted tracking-wider">
-            {transactions.filter(t => t.type === 'income').length} operazioni
+            {realTransactions.filter(t => t.type === 'income').length} operazioni
           </p>
         </motion.div>
 
@@ -85,7 +87,7 @@ export default function AnalyticsPage() {
           </div>
           <h3 className="text-3xl font-thin tracking-tight text-fg">€{fmt(totalExpense)}</h3>
           <p className="text-[10px] text-muted tracking-wider">
-            {transactions.filter(t => t.type === 'expense').length} operazioni
+            {realTransactions.filter(t => t.type === 'expense').length} operazioni
           </p>
         </motion.div>
       </div>

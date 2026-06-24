@@ -295,7 +295,7 @@ export default function Calculator({ isOpen, onClose, onConfirm, initialValue }:
                 )}
               </div>
               <div className="text-right">
-                <p className="text-3xl font-thin tracking-wide text-fg break-all max-h-24 overflow-y-auto select-all">
+                <p className="text-3xl font-thin tracking-wide text-fg break-words max-h-24 overflow-y-auto select-all">
                   {formula}
                 </p>
               </div>
