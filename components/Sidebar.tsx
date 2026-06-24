@@ -3,7 +3,6 @@
 import { usePathname, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Home, ArrowLeftRight, BarChart3, LogOut } from 'lucide-react'
-import ThemeToggle from './ThemeToggle'
 
 const navItems = [
   { href: '/dashboard',              icon: Home,           label: 'Home' },
@@ -53,8 +52,7 @@ export default function Sidebar({ onLogout }: SidebarProps) {
       </nav>
 
       {/* Footer */}
-      <div className="flex items-center justify-between px-3 pt-4 border-t border-border">
-        <ThemeToggle />
+      <div className="flex items-center justify-end px-3 pt-4 border-t border-border">
         <button
           onClick={onLogout}
           className="flex items-center gap-2 text-xs text-muted hover:text-fg t"

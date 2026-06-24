@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { checkAuth, logout } from '@/app/actions'
 import BottomNav from '@/components/BottomNav'
 import Sidebar from '@/components/Sidebar'
-import ThemeToggle from '@/components/ThemeToggle'
 import { LogOut } from 'lucide-react'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -44,7 +43,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <header className="lg:hidden flex items-center justify-between px-5 py-4 bg-bg border-b border-border safe-t">
           <span className="text-sm font-light tracking-widest uppercase text-fg">Finance</span>
           <div className="flex items-center gap-1">
-            <ThemeToggle />
             <button
               onClick={handleLogout}
               className="w-9 h-9 flex items-center justify-center rounded-full text-muted hover:text-fg t"

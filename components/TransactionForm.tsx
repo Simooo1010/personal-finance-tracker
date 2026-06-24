@@ -21,10 +21,18 @@ export default function TransactionForm({
   const [title,    setTitle]    = useState('')
   const [amount,   setAmount]   = useState('')
   const [type,     setType]     = useState<'income' | 'expense'>(defaultType)
+  const [createdAt, setCreatedAt] = useState('')
   const [showCalc, setShowCalc] = useState(false)
   const [saving,   setSaving]   = useState(false)
   const [mounted,  setMounted]  = useState(false)
   const [isMobile, setIsMobile] = useState(true)
+
+  // Format date to local ISO string YYYY-MM-DDTHH:MM for input datetime-local
+  const formatForInput = (dateStr?: string) => {
+    const d = dateStr ? new Date(dateStr) : new Date()
+    const tzOffset = d.getTimezoneOffset() * 60000
+    return new Date(d.getTime() - tzOffset).toISOString().slice(0, 16)
+  }
 
   // Initialize form when editing changes or opening
   useEffect(() => {
@@ -32,6 +40,7 @@ export default function TransactionForm({
       setTitle(editTransaction?.title || '')
       setAmount(editTransaction?.amount?.toString() || '')
       setType(editTransaction?.type || defaultType)
+      setCreatedAt(formatForInput(editTransaction?.created_at))
     }
   }, [isOpen, editTransaction, defaultType])
 
@@ -58,7 +67,15 @@ export default function TransactionForm({
   const handleSave = async () => {
     if (!title.trim() || !amount || parseFloat(amount) <= 0) return
     setSaving(true)
-    const payload = { title: title.trim(), amount: parseFloat(amount), type }
+    
+    // Construct the payload with the modified date/time
+    const payload = { 
+      title: title.trim(), 
+      amount: parseFloat(amount), 
+      type,
+      created_at: new Date(createdAt).toISOString()
+    }
+    
     if (editTransaction) {
       await supabase.from('transactions').update(payload).eq('id', editTransaction.id)
     } else {
@@ -179,13 +196,27 @@ export default function TransactionForm({
                   </button>
                 </div>
               </div>
+
+              {/* Date & Time */}
+              <div>
+                <label className="text-[9px] tracking-[0.2em] uppercase text-muted block mb-1">
+                  Data e Ora
+                </label>
+                <input
+                  type="datetime-local"
+                  value={createdAt}
+                  onChange={e => setCreatedAt(e.target.value)}
+                  required
+                  className="w-full bg-transparent border-b border-border/30 py-2.5 text-base font-light text-fg focus:outline-none focus:border-fg t"
+                />
+              </div>
             </div>
 
             {/* CTA */}
             <motion.button
               whileTap={{ scale: 0.98 }}
               onClick={handleSave}
-              disabled={saving || !title.trim() || !amount}
+              disabled={saving || !title.trim() || !amount || !createdAt}
               className={`w-full py-3.5 rounded-xl text-xs tracking-widest uppercase font-medium t disabled:opacity-40 shadow-sm ${
                 type === 'income' ? 'bg-income text-white' : 'bg-expense text-white'
               }`}

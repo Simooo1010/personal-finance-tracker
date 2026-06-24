@@ -3,17 +3,6 @@
 
 /* ── Theme tokens ──────────────────────────────────────────── */
 :root {
-  --bg:       #f9f9fb;
-  --surface:  #ffffff;
-  --elevated: #f1f1f4;
-  --fg:       #000000;
-  --muted:    #8e8e93;
-  --border:   rgba(0, 0, 0, 0.04);
-  --income:   #16a34a;
-  --expense:  #dc2626;
-}
-
-.dark {
   --bg:       #000000;
   --surface:  #0a0a0c;
   --elevated: #151518;
@@ -70,10 +59,6 @@ input, textarea, select, button {
   background: var(--surface);
   border-radius: 20px;
   border: 1px solid var(--border);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.01), 0 10px 40px rgba(0,0,0,0.02);
-}
-
-.dark .card {
   box-shadow: 0 0 0 1px rgba(255,255,255,0.01), 0 10px 40px rgba(0,0,0,0.4);
 }
 
@@ -82,13 +67,9 @@ input, textarea, select, button {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 9999px;
-  box-shadow: 0 6px 24px rgba(0,0,0,0.04);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.4);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-}
-
-.dark .pill-nav {
-  box-shadow: 0 6px 24px rgba(0,0,0,0.4);
 }
 
 /* Transitions */

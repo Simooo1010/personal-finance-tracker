@@ -138,7 +138,7 @@ export default function DashboardHome() {
                   <div className="min-w-0">
                     <p className="text-sm font-light text-fg truncate">{t.title}</p>
                     <p className="text-[10px] text-muted tracking-wider mt-0.5">
-                      {new Date(t.created_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}
+                      {new Date(t.created_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })} • {new Date(t.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
                 </div>
