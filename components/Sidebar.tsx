@@ -22,7 +22,7 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="hidden lg:flex flex-col w-[280px] min-w-[280px] h-dvh sticky top-0 bg-background/60 backdrop-blur-2xl border-r border-border p-8 z-20">
+    <aside className="hidden lg:flex flex-col w-[280px] min-w-[280px] h-dvh sticky top-0 bg-surface-container-low p-8 z-20 transition-colors">
       {/* Brand */}
       <div className="mb-12 px-4 flex items-center gap-3">
         <div className="w-8 h-8 rounded-full bg-foreground flex items-center justify-center">

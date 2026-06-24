@@ -43,115 +43,105 @@ export default function DashboardHome() {
   }
 
   return (
-    <div className="pt-6 lg:pt-0 lg:grid lg:grid-cols-3 lg:gap-8 lg:items-start h-full">
+    <div className="pt-6 lg:pt-0 h-full flex flex-col lg:flex-row gap-12 lg:gap-24">
       
-      {/* Left Column (Balance & Actions) */}
-      <div className="space-y-6 lg:col-span-2">
-        {/* Balance Card */}
+      {/* Left Area (Balance & Actions) */}
+      <div className="flex-1 space-y-12 lg:space-y-20">
+        
+        {/* Balance Section - Pure minimal */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="glass rounded-3xl p-6 lg:p-8 relative overflow-hidden"
+          className="relative"
         >
-          {/* Subtle glow effect */}
-          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-foreground/[0.03] to-transparent pointer-events-none" />
-          
-          <div className="relative z-10">
-            <p className="text-[10px] lg:text-xs text-muted font-extralight tracking-[0.2em] uppercase mb-2">
-              Saldo Totale
-            </p>
-            <p className={`text-4xl lg:text-5xl font-light tracking-wide ${
-              balance >= 0 ? 'text-income' : 'text-expense'
-            }`}>
-              €{balance.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </p>
+          <p className="text-[10px] text-muted font-light tracking-[0.3em] uppercase mb-4">
+            Saldo Disponibile
+          </p>
+          <h2 className={`text-6xl lg:text-8xl font-extralight tracking-tighter leading-none ${
+            balance >= 0 ? 'text-foreground' : 'text-expense'
+          }`}>
+            €{balance.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </h2>
 
           {/* Income/Expense Summary */}
-          <div className="flex gap-6 mt-8 lg:mt-10 relative z-10">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <div className="p-1 rounded-full bg-income/10">
-                  <TrendingUp className="w-3.5 h-3.5 text-income" strokeWidth={1.5} />
-                </div>
-                <span className="text-[10px] text-muted font-extralight tracking-widest uppercase">Entrate</span>
+          <div className="flex gap-12 mt-12">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp className="w-3 h-3 text-income" strokeWidth={2} />
+                <span className="text-[9px] text-muted font-light tracking-[0.25em] uppercase">Entrate</span>
               </div>
-              <p className="text-xl lg:text-2xl font-light text-income">
+              <p className="text-2xl lg:text-3xl font-extralight text-foreground">
                 €{totalIncome.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
               </p>
             </div>
-            <div className="w-px bg-border/50" />
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <div className="p-1 rounded-full bg-expense/10">
-                  <TrendingDown className="w-3.5 h-3.5 text-expense" strokeWidth={1.5} />
-                </div>
-                <span className="text-[10px] text-muted font-extralight tracking-widest uppercase">Uscite</span>
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingDown className="w-3 h-3 text-expense" strokeWidth={2} />
+                <span className="text-[9px] text-muted font-light tracking-[0.25em] uppercase">Uscite</span>
               </div>
-              <p className="text-xl lg:text-2xl font-light text-expense">
+              <p className="text-2xl lg:text-3xl font-extralight text-foreground">
                 €{totalExpense.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
               </p>
             </div>
           </div>
-          </div>
         </motion.div>
 
         {/* Quick Actions */}
-        <div className="flex gap-3">
+        <div className="flex gap-4">
           <motion.button
-            whileTap={{ scale: 0.96 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => openForm('income')}
-            className="flex-1 flex items-center justify-center gap-2 py-4 bg-income/10 border border-income/20 rounded-2xl text-income text-sm font-light tracking-wider transition-smooth hover:bg-income/20"
+            className="flex-1 flex items-center justify-center gap-2 py-5 bg-surface-container-high hover:bg-surface-variant rounded-2xl text-foreground text-xs font-light tracking-[0.2em] uppercase transition-smooth"
           >
-            <Plus className="w-4 h-4" strokeWidth={1.5} />
-            Entrata
+            <Plus className="w-4 h-4 text-income" strokeWidth={1.5} />
+            Aggiungi
           </motion.button>
           <motion.button
-            whileTap={{ scale: 0.96 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => openForm('expense')}
-            className="flex-1 flex items-center justify-center gap-2 py-4 bg-expense/10 border border-expense/20 rounded-2xl text-expense text-sm font-light tracking-wider transition-smooth hover:bg-expense/20"
+            className="flex-1 flex items-center justify-center gap-2 py-5 bg-surface-container-high hover:bg-surface-variant rounded-2xl text-foreground text-xs font-light tracking-[0.2em] uppercase transition-smooth"
           >
-            <Plus className="w-4 h-4" strokeWidth={1.5} />
-            Uscita
+            <Plus className="w-4 h-4 text-expense" strokeWidth={1.5} />
+            Sottrai
           </motion.button>
         </div>
       </div>
 
-      {/* Right Column (Recent Transactions) */}
-      <div className="mt-8 lg:mt-0 lg:col-span-1 glass lg:rounded-3xl lg:p-6 lg:h-full relative overflow-hidden">
-        <h2 className="text-[10px] lg:text-xs text-muted font-extralight tracking-[0.2em] uppercase mb-4 lg:mb-6">
-          Transazioni Recenti
+      {/* Right Area (Recent Transactions) */}
+      <div className="w-full lg:w-[380px] shrink-0">
+        <h2 className="text-[10px] text-muted font-light tracking-[0.25em] uppercase mb-8">
+          Il Ledger
         </h2>
 
         {loading ? (
-          <div className="flex justify-center py-8">
-            <div className="w-5 h-5 border border-foreground/20 border-t-foreground/60 rounded-full animate-spin" />
+          <div className="py-8">
+            <div className="w-4 h-4 border border-foreground/20 border-t-foreground/60 rounded-full animate-spin" />
           </div>
         ) : recentTransactions.length === 0 ? (
-          <div className="text-center py-12">
+          <div className="py-12">
             <p className="text-muted font-extralight text-sm">Nessuna transazione</p>
-            <p className="text-muted/50 font-extralight text-xs mt-1">Aggiungi la tua prima transazione</p>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-4">
             {recentTransactions.map((t, i) => (
               <motion.div
                 key={t.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
-                className="flex items-center justify-between py-3 px-4 bg-foreground/[0.02] lg:bg-background rounded-2xl border border-transparent lg:border-border"
+                className="group flex items-start justify-between py-4 border-b border-outline-variant hover:border-foreground transition-smooth"
               >
                 <div>
-                  <p className="text-sm font-light">{t.title}</p>
-                  <p className="text-[10px] text-muted font-extralight">
+                  <p className="text-base font-light text-foreground">{t.title}</p>
+                  <p className="text-[10px] text-muted font-light tracking-wider uppercase mt-1">
                     {new Date(t.created_at).toLocaleDateString('it-IT', {
                       day: 'numeric',
                       month: 'short',
                     })}
                   </p>
                 </div>
-                <p className={`text-sm font-light ${
-                  t.type === 'income' ? 'text-income' : 'text-expense'
+                <p className={`text-base font-light ${
+                  t.type === 'income' ? 'text-income' : 'text-foreground'
                 }`}>
                   {t.type === 'income' ? '+' : '-'}€{Number(t.amount).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
                 </p>
