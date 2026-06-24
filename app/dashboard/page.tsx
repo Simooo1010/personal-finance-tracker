@@ -23,10 +23,11 @@ export default function DashboardHome() {
 
   useEffect(() => { fetchTransactions() }, [fetchTransactions])
 
-  const totalIncome  = transactions.filter(t => t.type === 'income' ).reduce((s, t) => s + Number(t.amount), 0)
-  const totalExpense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0)
+  const realTransactions = transactions.filter(t => !t.title.endsWith('-transfer]'))
+  const totalIncome  = realTransactions.filter(t => t.type === 'income' ).reduce((s, t) => s + Number(t.amount), 0)
+  const totalExpense = realTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0)
   const balance = totalIncome - totalExpense
-  const recent = transactions.slice(0, 6)
+  const recent = realTransactions.slice(0, 6)
 
   const fmt = (n: number) => n.toLocaleString('it-IT', { minimumFractionDigits: 2 })
 

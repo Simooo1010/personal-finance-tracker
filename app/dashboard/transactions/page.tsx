@@ -29,11 +29,13 @@ export default function TransactionsPage() {
     fetchTransactions()
   }
 
-  const filtered = transactions.filter(t => {
-    const matchSearch = t.title.toLowerCase().includes(search.toLowerCase())
-    const matchFilter = filter === 'all' || t.type === filter
-    return matchSearch && matchFilter
-  })
+  const filtered = transactions
+    .filter(t => !t.title.endsWith('-transfer]'))
+    .filter(t => {
+      const matchSearch = t.title.toLowerCase().includes(search.toLowerCase())
+      const matchFilter = filter === 'all' || t.type === filter
+      return matchSearch && matchFilter
+    })
 
   const net = filtered.reduce((s, t) => s + (t.type === 'income' ? Number(t.amount) : -Number(t.amount)), 0)
   const fmt = (n: number) => n.toLocaleString('it-IT', { minimumFractionDigits: 2 })
