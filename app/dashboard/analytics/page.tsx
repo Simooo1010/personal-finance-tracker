@@ -25,7 +25,7 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true)
 
   // Navigation / Active View States
-  const [activeTab, setActiveTab] = useState<'patrimonio' | 'cassa' | 'efficienza'>('patrimonio')
+  const [activeTab, setActiveTab] = useState<'panoramica' | 'patrimonio' | 'cassa' | 'efficienza'>('panoramica')
   const [activeMetric, setActiveMetric] = useState<string>('net-worth')
 
   // Date Filtering States
@@ -48,7 +48,41 @@ export default function AnalyticsPage() {
     fetchTransactions()
   }, [fetchTransactions])
 
-  // 1. Resolve exact date boundaries
+  // ── 1. PREVIOUS ANALYTICS MODULES COMPUTATIONS (GLOBAL SUMMARY) ──────
+  const realTransactions = useMemo(() => {
+    return transactions.filter(t => !t.title.endsWith('-transfer]'))
+  }, [transactions])
+
+  const totalIncome = useMemo(() => {
+    return realTransactions.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0)
+  }, [realTransactions])
+
+  const totalExpense = useMemo(() => {
+    return realTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0)
+  }, [realTransactions])
+
+  const totalSum = totalIncome + totalExpense
+  const incPct = totalSum > 0 ? (totalIncome / totalSum) * 100 : 50
+  const expPct = totalSum > 0 ? (totalExpense / totalSum) * 100 : 50
+
+  const monthlyGroup = useMemo(() => {
+    return realTransactions.reduce<Record<string, { income: number; expense: number }>>((acc, t) => {
+      const key = new Date(t.created_at).toLocaleDateString('it-IT', { month: 'short', year: 'numeric' })
+      if (!acc[key]) acc[key] = { income: 0, expense: 0 }
+      if (t.type === 'income') acc[key].income += Number(t.amount)
+      else acc[key].expense += Number(t.amount)
+      return acc
+    }, {})
+  }, [realTransactions])
+
+  const topExpenses = useMemo(() => {
+    return [...realTransactions]
+      .filter(t => t.type === 'expense')
+      .sort((a, b) => Number(b.amount) - Number(a.amount))
+      .slice(0, 5)
+  }, [realTransactions])
+
+  // ── 2. NEW DETAILED ANALYTICS COMPUTATIONS (FILTERED TIME RANGE) ──
   const dateBoundaries = useMemo(() => {
     const today = new Date()
     let start = new Date()
@@ -87,7 +121,6 @@ export default function AnalyticsPage() {
     return { start, end }
   }, [timeRange, customStartDate, customEndDate, customPeriodValue, customPeriodUnit])
 
-  // 2. Main Financial Computations
   const analyticsData = useMemo(() => {
     if (transactions.length === 0) return {
       daily: [],
@@ -111,7 +144,7 @@ export default function AnalyticsPage() {
 
     const { start, end } = dateBoundaries
 
-    // Calculate historical balance before selected start range
+    // Cumulative calculations
     let initialNetWorth = 0
     let initialBusta = 0
     let initialFuori = 0
@@ -127,18 +160,16 @@ export default function AnalyticsPage() {
       initialNetWorth += amt * mult
     })
 
-    // Generate daily steps list for the range
     const days: { date: Date; dateStr: string }[] = []
     let curr = new Date(start)
     while (curr <= end) {
       days.push({
         date: new Date(curr),
-        dateStr: curr.toLocaleDateString('en-CA') // YYYY-MM-DD
+        dateStr: curr.toLocaleDateString('en-CA')
       })
       curr.setDate(curr.getDate() + 1)
     }
 
-    // Group transactions inside range by date key
     const rangeTxs = sortedAll.filter(t => {
       const d = new Date(t.created_at)
       return d >= start && d <= end
@@ -174,7 +205,6 @@ export default function AnalyticsPage() {
         else dayFuoriDelta += amt * mult
         dayNetWorthDelta += amt * mult
 
-        // Exclude internal transfers for real income/expense calculations
         if (!isTransfer) {
           if (t.type === 'income') dayIncome += amt
           else dayExpense += amt
@@ -196,26 +226,21 @@ export default function AnalyticsPage() {
       }
     })
 
-    // Totals in the range (excluding transfers)
     const rangeRealTxs = rangeTxs.filter(t => !t.title.endsWith('-transfer]'))
     const rangeIncome = rangeRealTxs.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0)
     const rangeExpense = rangeRealTxs.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0)
     const savingsRate = rangeIncome > 0 ? ((rangeIncome - rangeExpense) / rangeIncome) * 100 : 0
 
-    // Busta to Fuori withdrawals
     const withdrawals = rangeTxs.filter(
       t => t.title.endsWith('[busta-transfer]') && t.type === 'expense'
     )
 
-    // Outside (Fuori) real expenses for burn rate
     const outsideExpenses = rangeRealTxs.filter(
       t => t.type === 'expense' && !t.title.endsWith(' [busta]')
     )
     const totalOutsideExpense = outsideExpenses.reduce((s, t) => s + Number(t.amount), 0)
     const avgDailyOutsideExpense = daily.length > 0 ? totalOutsideExpense / daily.length : 0
 
-    // Grouping for income vs expenses bars
-    // <=14 days: daily, <=65 days: weekly, >65 days: monthly
     let groupedFlows: { label: string; income: number; expense: number }[] = []
     if (daily.length <= 14) {
       groupedFlows = daily.map(d => ({
@@ -224,12 +249,11 @@ export default function AnalyticsPage() {
         expense: d.expense
       }))
     } else if (daily.length <= 65) {
-      // Group by week
       const weeklyMap: Record<string, { income: number; expense: number; start: Date }> = {}
       daily.forEach(d => {
         const startOfWeek = new Date(d.date)
         const day = startOfWeek.getDay()
-        const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1) // monday
+        const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1)
         startOfWeek.setDate(diff)
         const kw = startOfWeek.toLocaleDateString('en-CA')
 
@@ -247,7 +271,6 @@ export default function AnalyticsPage() {
         return { label, income: w.income, expense: w.expense }
       })
     } else {
-      // Group by month
       const monthlyMap: Record<string, { income: number; expense: number }> = {}
       daily.forEach(d => {
         const km = d.date.toLocaleDateString('it-IT', { month: 'short', year: 'numeric' })
@@ -281,7 +304,7 @@ export default function AnalyticsPage() {
     }
   }, [transactions, dateBoundaries])
 
-  // Quick Sparkline path generator
+  // Sparkline coordinates generator
   const getSparklinePath = (data: number[], w = 80, h = 30) => {
     if (data.length < 2) return ''
     const min = Math.min(...data)
@@ -297,7 +320,7 @@ export default function AnalyticsPage() {
     return `M ${points.join(' L ')}`
   }
 
-  // Active detailed SVG Chart coordinates generator
+  // Coordinates for active interactive detailed SVG
   const activeChartCoords = useMemo(() => {
     const { daily } = analyticsData
     if (daily.length === 0) return null
@@ -317,7 +340,6 @@ export default function AnalyticsPage() {
     } else if (activeMetric === 'burn-rate') {
       values = daily.map(d => ({ y1: d.fuori }))
     } else if (activeMetric === 'withdrawals') {
-      // Create index mapping for withdrawals over days
       const daysCount = daily.length
       const wMap = new Array(daysCount).fill(0)
       analyticsData.withdrawals.forEach(w => {
@@ -358,7 +380,6 @@ export default function AnalyticsPage() {
     return { points, pad, width, height, yMin, yMax, plotW, plotH }
   }, [activeMetric, analyticsData])
 
-  // Mouse Move tool for Hover Tooltips on charts
   const handleChartMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
     if (!activeChartCoords || activeChartCoords.points.length === 0) return
     const rect = e.currentTarget.getBoundingClientRect()
@@ -367,7 +388,6 @@ export default function AnalyticsPage() {
     const { pad, width, points } = activeChartCoords
     const plotW = width - pad.left - pad.right
 
-    // Translate Client X relative to plot width
     const svgPlotStart = (pad.left / width) * rect.width
     const svgPlotWidth = (plotW / width) * rect.width
     const pct = (clientX - svgPlotStart) / svgPlotWidth
@@ -382,6 +402,11 @@ export default function AnalyticsPage() {
 
   // Define thematic card groupings
   const themes = [
+    {
+      id: 'panoramica',
+      label: 'Panoramica',
+      metrics: []
+    },
     {
       id: 'patrimonio',
       label: 'Patrimonio & Flussi',
@@ -446,10 +471,7 @@ export default function AnalyticsPage() {
           label: 'Tasso di Risparmio',
           icon: Percent,
           getValue: () => `${analyticsData.totals.savingsRate?.toFixed(1) || '0.0'}%`,
-          getSparklineData: () => {
-            // Group savings rate monthly for sparkline if possible, else return static
-            return analyticsData.daily.map(d => d.income - d.expense)
-          }
+          getSparklineData: () => analyticsData.daily.map(d => d.income - d.expense)
         }
       ]
     }
@@ -475,7 +497,9 @@ export default function AnalyticsPage() {
             key={t.id}
             onClick={() => {
               setActiveTab(t.id as any)
-              setActiveMetric(t.metrics[0].id)
+              if (t.metrics.length > 0) {
+                setActiveMetric(t.metrics[0].id)
+              }
               setHoveredIndex(null)
             }}
             className={`text-[10px] tracking-[0.25em] uppercase font-normal pb-2 border-b-2 t shrink-0 cursor-pointer ${
@@ -489,607 +513,836 @@ export default function AnalyticsPage() {
         ))}
       </div>
 
-      {/* Mini metric sparkline cards (C) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-        {activeGroup?.metrics.map(m => {
-          const Icon = m.icon
-          const isSel = activeMetric === m.id
-          const sparkData = m.getSparklineData()
-
-          return (
+      {activeTab === 'panoramica' ? (
+        /* ───── TAB 1: PREVIOUS ANALYTICS MODULES VIEW ───── */
+        <div className="space-y-12">
+          {/* Summary Row */}
+          <div className="grid grid-cols-2 gap-8 border-b border-border/10 pb-8">
             <motion.div
-              key={m.id}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => {
-                setActiveMetric(m.id)
-                setHoveredIndex(null)
-              }}
-              className={`card p-5 cursor-pointer flex flex-col justify-between min-h-[120px] transition-all relative overflow-hidden ${
-                isSel ? 'bg-elevated/80 border border-fg/10 shadow-lg' : 'hover:bg-elevated/40 border border-transparent'
-              }`}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-2"
             >
-              <div className="flex items-start justify-between">
-                <div className="space-y-1 z-10">
-                  <span className="text-[9px] tracking-[0.2em] uppercase text-muted font-normal block">
-                    {m.label}
-                  </span>
-                  <h4 className="text-lg font-light tracking-tight text-fg">
-                    {m.getValue()}
-                  </h4>
-                </div>
-                <div className={`p-2 rounded-lg ${isSel ? 'bg-fg/5 text-fg' : 'bg-transparent text-muted'}`}>
-                  <Icon className="w-4 h-4" strokeWidth={1.5} />
-                </div>
+              <div className="flex items-center gap-1.5 text-muted">
+                <TrendingUp className="w-3.5 h-3.5 text-income" strokeWidth={1.5} />
+                <span className="text-[9px] tracking-[0.25em] uppercase font-light">Entrate Totali</span>
               </div>
-
-              {/* Sparkline line render */}
-              <div className="mt-4 flex items-end justify-between z-10">
-                <span className="text-[9px] text-muted tracking-wider">Trend Periodo</span>
-                {sparkData.length > 1 ? (
-                  <svg width="85" height="28" className="opacity-75">
-                    <path
-                      d={getSparklinePath(sparkData, 85, 26)}
-                      fill="none"
-                      stroke={isSel ? 'var(--fg)' : 'var(--muted)'}
-                      strokeWidth="1.2"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                ) : (
-                  <span className="text-[9px] text-muted italic">Dati insufficienti</span>
-                )}
-              </div>
+              <h3 className="text-3xl font-thin tracking-tight text-fg">€{fmt(totalIncome)}</h3>
+              <p className="text-[10px] text-muted tracking-wider">
+                {realTransactions.filter(t => t.type === 'income').length} operazioni
+              </p>
             </motion.div>
-          )
-        })}
-      </div>
 
-      {/* Date Range Selector Panel */}
-      <div className="card p-5 space-y-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-muted">
-            <SlidersHorizontal className="w-3.5 h-3.5" strokeWidth={1.5} />
-            <span className="text-[9px] tracking-[0.25em] uppercase font-normal">Filtro Intervallo Temporale</span>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.04 }}
+              className="space-y-2"
+            >
+              <div className="flex items-center gap-1.5 text-muted">
+                <TrendingDown className="w-3.5 h-3.5 text-expense" strokeWidth={1.5} />
+                <span className="text-[9px] tracking-[0.25em] uppercase font-light">Uscite Totali</span>
+              </div>
+              <h3 className="text-3xl font-thin tracking-tight text-fg">€{fmt(totalExpense)}</h3>
+              <p className="text-[10px] text-muted tracking-wider">
+                {realTransactions.filter(t => t.type === 'expense').length} operazioni
+              </p>
+            </motion.div>
           </div>
 
-          {/* Quick choices row */}
-          <div className="flex flex-wrap gap-1 p-0.5 bg-elevated rounded-lg">
-            {(['1w', '1m', '2m', '6m', '1y', 'custom', 'custom-period'] as TimeRange[]).map(r => {
-              let label = ''
-              if (r === '1w') label = '1 Settimana'
-              if (r === '1m') label = '1 Mese'
-              if (r === '2m') label = '2 Mesi'
-              if (r === '6m') label = '6 Mesi'
-              if (r === '1y') label = '1 Anno'
-              if (r === 'custom') label = 'Date Specifiche'
-              if (r === 'custom-period') label = 'Personalizzato'
+          {/* Ratio bar Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.08 }}
+            className="space-y-4"
+          >
+            <div className="flex items-center gap-2 text-muted">
+              <Activity className="w-3.5 h-3.5" strokeWidth={1.5} />
+              <span className="text-[10px] tracking-[0.25em] uppercase font-normal">
+                Rapporto Entrate / Uscite
+              </span>
+            </div>
+            <div className="space-y-2">
+              <div className="flex rounded-full overflow-hidden h-1.5 bg-elevated">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${incPct}%` }}
+                  transition={{ duration: 0.7, ease: 'easeOut' }}
+                  className="bg-income"
+                />
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${expPct}%` }}
+                  transition={{ duration: 0.7, ease: 'easeOut', delay: 0.1 }}
+                  className="bg-expense"
+                />
+              </div>
+              <div className="flex justify-between text-[11px] font-light tracking-wider">
+                <span className="text-income">Entrate {incPct.toFixed(0)}%</span>
+                <span className="text-expense">Uscite {expPct.toFixed(0)}%</span>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Monthly Stats Section */}
+          {Object.keys(monthlyGroup).length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.12 }}
+              className="space-y-6"
+            >
+              <div className="flex items-center gap-2 text-muted pb-2 border-b border-border/10">
+                <Calendar className="w-3.5 h-3.5" strokeWidth={1.5} />
+                <span className="text-[10px] tracking-[0.25em] uppercase font-normal">
+                  Profilo Mensile
+                </span>
+              </div>
+              <div className="space-y-6">
+                {Object.entries(monthlyGroup).slice(0, 6).map(([month, data]) => {
+                  const mt = data.income + data.expense
+                  const ip = mt > 0 ? (data.income / mt) * 100 : 0
+                  const net = data.income - data.expense
+                  return (
+                    <div key={month} className="space-y-2">
+                      <div className="flex justify-between items-end">
+                        <span className="text-sm font-light text-fg capitalize">{month}</span>
+                        <span className={`text-sm font-light ${net >= 0 ? 'text-income' : 'text-expense'}`}>
+                          {net >= 0 ? '+' : ''}€{fmt(net)}
+                        </span>
+                      </div>
+                      <div className="flex rounded-full overflow-hidden h-1 bg-elevated">
+                        <div className="bg-income" style={{ width: `${ip}%` }} />
+                        <div className="bg-expense" style={{ width: `${100 - ip}%` }} />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </motion.div>
+          )}
+
+          {/* Top expenses Section */}
+          {topExpenses.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.16 }}
+              className="space-y-6"
+            >
+              <div className="flex items-center gap-2 text-muted pb-2 border-b border-border/10">
+                <BarChart3 className="w-3.5 h-3.5" strokeWidth={1.5} />
+                <span className="text-[10px] tracking-[0.25em] uppercase font-normal">
+                  Classifica Uscite
+                </span>
+              </div>
+              <div className="space-y-5">
+                {topExpenses.map((t, i) => {
+                  const pct = totalExpense > 0 ? (Number(t.amount) / totalExpense) * 100 : 0
+                  return (
+                    <div key={t.id} className="flex items-start gap-4">
+                      <span className="text-xs text-muted w-4 shrink-0 mt-0.5 font-light">{i + 1}</span>
+                      <div className="flex-1 min-w-0 space-y-1.5">
+                        <div className="flex justify-between items-baseline">
+                          <p className="text-sm font-light text-fg truncate">
+                            {t.title.replace(/ \[(busta|fuori)\]$/, '')}
+                          </p>
+                          <p className="text-sm font-normal text-expense ml-2 shrink-0">€{fmt(Number(t.amount))}</p>
+                        </div>
+                        <div className="h-1 rounded-full bg-elevated overflow-hidden">
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${pct}%` }}
+                            transition={{ duration: 0.6, delay: 0.2 + i * 0.05 }}
+                            className="h-full bg-expense/40 rounded-full"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </motion.div>
+          )}
+        </div>
+      ) : (
+        /* ───── TABS 2, 3, 4: ADVANCED GRAPHS DASHBOARD ───── */
+        <>
+          {/* Mini metric sparkline cards (C) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            {activeGroup?.metrics.map(m => {
+              const Icon = m.icon
+              const isSel = activeMetric === m.id
+              const sparkData = m.getSparklineData()
 
               return (
-                <button
-                  key={r}
-                  onClick={() => setTimeRange(r)}
-                  className={`px-3 py-1.5 rounded-md text-[9px] tracking-wider uppercase font-normal cursor-pointer t ${
-                    timeRange === r ? 'bg-fg text-bg font-medium' : 'text-muted hover:text-fg'
+                <motion.div
+                  key={m.id}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    setActiveMetric(m.id)
+                    setHoveredIndex(null)
+                  }}
+                  className={`card p-5 cursor-pointer flex flex-col justify-between min-h-[120px] transition-all relative overflow-hidden ${
+                    isSel ? 'bg-elevated/80 border border-fg/10 shadow-lg' : 'hover:bg-elevated/40 border border-transparent'
                   }`}
                 >
-                  {label}
-                </button>
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1 z-10">
+                      <span className="text-[9px] tracking-[0.2em] uppercase text-muted font-normal block">
+                        {m.label}
+                      </span>
+                      <h4 className="text-lg font-light tracking-tight text-fg">
+                        {m.getValue()}
+                      </h4>
+                    </div>
+                    <div className={`p-2 rounded-lg ${isSel ? 'bg-fg/5 text-fg' : 'bg-transparent text-muted'}`}>
+                      <Icon className="w-4 h-4" strokeWidth={1.5} />
+                    </div>
+                  </div>
+
+                  {/* Sparkline layout with custom preview shapes */}
+                  <div className="mt-4 flex items-end justify-between z-10">
+                    <span className="text-[9px] text-muted tracking-wider">Anteprima</span>
+                    {sparkData.length > 1 ? (
+                      m.id === 'net-worth' ? (
+                        <svg width="85" height="28" className="opacity-75">
+                          <path
+                            d={getSparklinePath(sparkData, 85, 26)}
+                            fill="none"
+                            stroke={isSel ? 'var(--fg)' : 'var(--muted)'}
+                            strokeWidth="1.2"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                      ) : m.id === 'income-vs-expense' ? (
+                        (() => {
+                          const previewFlows = analyticsData.groupedFlows.slice(-6)
+                          const maxFlow = Math.max(...previewFlows.flatMap(f => [f.income, f.expense]), 1)
+                          return (
+                            <svg width="85" height="28" className="opacity-75">
+                              {previewFlows.map((f, idx) => {
+                                const hInc = (f.income / maxFlow) * 22
+                                const hExp = (f.expense / maxFlow) * 22
+                                const x = idx * 14
+                                return (
+                                  <g key={idx}>
+                                    <rect x={x} y={28 - hInc} width={3} height={hInc} fill="var(--income)" className="t" />
+                                    <rect x={x + 4} y={28 - hExp} width={3} height={hExp} fill="var(--expense)" className="t" />
+                                  </g>
+                                )
+                              })}
+                            </svg>
+                          )
+                        })()
+                      ) : m.id === 'busta-vs-fuori' ? (
+                        (() => {
+                          const sparkBusta = analyticsData.daily.map(d => d.busta)
+                          const sparkFuori = analyticsData.daily.map(d => d.fuori)
+                          const allPoints = [...sparkBusta, ...sparkFuori]
+                          const minVal = Math.min(...allPoints)
+                          const maxVal = Math.max(...allPoints)
+                          const diffVal = maxVal - minVal === 0 ? 1 : maxVal - minVal
+                          
+                          const getPath = (data: number[]) => {
+                            const pts = data.map((v, i) => {
+                              const x = (i / (data.length - 1)) * 85
+                              const y = 26 - ((v - minVal) / diffVal) * 24
+                              return `${x.toFixed(1)},${y.toFixed(1)}`
+                            })
+                            return `M ${pts.join(' L ')}`
+                          }
+                          
+                          return (
+                            <svg width="85" height="28" className="opacity-75">
+                              <path d={getPath(sparkBusta)} fill="none" stroke="var(--muted)" strokeWidth="1" />
+                              <path d={getPath(sparkFuori)} fill="none" stroke="#818cf8" strokeWidth="1" />
+                            </svg>
+                          )
+                        })()
+                      ) : m.id === 'burn-rate' ? (
+                        <svg width="85" height="28" className="opacity-75">
+                          <path
+                            d={getSparklinePath(sparkData, 85, 26)}
+                            fill="none"
+                            stroke="#818cf8"
+                            strokeWidth="1.2"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                      ) : m.id === 'withdrawals' ? (
+                        (() => {
+                          const maxW = Math.max(...sparkData, 1)
+                          return (
+                            <svg width="85" height="28" className="opacity-75">
+                              {sparkData.map((v, idx) => {
+                                if (v === 0) return null
+                                const x = (idx / (sparkData.length - 1)) * 85
+                                const h = (v / maxW) * 22
+                                return (
+                                  <line
+                                    key={idx}
+                                    x1={x}
+                                    y1={28}
+                                    x2={x}
+                                    y2={28 - h}
+                                    stroke="var(--expense)"
+                                    strokeWidth="1.5"
+                                  />
+                                )
+                              })}
+                            </svg>
+                          )
+                        })()
+                      ) : m.id === 'savings-rate' ? (
+                        (() => {
+                          const rate = analyticsData.totals.savingsRate || 0
+                          const rateClamped = Math.min(100, Math.max(0, Math.abs(rate)))
+                          const strokeDash = (rateClamped / 100) * 50.2
+                          return (
+                            <svg width="24" height="24" className="opacity-80 transform -rotate-90">
+                              <circle cx="12" cy="12" r="8" fill="transparent" stroke="var(--border)" strokeWidth="2.5" />
+                              <circle
+                                cx="12"
+                                cy="12"
+                                r="8"
+                                fill="transparent"
+                                stroke={rate >= 0 ? 'var(--income)' : 'var(--expense)'}
+                                strokeWidth="2.5"
+                                strokeDasharray="50.2"
+                                strokeDashoffset={50.2 - strokeDash}
+                              />
+                            </svg>
+                          )
+                        })()
+                      ) : (
+                        <span className="text-[9px] text-muted italic">Dati insufficienti</span>
+                      )
+                    ) : (
+                      <span className="text-[9px] text-muted italic">Dati insufficienti</span>
+                    )}
+                  </div>
+                </motion.div>
               )
             })}
           </div>
-        </div>
 
-        {/* Conditional extra controls */}
-        <AnimatePresence mode="wait">
-          {timeRange === 'custom' && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="grid grid-cols-2 gap-4 pt-2 border-t border-border/10"
-            >
-              <div>
-                <label className="text-[9px] tracking-wider uppercase text-muted block mb-1">Da data</label>
-                <input
-                  type="date"
-                  value={customStartDate}
-                  onChange={e => setCustomStartDate(e.target.value)}
-                  className="w-full bg-transparent border-b border-border/30 py-1.5 text-xs font-light text-fg focus:outline-none focus:border-fg t"
-                />
-              </div>
-              <div>
-                <label className="text-[9px] tracking-wider uppercase text-muted block mb-1">A data</label>
-                <input
-                  type="date"
-                  value={customEndDate}
-                  onChange={e => setCustomEndDate(e.target.value)}
-                  className="w-full bg-transparent border-b border-border/30 py-1.5 text-xs font-light text-fg focus:outline-none focus:border-fg t"
-                />
-              </div>
-            </motion.div>
-          )}
-
-          {timeRange === 'custom-period' && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="flex items-end gap-4 pt-2 border-t border-border/10"
-            >
-              <div className="flex-1">
-                <label className="text-[9px] tracking-wider uppercase text-muted block mb-1">Quantità</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={customPeriodValue}
-                  onChange={e => setCustomPeriodValue(parseInt(e.target.value) || 1)}
-                  className="w-full bg-transparent border-b border-border/30 py-1.5 text-xs font-light text-fg focus:outline-none focus:border-fg t"
-                />
-              </div>
-              <div className="flex-1">
-                <label className="text-[9px] tracking-wider uppercase text-muted block mb-1">Unità di Misura</label>
-                <select
-                  value={customPeriodUnit}
-                  onChange={e => setCustomPeriodUnit(e.target.value as CustomPeriodUnit)}
-                  className="w-full bg-transparent border-b border-border/30 py-1.5 text-xs font-light text-fg focus:outline-none focus:border-fg cursor-pointer t"
-                >
-                  <option value="days" className="bg-surface text-fg">Giorni</option>
-                  <option value="weeks" className="bg-surface text-fg">Settimane</option>
-                  <option value="months" className="bg-surface text-fg">Mesi</option>
-                  <option value="years" className="bg-surface text-fg">Anni</option>
-                </select>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* Main Interactive Detail Chart Screen */}
-      <div className="card p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <span className="text-[9px] tracking-[0.25em] uppercase text-muted font-normal block">
-              Dettaglio Grafico Attivo
-            </span>
-            <h3 className="text-xl font-light text-fg capitalize">
-              {activeGroup?.metrics.find(m => m.id === activeMetric)?.label}
-            </h3>
-          </div>
-
-          <div className="text-right text-[10px] text-muted tracking-wider">
-            Intervallo: {dateBoundaries.start.toLocaleDateString('it-IT')} - {dateBoundaries.end.toLocaleDateString('it-IT')}
-          </div>
-        </div>
-
-        {/* Chart render states */}
-        {analyticsData.daily.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-muted space-y-2">
-            <Info className="w-5 h-5 text-muted/50" />
-            <p className="text-xs font-light">Nessuna transazione registrata nel periodo selezionato</p>
-          </div>
-        ) : activeMetric === 'savings-rate' ? (
-          /* Specialized Savings Rate Donut / Circular Progress */
-          <div className="flex flex-col items-center justify-center py-8 space-y-8">
-            <div className="relative w-44 h-44">
-              <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90">
-                {/* Background Ring */}
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="42"
-                  fill="transparent"
-                  stroke="var(--border)"
-                  strokeWidth="6"
-                />
-                {/* Savings Rate Progress */}
-                <motion.circle
-                  cx="50"
-                  cy="50"
-                  r="42"
-                  fill="transparent"
-                  stroke={analyticsData.totals.savingsRate >= 0 ? 'var(--income)' : 'var(--expense)'}
-                  strokeWidth="6"
-                  strokeDasharray="263.8"
-                  initial={{ strokeDashoffset: 263.8 }}
-                  animate={{ 
-                    strokeDashoffset: 263.8 - (263.8 * Math.min(100, Math.max(0, Math.abs(analyticsData.totals.savingsRate)))) / 100 
-                  }}
-                  transition={{ duration: 1, ease: 'easeOut' }}
-                />
-              </svg>
-              {/* Inner Stats */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center space-y-0.5 text-center">
-                <span className={`text-4xl font-thin tracking-tight ${
-                  analyticsData.totals.savingsRate >= 0 ? 'text-income' : 'text-expense'
-                }`}>
-                  {analyticsData.totals.savingsRate >= 0 ? '+' : ''}
-                  {analyticsData.totals.savingsRate?.toFixed(1)}%
-                </span>
-                <span className="text-[9px] tracking-wider text-muted uppercase">Tasso di Risparmio</span>
-              </div>
-            </div>
-
-            {/* Quick Balance Breakdown table for Period */}
-            <div className="w-full max-w-sm grid grid-cols-2 gap-8 border-t border-border/10 pt-6">
-              <div className="space-y-1">
-                <span className="text-[9px] tracking-wider text-muted uppercase block">Entrate Totali</span>
-                <p className="text-base font-light text-income">€{fmt(analyticsData.totals.rangeIncome)}</p>
-              </div>
-              <div className="space-y-1">
-                <span className="text-[9px] tracking-wider text-muted uppercase block">Uscite Totali</span>
-                <p className="text-base font-light text-expense">€{fmt(analyticsData.totals.rangeExpense)}</p>
-              </div>
-            </div>
-          </div>
-        ) : activeMetric === 'income-vs-expense' ? (
-          /* Periodic Bar Chart (Income vs Expense) */
-          <div className="space-y-6">
-            <div className="relative w-full h-[200px] flex items-end gap-3 px-2 border-b border-border/10">
-              {analyticsData.groupedFlows.map((flow, i) => {
-                const maxVal = Math.max(
-                  ...analyticsData.groupedFlows.map(f => Math.max(f.income, f.expense)),
-                  10 // guard
-                )
-                const incPct = (flow.income / maxVal) * 100
-                const expPct = (flow.expense / maxVal) * 100
-
-                return (
-                  <div key={i} className="flex-1 flex flex-col items-center justify-end h-full group relative">
-                    {/* Hover detail tooltip */}
-                    <div className="opacity-0 group-hover:opacity-100 absolute -top-12 bg-elevated/95 border border-border/40 text-[10px] p-2 rounded-lg shadow-xl z-20 pointer-events-none transition-all flex flex-col gap-0.5 shrink-0 whitespace-nowrap">
-                      <span className="font-medium text-fg mb-0.5">{flow.label}</span>
-                      <span className="text-income">Entrate: €{fmt(flow.income)}</span>
-                      <span className="text-expense">Uscite: €{fmt(flow.expense)}</span>
-                    </div>
-
-                    <div className="w-full flex items-end gap-1 justify-center h-[160px] pb-1">
-                      {/* Income Bar */}
-                      <motion.div
-                        initial={{ height: 0 }}
-                        animate={{ height: `${incPct}%` }}
-                        className="w-2.5 rounded-t-sm bg-income/60 group-hover:bg-income transition-colors"
-                      />
-                      {/* Expense Bar */}
-                      <motion.div
-                        initial={{ height: 0 }}
-                        animate={{ height: `${expPct}%` }}
-                        className="w-2.5 rounded-t-sm bg-expense/60 group-hover:bg-expense transition-colors"
-                      />
-                    </div>
-                    {/* Label */}
-                    <span className="text-[8px] text-muted tracking-wider truncate w-full text-center mt-1 py-1 block">
-                      {flow.label}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
+          {/* Main Interactive Detail Chart Screen */}
+          <div className="card p-6 space-y-6">
             
-            {/* Legend */}
-            <div className="flex justify-center gap-6 text-[10px] text-muted tracking-wider">
-              <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-income" />
-                <span>Entrate</span>
+            {/* Embedded and Discrete Date Selector (Compact Header) */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-border/5">
+              <div className="space-y-1">
+                <span className="text-[9px] tracking-[0.25em] uppercase text-muted font-normal block">
+                  Dettaglio Grafico Attivo
+                </span>
+                <h3 className="text-xl font-light text-fg capitalize">
+                  {activeGroup?.metrics.find(m => m.id === activeMetric)?.label}
+                </h3>
               </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-expense" />
-                <span>Uscite</span>
+
+              {/* Minimal inline time options */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex p-0.5 bg-elevated rounded-lg">
+                  {(['1w', '1m', '2m', '6m', '1y', 'custom', 'custom-period'] as TimeRange[]).map(r => {
+                    let label = ''
+                    if (r === '1w') label = '1S'
+                    if (r === '1m') label = '1M'
+                    if (r === '2m') label = '2M'
+                    if (r === '6m') label = '6M'
+                    if (r === '1y') label = '1A'
+                    if (r === 'custom') label = 'Date'
+                    if (r === 'custom-period') label = 'Pers'
+
+                    return (
+                      <button
+                        key={r}
+                        onClick={() => setTimeRange(r)}
+                        className={`px-2.5 py-1 rounded-md text-[9px] font-normal tracking-wider cursor-pointer t ${
+                          timeRange === r ? 'bg-fg text-bg font-medium' : 'text-muted hover:text-fg'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
             </div>
-          </div>
-        ) : activeChartCoords ? (
-          /* SVG Line / Path charts with Tooltips */
-          <div className="relative">
-            <svg
-              viewBox={`0 0 ${activeChartCoords.width} ${activeChartCoords.height}`}
-              className="w-full h-auto select-none"
-              onMouseMove={handleChartMouseMove}
-              onMouseLeave={() => setHoveredIndex(null)}
-            >
-              <defs>
-                <linearGradient id="area-grad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#ffffff" stopOpacity="0.10" />
-                  <stop offset="100%" stopColor="#ffffff" stopOpacity="0.0" />
-                </linearGradient>
-                <linearGradient id="area-grad-busta" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--muted)" stopOpacity="0.06" />
-                  <stop offset="100%" stopColor="var(--muted)" stopOpacity="0.0" />
-                </linearGradient>
-                <linearGradient id="area-grad-fuori" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#818cf8" stopOpacity="0.08" />
-                  <stop offset="100%" stopColor="#818cf8" stopOpacity="0.0" />
-                </linearGradient>
-              </defs>
 
-              {/* Grid Lines */}
-              <line
-                x1={activeChartCoords.pad.left}
-                y1={activeChartCoords.pad.top}
-                x2={activeChartCoords.width - activeChartCoords.pad.right}
-                y2={activeChartCoords.pad.top}
-                stroke="var(--border)"
-                strokeWidth="0.8"
-                strokeDasharray="4,4"
-              />
-              <line
-                x1={activeChartCoords.pad.left}
-                y1={activeChartCoords.pad.top + activeChartCoords.plotH / 2}
-                x2={activeChartCoords.width - activeChartCoords.pad.right}
-                y2={activeChartCoords.pad.top + activeChartCoords.plotH / 2}
-                stroke="var(--border)"
-                strokeWidth="0.8"
-                strokeDasharray="4,4"
-              />
-              <line
-                x1={activeChartCoords.pad.left}
-                y1={activeChartCoords.height - activeChartCoords.pad.bottom}
-                x2={activeChartCoords.width - activeChartCoords.pad.right}
-                y2={activeChartCoords.height - activeChartCoords.pad.bottom}
-                stroke="var(--border)"
-                strokeWidth="0.8"
-              />
-
-              {/* Chart paths */}
-              {activeMetric === 'busta-vs-fuori' ? (
-                <>
-                  {/* Busta Area and Line (Grayish) */}
-                  <path
-                    d={`${activeChartCoords.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y1}`).join(' ')} L ${
-                      activeChartCoords.points[activeChartCoords.points.length - 1].x
-                    } ${activeChartCoords.height - activeChartCoords.pad.bottom} L ${activeChartCoords.points[0].x} ${
-                      activeChartCoords.height - activeChartCoords.pad.bottom
-                    } Z`}
-                    fill="url(#area-grad-busta)"
-                  />
-                  <path
-                    d={activeChartCoords.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y1}`).join(' ')}
-                    fill="none"
-                    stroke="var(--muted)"
-                    strokeWidth="1.2"
-                  />
-
-                  {/* Fuori Area and Line (Indigo) */}
-                  <path
-                    d={`${activeChartCoords.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y2}`).join(' ')} L ${
-                      activeChartCoords.points[activeChartCoords.points.length - 1].x
-                    } ${activeChartCoords.height - activeChartCoords.pad.bottom} L ${activeChartCoords.points[0].x} ${
-                      activeChartCoords.height - activeChartCoords.pad.bottom
-                    } Z`}
-                    fill="url(#area-grad-fuori)"
-                  />
-                  <path
-                    d={activeChartCoords.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y2!}`).join(' ')}
-                    fill="none"
-                    stroke="#818cf8"
-                    strokeWidth="1.2"
-                  />
-                </>
-              ) : activeMetric === 'withdrawals' ? (
-                /* Withdrawal spikes (bar/step representation) */
-                activeChartCoords.points.map((p, idx) => {
-                  if (p.val1 === 0) return null
-                  return (
-                    <line
-                      key={idx}
-                      x1={p.x}
-                      y1={activeChartCoords.height - activeChartCoords.pad.bottom}
-                      x2={p.x}
-                      y2={p.y1}
-                      stroke="var(--expense)"
-                      strokeWidth="3.5"
-                      strokeLinecap="round"
+            {/* Compact inline custom parameters row */}
+            <AnimatePresence mode="wait">
+              {timeRange === 'custom' && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="flex gap-4 p-3 bg-elevated/40 rounded-xl border border-border/5"
+                >
+                  <div className="flex-1">
+                    <span className="text-[8px] text-muted tracking-wider uppercase block mb-1">Da data</span>
+                    <input
+                      type="date"
+                      value={customStartDate}
+                      onChange={e => setCustomStartDate(e.target.value)}
+                      className="w-full bg-transparent border-b border-border/20 py-1 text-xs font-light text-fg focus:outline-none focus:border-fg t"
                     />
-                  )
-                })
-              ) : (
-                /* Standard Line Curve (Net Worth, Burn Rate) */
-                <>
-                  <path
-                    d={`${activeChartCoords.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y1}`).join(' ')} L ${
-                      activeChartCoords.points[activeChartCoords.points.length - 1].x
-                    } ${activeChartCoords.height - activeChartCoords.pad.bottom} L ${activeChartCoords.points[0].x} ${
-                      activeChartCoords.height - activeChartCoords.pad.bottom
-                    } Z`}
-                    fill="url(#area-grad)"
-                  />
-                  <path
-                    d={activeChartCoords.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y1}`).join(' ')}
-                    fill="none"
-                    stroke="#ffffff"
-                    strokeWidth="1.2"
-                  />
-                </>
+                  </div>
+                  <div className="flex-1">
+                    <span className="text-[8px] text-muted tracking-wider uppercase block mb-1">A data</span>
+                    <input
+                      type="date"
+                      value={customEndDate}
+                      onChange={e => setCustomEndDate(e.target.value)}
+                      className="w-full bg-transparent border-b border-border/20 py-1 text-xs font-light text-fg focus:outline-none focus:border-fg t"
+                    />
+                  </div>
+                </motion.div>
               )}
 
-              {/* Hover highlight indicators */}
-              {hoveredIndex !== null && activeChartCoords.points[hoveredIndex] && (
-                <>
+              {timeRange === 'custom-period' && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="flex gap-4 p-3 bg-elevated/40 rounded-xl border border-border/5"
+                >
+                  <div className="flex-1">
+                    <span className="text-[8px] text-muted tracking-wider uppercase block mb-1">Quantità</span>
+                    <input
+                      type="number"
+                      min="1"
+                      value={customPeriodValue}
+                      onChange={e => setCustomPeriodValue(parseInt(e.target.value) || 1)}
+                      className="w-full bg-transparent border-b border-border/20 py-1 text-xs font-light text-fg focus:outline-none focus:border-fg t"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <span className="text-[8px] text-muted tracking-wider uppercase block mb-1">Unità</span>
+                    <select
+                      value={customPeriodUnit}
+                      onChange={e => setCustomPeriodUnit(e.target.value as CustomPeriodUnit)}
+                      className="w-full bg-transparent border-b border-border/20 py-1 text-xs font-light text-fg focus:outline-none focus:border-fg cursor-pointer t"
+                    >
+                      <option value="days" className="bg-surface text-fg">Giorni</option>
+                      <option value="weeks" className="bg-surface text-fg">Settimane</option>
+                      <option value="months" className="bg-surface text-fg">Mesi</option>
+                      <option value="years" className="bg-surface text-fg">Anni</option>
+                    </select>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Chart renders */}
+            {analyticsData.daily.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-muted space-y-2">
+                <Info className="w-5 h-5 text-muted/50" />
+                <p className="text-xs font-light">Nessuna transazione registrata nel periodo selezionato</p>
+              </div>
+            ) : activeMetric === 'savings-rate' ? (
+              <div className="flex flex-col items-center justify-center py-8 space-y-8">
+                <div className="relative w-44 h-44">
+                  <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90">
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="42"
+                      fill="transparent"
+                      stroke="var(--border)"
+                      strokeWidth="6"
+                    />
+                    <motion.circle
+                      cx="50"
+                      cy="50"
+                      r="42"
+                      fill="transparent"
+                      stroke={analyticsData.totals.savingsRate >= 0 ? 'var(--income)' : 'var(--expense)'}
+                      strokeWidth="6"
+                      strokeDasharray="263.8"
+                      initial={{ strokeDashoffset: 263.8 }}
+                      animate={{ 
+                        strokeDashoffset: 263.8 - (263.8 * Math.min(100, Math.max(0, Math.abs(analyticsData.totals.savingsRate)))) / 100 
+                      }}
+                      transition={{ duration: 1, ease: 'easeOut' }}
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center space-y-0.5 text-center">
+                    <span className={`text-4xl font-thin tracking-tight ${
+                      analyticsData.totals.savingsRate >= 0 ? 'text-income' : 'text-expense'
+                    }`}>
+                      {analyticsData.totals.savingsRate >= 0 ? '+' : ''}
+                      {analyticsData.totals.savingsRate?.toFixed(1)}%
+                    </span>
+                    <span className="text-[9px] tracking-wider text-muted uppercase">Tasso di Risparmio</span>
+                  </div>
+                </div>
+
+                <div className="w-full max-w-sm grid grid-cols-2 gap-8 border-t border-border/10 pt-6">
+                  <div className="space-y-1">
+                    <span className="text-[9px] tracking-wider text-muted uppercase block">Entrate Totali</span>
+                    <p className="text-base font-light text-income">€{fmt(analyticsData.totals.rangeIncome)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[9px] tracking-wider text-muted uppercase block">Uscite Totali</span>
+                    <p className="text-base font-light text-expense">€{fmt(analyticsData.totals.rangeExpense)}</p>
+                  </div>
+                </div>
+              </div>
+            ) : activeMetric === 'income-vs-expense' ? (
+              <div className="space-y-6">
+                <div className="relative w-full h-[200px] flex items-end gap-3 px-2 border-b border-border/10">
+                  {analyticsData.groupedFlows.map((flow, i) => {
+                    const maxVal = Math.max(
+                      ...analyticsData.groupedFlows.map(f => Math.max(f.income, f.expense)),
+                      10
+                    )
+                    const incPct = (flow.income / maxVal) * 100
+                    const expPct = (flow.expense / maxVal) * 100
+
+                    return (
+                      <div key={i} className="flex-1 flex flex-col items-center justify-end h-full group relative">
+                        <div className="opacity-0 group-hover:opacity-100 absolute -top-12 bg-elevated/95 border border-border/40 text-[10px] p-2 rounded-lg shadow-xl z-20 pointer-events-none transition-all flex flex-col gap-0.5 shrink-0 whitespace-nowrap">
+                          <span className="font-medium text-fg mb-0.5">{flow.label}</span>
+                          <span className="text-income">Entrate: €{fmt(flow.income)}</span>
+                          <span className="text-expense">Uscite: €{fmt(flow.expense)}</span>
+                        </div>
+
+                        <div className="w-full flex items-end gap-1 justify-center h-[160px] pb-1">
+                          <motion.div
+                            initial={{ height: 0 }}
+                            animate={{ height: `${incPct}%` }}
+                            className="w-2.5 rounded-t-sm bg-income/60 group-hover:bg-income transition-colors"
+                          />
+                          <motion.div
+                            initial={{ height: 0 }}
+                            animate={{ height: `${expPct}%` }}
+                            className="w-2.5 rounded-t-sm bg-expense/60 group-hover:bg-expense transition-colors"
+                          />
+                        </div>
+                        <span className="text-[8px] text-muted tracking-wider truncate w-full text-center mt-1 py-1 block">
+                          {flow.label}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+                
+                <div className="flex justify-center gap-6 text-[10px] text-muted tracking-wider">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full bg-income" />
+                    <span>Entrate</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full bg-expense" />
+                    <span>Uscite</span>
+                  </div>
+                </div>
+              </div>
+            ) : activeChartCoords ? (
+              <div className="relative">
+                <svg
+                  viewBox={`0 0 ${activeChartCoords.width} ${activeChartCoords.height}`}
+                  className="w-full h-auto select-none"
+                  onMouseMove={handleChartMouseMove}
+                  onMouseLeave={() => setHoveredIndex(null)}
+                >
+                  <defs>
+                    <linearGradient id="area-grad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#ffffff" stopOpacity="0.10" />
+                      <stop offset="100%" stopColor="#ffffff" stopOpacity="0.0" />
+                    </linearGradient>
+                    <linearGradient id="area-grad-busta" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--muted)" stopOpacity="0.06" />
+                      <stop offset="100%" stopColor="var(--muted)" stopOpacity="0.0" />
+                    </linearGradient>
+                    <linearGradient id="area-grad-fuori" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#818cf8" stopOpacity="0.08" />
+                      <stop offset="100%" stopColor="#818cf8" stopOpacity="0.0" />
+                    </linearGradient>
+                  </defs>
+
                   <line
-                    x1={activeChartCoords.points[hoveredIndex].x}
+                    x1={activeChartCoords.pad.left}
                     y1={activeChartCoords.pad.top}
-                    x2={activeChartCoords.points[hoveredIndex].x}
+                    x2={activeChartCoords.width - activeChartCoords.pad.right}
+                    y2={activeChartCoords.pad.top}
+                    stroke="var(--border)"
+                    strokeWidth="0.8"
+                    strokeDasharray="4,4"
+                  />
+                  <line
+                    x1={activeChartCoords.pad.left}
+                    y1={activeChartCoords.pad.top + activeChartCoords.plotH / 2}
+                    x2={activeChartCoords.width - activeChartCoords.pad.right}
+                    y2={activeChartCoords.pad.top + activeChartCoords.plotH / 2}
+                    stroke="var(--border)"
+                    strokeWidth="0.8"
+                    strokeDasharray="4,4"
+                  />
+                  <line
+                    x1={activeChartCoords.pad.left}
+                    y1={activeChartCoords.height - activeChartCoords.pad.bottom}
+                    x2={activeChartCoords.width - activeChartCoords.pad.right}
                     y2={activeChartCoords.height - activeChartCoords.pad.bottom}
                     stroke="var(--border)"
-                    strokeWidth="1"
-                    strokeDasharray="3,3"
+                    strokeWidth="0.8"
                   />
+
                   {activeMetric === 'busta-vs-fuori' ? (
                     <>
-                      <circle
-                        cx={activeChartCoords.points[hoveredIndex].x}
-                        cy={activeChartCoords.points[hoveredIndex].y1}
-                        r="4"
-                        fill="var(--muted)"
+                      <path
+                        d={`${activeChartCoords.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y1}`).join(' ')} L ${
+                          activeChartCoords.points[activeChartCoords.points.length - 1].x
+                        } ${activeChartCoords.height - activeChartCoords.pad.bottom} L ${activeChartCoords.points[0].x} ${
+                          activeChartCoords.height - activeChartCoords.pad.bottom
+                        } Z`}
+                        fill="url(#area-grad-busta)"
                       />
-                      <circle
-                        cx={activeChartCoords.points[hoveredIndex].x}
-                        cy={activeChartCoords.points[hoveredIndex].y2!}
-                        r="4"
-                        fill="#818cf8"
+                      <path
+                        d={activeChartCoords.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y1}`).join(' ')}
+                        fill="none"
+                        stroke="var(--muted)"
+                        strokeWidth="1.2"
+                      />
+
+                      <path
+                        d={`${activeChartCoords.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y2}`).join(' ')} L ${
+                          activeChartCoords.points[activeChartCoords.points.length - 1].x
+                        } ${activeChartCoords.height - activeChartCoords.pad.bottom} L ${activeChartCoords.points[0].x} ${
+                          activeChartCoords.height - activeChartCoords.pad.bottom
+                        } Z`}
+                        fill="url(#area-grad-fuori)"
+                      />
+                      <path
+                        d={activeChartCoords.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y2!}`).join(' ')}
+                        fill="none"
+                        stroke="#818cf8"
+                        strokeWidth="1.2"
                       />
                     </>
+                  ) : activeMetric === 'withdrawals' ? (
+                    activeChartCoords.points.map((p, idx) => {
+                      if (p.val1 === 0) return null
+                      return (
+                        <line
+                          key={idx}
+                          x1={p.x}
+                          y1={activeChartCoords.height - activeChartCoords.pad.bottom}
+                          x2={p.x}
+                          y2={p.y1}
+                          stroke="var(--expense)"
+                          strokeWidth="3.5"
+                          strokeLinecap="round"
+                        />
+                      )
+                    })
                   ) : (
-                    <circle
-                      cx={activeChartCoords.points[hoveredIndex].x}
-                      cy={activeChartCoords.points[hoveredIndex].y1}
-                      r="4"
-                      fill={activeMetric === 'withdrawals' ? 'var(--expense)' : '#ffffff'}
-                    />
+                    <>
+                      <path
+                        d={`${activeChartCoords.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y1}`).join(' ')} L ${
+                          activeChartCoords.points[activeChartCoords.points.length - 1].x
+                        } ${activeChartCoords.height - activeChartCoords.pad.bottom} L ${activeChartCoords.points[0].x} ${
+                          activeChartCoords.height - activeChartCoords.pad.bottom
+                        } Z`}
+                        fill="url(#area-grad)"
+                      />
+                      <path
+                        d={activeChartCoords.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y1}`).join(' ')}
+                        fill="none"
+                        stroke="#ffffff"
+                        strokeWidth="1.2"
+                      />
+                    </>
                   )}
-                </>
-              )}
 
-              {/* X & Y Labels */}
-              <text
-                x={activeChartCoords.pad.left}
-                y={activeChartCoords.height - 8}
-                fill="var(--muted)"
-                fontSize="7"
-                letterSpacing="1"
-                textAnchor="start"
-              >
-                {activeChartCoords.points[0]?.date.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}
-              </text>
-              <text
-                x={activeChartCoords.width - activeChartCoords.pad.right}
-                y={activeChartCoords.height - 8}
-                fill="var(--muted)"
-                fontSize="7"
-                letterSpacing="1"
-                textAnchor="end"
-              >
-                {activeChartCoords.points[activeChartCoords.points.length - 1]?.date.toLocaleDateString('it-IT', {
-                  day: 'numeric',
-                  month: 'short'
-                })}
-              </text>
+                  {hoveredIndex !== null && activeChartCoords.points[hoveredIndex] && (
+                    <>
+                      <line
+                        x1={activeChartCoords.points[hoveredIndex].x}
+                        y1={activeChartCoords.pad.top}
+                        x2={activeChartCoords.points[hoveredIndex].x}
+                        y2={activeChartCoords.height - activeChartCoords.pad.bottom}
+                        stroke="var(--border)"
+                        strokeWidth="1"
+                        strokeDasharray="3,3"
+                      />
+                      {activeMetric === 'busta-vs-fuori' ? (
+                        <>
+                          <circle
+                            cx={activeChartCoords.points[hoveredIndex].x}
+                            cy={activeChartCoords.points[hoveredIndex].y1}
+                            r="4"
+                            fill="var(--muted)"
+                          />
+                          <circle
+                            cx={activeChartCoords.points[hoveredIndex].x}
+                            cy={activeChartCoords.points[hoveredIndex].y2!}
+                            r="4"
+                            fill="#818cf8"
+                          />
+                        </>
+                      ) : (
+                        <circle
+                          cx={activeChartCoords.points[hoveredIndex].x}
+                          cy={activeChartCoords.points[hoveredIndex].y1}
+                          r="4"
+                          fill={activeMetric === 'withdrawals' ? 'var(--expense)' : '#ffffff'}
+                        />
+                      )}
+                    </>
+                  )}
 
-              {/* Y Value levels */}
-              <text
-                x={activeChartCoords.pad.left - 8}
-                y={activeChartCoords.pad.top + 3}
-                fill="var(--muted)"
-                fontSize="7"
-                textAnchor="end"
-              >
-                €{activeChartCoords.yMax.toFixed(0)}
-              </text>
-              <text
-                x={activeChartCoords.pad.left - 8}
-                y={activeChartCoords.height - activeChartCoords.pad.bottom + 3}
-                fill="var(--muted)"
-                fontSize="7"
-                textAnchor="end"
-              >
-                €{activeChartCoords.yMin.toFixed(0)}
-              </text>
-            </svg>
+                  <text
+                    x={activeChartCoords.pad.left}
+                    y={activeChartCoords.height - 8}
+                    fill="var(--muted)"
+                    fontSize="7"
+                    letterSpacing="1"
+                    textAnchor="start"
+                  >
+                    {activeChartCoords.points[0]?.date.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}
+                  </text>
+                  <text
+                    x={activeChartCoords.width - activeChartCoords.pad.right}
+                    y={activeChartCoords.height - 8}
+                    fill="var(--muted)"
+                    fontSize="7"
+                    letterSpacing="1"
+                    textAnchor="end"
+                  >
+                    {activeChartCoords.points[activeChartCoords.points.length - 1]?.date.toLocaleDateString('it-IT', {
+                      day: 'numeric',
+                      month: 'short'
+                    })}
+                  </text>
 
-            {/* Hover Floating Details Card */}
-            {hoveredIndex !== null && activeChartCoords.points[hoveredIndex] && (
-              <div className="absolute top-0 right-0 bg-elevated/95 border border-border/40 p-3 rounded-xl shadow-xl space-y-1 z-20 pointer-events-none">
-                <span className="text-[9px] text-muted tracking-wider uppercase block">
-                  {new Date(activeChartCoords.points[hoveredIndex].date).toLocaleDateString('it-IT', {
-                    day: 'numeric',
-                    month: 'long',
-                    year: 'numeric'
-                  })}
-                </span>
-                {activeMetric === 'busta-vs-fuori' ? (
-                  <div className="space-y-0.5 text-xs font-light">
-                    <p className="text-fg flex justify-between gap-4">
-                      <span>Busta:</span>
-                      <span className="font-normal">€{fmt(activeChartCoords.points[hoveredIndex].val1)}</span>
-                    </p>
-                    <p className="text-[#818cf8] flex justify-between gap-4">
-                      <span>Fuori:</span>
-                      <span className="font-normal">€{fmt(activeChartCoords.points[hoveredIndex].val2!)}</span>
-                    </p>
+                  <text
+                    x={activeChartCoords.pad.left - 8}
+                    y={activeChartCoords.pad.top + 3}
+                    fill="var(--muted)"
+                    fontSize="7"
+                    textAnchor="end"
+                  >
+                    €{activeChartCoords.yMax.toFixed(0)}
+                  </text>
+                  <text
+                    x={activeChartCoords.pad.left - 8}
+                    y={activeChartCoords.height - activeChartCoords.pad.bottom + 3}
+                    fill="var(--muted)"
+                    fontSize="7"
+                    textAnchor="end"
+                  >
+                    €{activeChartCoords.yMin.toFixed(0)}
+                  </text>
+                </svg>
+
+                {hoveredIndex !== null && activeChartCoords.points[hoveredIndex] && (
+                  <div className="absolute top-0 right-0 bg-elevated/95 border border-border/40 p-3 rounded-xl shadow-xl space-y-1 z-20 pointer-events-none">
+                    <span className="text-[9px] text-muted tracking-wider uppercase block">
+                      {new Date(activeChartCoords.points[hoveredIndex].date).toLocaleDateString('it-IT', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric'
+                      })}
+                    </span>
+                    {activeMetric === 'busta-vs-fuori' ? (
+                      <div className="space-y-0.5 text-xs font-light">
+                        <p className="text-fg flex justify-between gap-4">
+                          <span>Busta:</span>
+                          <span className="font-normal">€{fmt(activeChartCoords.points[hoveredIndex].val1)}</span>
+                        </p>
+                        <p className="text-[#818cf8] flex justify-between gap-4">
+                          <span>Fuori:</span>
+                          <span className="font-normal">€{fmt(activeChartCoords.points[hoveredIndex].val2!)}</span>
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-sm font-light text-fg">
+                        €{fmt(activeChartCoords.points[hoveredIndex].val1)}
+                      </p>
+                    )}
                   </div>
-                ) : (
-                  <p className="text-sm font-light text-fg">
-                    €{fmt(activeChartCoords.points[hoveredIndex].val1)}
-                  </p>
+                )}
+                
+                {activeMetric === 'busta-vs-fuori' && (
+                  <div className="flex justify-center gap-6 text-[10px] text-muted tracking-wider pt-2">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full bg-muted" />
+                      <span>Envelope Busta</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full bg-[#818cf8]" />
+                      <span>Pocket Fuori</span>
+                    </div>
+                  </div>
                 )}
               </div>
+            ) : null}
+          </div>
+
+          {/* Auxiliary Statistics Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {activeMetric === 'withdrawals' && (
+              <>
+                <div className="card p-5 space-y-2">
+                  <span className="text-[9px] tracking-wider text-muted uppercase">Importo Medio Prelievo</span>
+                  <h4 className="text-2xl font-thin tracking-tight text-fg">
+                    €{fmt(
+                      analyticsData.withdrawals.length > 0 
+                        ? analyticsData.withdrawals.reduce((s,t) => s + Number(t.amount), 0) / analyticsData.withdrawals.length
+                        : 0
+                    )}
+                  </h4>
+                  <p className="text-[10px] text-muted tracking-wide">
+                    Calcolato su {analyticsData.withdrawals.length} prelievi registrati
+                  </p>
+                </div>
+                <div className="card p-5 space-y-2">
+                  <span className="text-[9px] tracking-wider text-muted uppercase">Prelievo Massimo</span>
+                  <h4 className="text-2xl font-thin tracking-tight text-fg text-expense">
+                    €{fmt(
+                      analyticsData.withdrawals.length > 0 
+                        ? Math.max(...analyticsData.withdrawals.map(t => Number(t.amount)))
+                        : 0
+                    )}
+                  </h4>
+                  <p className="text-[10px] text-muted tracking-wide">
+                    La singola ricarica di contante più elevata nel periodo
+                  </p>
+                </div>
+              </>
             )}
-            
-            {/* Custom chart legend for Busta vs Fuori */}
-            {activeMetric === 'busta-vs-fuori' && (
-              <div className="flex justify-center gap-6 text-[10px] text-muted tracking-wider pt-2">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full bg-muted" />
-                  <span>Envelope Busta</span>
+
+            {activeMetric === 'burn-rate' && (
+              <>
+                <div className="card p-5 space-y-2">
+                  <span className="text-[9px] tracking-wider text-muted uppercase">Spesa Fuori Totale</span>
+                  <h4 className="text-2xl font-thin tracking-tight text-fg">
+                    €{fmt(analyticsData.totals.totalOutsideExpense || 0)}
+                  </h4>
+                  <p className="text-[10px] text-muted tracking-wide">
+                    Spese correnti registrate escludendo il deposito busta
+                  </p>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full bg-[#818cf8]" />
-                  <span>Pocket Fuori</span>
+                <div className="card p-5 space-y-2">
+                  <span className="text-[9px] tracking-wider text-muted uppercase">Copertura Residua Stima</span>
+                  <h4 className="text-2xl font-thin tracking-tight text-fg text-income">
+                    {analyticsData.totals.avgDailyOutsideExpense > 0 
+                      ? `${Math.floor((analyticsData.totals.currentFuori || 0) / analyticsData.totals.avgDailyOutsideExpense)} giorni`
+                      : 'N/A'
+                    }
+                  </h4>
+                  <p className="text-[10px] text-muted tracking-wide">
+                    Durata stimata dei fondi fuori busta in base al tasso di spesa
+                  </p>
                 </div>
-              </div>
+              </>
             )}
           </div>
-        ) : null}
-      </div>
-
-      {/* Auxiliary Statistics Cards (Detailed Metrics depending on view) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-        {activeMetric === 'withdrawals' && (
-          <>
-            <div className="card p-5 space-y-2">
-              <span className="text-[9px] tracking-wider text-muted uppercase">Importo Medio Prelievo</span>
-              <h4 className="text-2xl font-thin tracking-tight text-fg">
-                €{fmt(
-                  analyticsData.withdrawals.length > 0 
-                    ? analyticsData.withdrawals.reduce((s,t) => s + Number(t.amount), 0) / analyticsData.withdrawals.length
-                    : 0
-                )}
-              </h4>
-              <p className="text-[10px] text-muted tracking-wide">
-                Calcolato su {analyticsData.withdrawals.length} prelievi registrati
-              </p>
-            </div>
-            <div className="card p-5 space-y-2">
-              <span className="text-[9px] tracking-wider text-muted uppercase">Prelievo Massimo</span>
-              <h4 className="text-2xl font-thin tracking-tight text-fg text-expense">
-                €{fmt(
-                  analyticsData.withdrawals.length > 0 
-                    ? Math.max(...analyticsData.withdrawals.map(t => Number(t.amount)))
-                    : 0
-                )}
-              </h4>
-              <p className="text-[10px] text-muted tracking-wide">
-                La singola ricarica di contante più elevata nel periodo
-              </p>
-            </div>
-          </>
-        )}
-
-        {activeMetric === 'burn-rate' && (
-          <>
-            <div className="card p-5 space-y-2">
-              <span className="text-[9px] tracking-wider text-muted uppercase">Spesa Fuori Totale</span>
-              <h4 className="text-2xl font-thin tracking-tight text-fg">
-                €{fmt(analyticsData.totals.totalOutsideExpense || 0)}
-              </h4>
-              <p className="text-[10px] text-muted tracking-wide">
-                Spese correnti registrate escludendo il deposito busta
-              </p>
-            </div>
-            <div className="card p-5 space-y-2">
-              <span className="text-[9px] tracking-wider text-muted uppercase">Copertura Residua Stima</span>
-              <h4 className="text-2xl font-thin tracking-tight text-fg text-income">
-                {analyticsData.totals.avgDailyOutsideExpense > 0 
-                  ? `${Math.floor((analyticsData.totals.currentFuori || 0) / analyticsData.totals.avgDailyOutsideExpense)} giorni`
-                  : 'N/A'
-                }
-              </h4>
-              <p className="text-[10px] text-muted tracking-wide">
-                Durata stimata dei fondi fuori busta in base al tasso di spesa
-              </p>
-            </div>
-          </>
-        )}
-      </div>
+        </>
+      )}
 
     </div>
   )
