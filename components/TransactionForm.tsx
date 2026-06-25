@@ -7,6 +7,7 @@ import { X, Calculator as CalcIcon, TrendingUp, TrendingDown } from 'lucide-reac
 import Calculator from './Calculator'
 import { supabase, Transaction } from '@/lib/supabase'
 import { parseTransaction, formatDebtTitle, WalletType } from '@/lib/transactions'
+import { pushAction } from '@/lib/actionsTracker'
 
 interface TransactionFormProps {
   isOpen: boolean
@@ -106,9 +107,25 @@ export default function TransactionForm({
     }
     
     if (editTransaction) {
-      await supabase.from('transactions').update(payload).eq('id', editTransaction.id)
+      const { data } = await supabase.from('transactions').update(payload).eq('id', editTransaction.id).select()
+      if (data && data[0]) {
+        const parsed = parseTransaction(editTransaction)
+        const typeKey = parsed.isDebt ? 'edit_debt' : 'edit_transaction'
+        const label = parsed.isDebt
+          ? `Modificato debito "${title.trim()}" (${parsed.debtInfo?.person})`
+          : `Modificata transazione "${title.trim()}" (€${parseFloat(amount).toFixed(2)})`
+        pushAction(typeKey, label, editTransaction, data[0])
+      }
     } else {
-      await supabase.from('transactions').insert(payload)
+      const { data } = await supabase.from('transactions').insert(payload).select()
+      if (data && data[0]) {
+        const parsed = parseTransaction(data[0])
+        const typeKey = parsed.isDebt ? 'add_debt' : 'add_transaction'
+        const label = parsed.isDebt
+          ? `Aggiunto debito "${title.trim()}" (${parsed.debtInfo?.person})`
+          : `Aggiunta transazione "${title.trim()}" (€${parseFloat(amount).toFixed(2)})`
+        pushAction(typeKey, label, { id: data[0].id }, data[0])
+      }
     }
     setSaving(false)
     onSaved()

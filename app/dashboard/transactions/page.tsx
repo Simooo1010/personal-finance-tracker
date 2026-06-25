@@ -7,6 +7,7 @@ import { supabase, Transaction } from '@/lib/supabase'
 import TransactionForm from '@/components/TransactionForm'
 import Calculator from '@/components/Calculator'
 import { parseTransaction, getTransactionEffect, WalletType } from '@/lib/transactions'
+import { pushAction } from '@/lib/actionsTracker'
 
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -24,11 +25,26 @@ export default function TransactionsPage() {
     setLoading(false)
   }, [])
 
-  useEffect(() => { fetchTransactions() }, [fetchTransactions])
+  useEffect(() => {
+    fetchTransactions()
+    window.addEventListener('finance_db_changed', fetchTransactions)
+    return () => window.removeEventListener('finance_db_changed', fetchTransactions)
+  }, [fetchTransactions])
 
   const handleDelete = async (id: string) => {
-    await supabase.from('transactions').delete().eq('id', id)
-    fetchTransactions()
+    const txToDelete = transactions.find(t => t.id === id)
+    if (!txToDelete) return
+
+    const { error } = await supabase.from('transactions').delete().eq('id', id)
+    if (!error) {
+      const parsed = parseTransaction(txToDelete)
+      const label = parsed.isDebt
+        ? `Eliminato debito "${parsed.cleanTitle}" (${parsed.debtInfo?.person})`
+        : `Eliminata transazione "${parsed.cleanTitle}" (€${Number(txToDelete.amount).toFixed(2)})`
+      const typeKey = parsed.isDebt ? 'delete_debt' : 'delete_transaction'
+      pushAction(typeKey, label, txToDelete, { id: txToDelete.id })
+      fetchTransactions()
+    }
   }
 
   const filtered = transactions

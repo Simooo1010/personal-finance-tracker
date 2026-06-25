@@ -22,7 +22,11 @@ export default function DashboardHome() {
     setLoading(false)
   }, [])
 
-  useEffect(() => { fetchTransactions() }, [fetchTransactions])
+  useEffect(() => {
+    fetchTransactions()
+    window.addEventListener('finance_db_changed', fetchTransactions)
+    return () => window.removeEventListener('finance_db_changed', fetchTransactions)
+  }, [fetchTransactions])
 
   const realTransactions = transactions.filter(t => !t.title.endsWith('-transfer]'))
   

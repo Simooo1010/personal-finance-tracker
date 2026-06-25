@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Trash2, Pencil, Check, X, ArrowUpRight, ArrowDownRight, User, FileText, Calendar, Wallet } from 'lucide-react'
 import { supabase, Transaction } from '@/lib/supabase'
 import { parseTransaction, formatDebtTitle, WalletType, DebtInfo } from '@/lib/transactions'
+import { pushAction } from '@/lib/actionsTracker'
 
 const walletNames: Record<WalletType, string> = {
   busta: '✉️ Busta',
@@ -30,6 +31,9 @@ export default function DebtsPage() {
   const [debtType, setDebtType] = useState<'to_me' | 'by_me'>('to_me') // to_me: Mi devono; by_me: Devo a
   const [saving, setSaving] = useState(false)
 
+  // Deletion confirmation
+  const [confirmDeleteDebt, setConfirmDeleteDebt] = useState<any | null>(null)
+
   // Navigation Filter
   const [activeTab, setActiveTab] = useState<'to_me' | 'by_me' | 'completed'>('to_me')
 
@@ -41,6 +45,8 @@ export default function DebtsPage() {
 
   useEffect(() => {
     fetchTransactions()
+    window.addEventListener('finance_db_changed', fetchTransactions)
+    return () => window.removeEventListener('finance_db_changed', fetchTransactions)
   }, [fetchTransactions])
 
   // Parse all transactions to find debts
@@ -129,7 +135,7 @@ export default function DebtsPage() {
     }
 
     if (editingId) {
-      // If we are editing, let's keep the existing status
+      const originalTx = transactions.find(t => t.id === editingId)
       const existing = debtsList.find(d => d.id === editingId)
       const existingStatus = existing?.debtInfo?.status || 'active'
       const updatedTitle = formatDebtTitle({
@@ -139,14 +145,23 @@ export default function DebtsPage() {
         status: existingStatus
       }, wallet)
       
-      await supabase.from('transactions').update({
+      const { data } = await supabase.from('transactions').update({
         title: updatedTitle,
         amount: parseFloat(amount),
         type: dbType,
         created_at: new Date(createdAt).toISOString()
-      }).eq('id', editingId)
+      }).eq('id', editingId).select()
+
+      if (data && data[0] && originalTx) {
+        const label = `Modificato debito "${desc.trim() || 'Debito'}" (${person.trim()})`
+        pushAction('edit_debt', label, originalTx, data[0])
+      }
     } else {
-      await supabase.from('transactions').insert(payload)
+      const { data } = await supabase.from('transactions').insert(payload).select()
+      if (data && data[0]) {
+        const label = `Aggiunto debito "${desc.trim() || 'Debito'}" (${person.trim()})`
+        pushAction('add_debt', label, { id: data[0].id }, data[0])
+      }
     }
 
     setSaving(false)
@@ -154,10 +169,37 @@ export default function DebtsPage() {
     fetchTransactions()
   }
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Vuoi eliminare definitivamente questa registrazione di debito?')) {
-      await supabase.from('transactions').delete().eq('id', id)
-      fetchTransactions()
+  const handleDelete = (id: string) => {
+    const debt = debtsList.find(d => d.id === id)
+    if (debt) {
+      setConfirmDeleteDebt(debt)
+    }
+  }
+
+  const executeDeleteDebt = async () => {
+    if (!confirmDeleteDebt) return
+    const debt = confirmDeleteDebt
+    setConfirmDeleteDebt(null)
+    setLoading(true)
+
+    const txToDelete = transactions.find(t => t.id === debt.id)
+    if (!txToDelete) {
+      setLoading(false)
+      return
+    }
+
+    try {
+      const { error } = await supabase.from('transactions').delete().eq('id', debt.id)
+      if (!error) {
+        const label = `Eliminato debito "${debt.debtInfo?.desc}" (${debt.debtInfo?.person})`
+        pushAction('delete_debt', label, txToDelete, { id: debt.id })
+        fetchTransactions()
+      }
+    } catch (e) {
+      console.error(e)
+      alert("Errore durante l'eliminazione del debito.")
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -170,11 +212,19 @@ export default function DebtsPage() {
       status: newStatus
     }, debt.wallet)
 
-    await supabase.from('transactions').update({
-      title: updatedTitle
-    }).eq('id', debt.id)
+    const originalTx = transactions.find(t => t.id === debt.id)
 
-    fetchTransactions()
+    const { data } = await supabase.from('transactions').update({
+      title: updatedTitle
+    }).eq('id', debt.id).select()
+
+    if (data && data[0] && originalTx) {
+      const actionLabel = newStatus === 'completed'
+        ? `Riscattato debito "${debt.debtInfo.desc}" (${debt.debtInfo.person})`
+        : `Ripristinato debito "${debt.debtInfo.desc}" (${debt.debtInfo.person})`
+      pushAction('toggle_debt', actionLabel, originalTx, data[0])
+      fetchTransactions()
+    }
   }
 
   const fmt = (n: number) => n.toLocaleString('it-IT', { minimumFractionDigits: 2 })
@@ -533,6 +583,57 @@ export default function DebtsPage() {
               </form>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Custom Confirmation Modal for Deleting Debt */}
+      <AnimatePresence>
+        {confirmDeleteDebt && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setConfirmDeleteDebt(null)}
+              className="absolute inset-0 bg-bg/80 backdrop-blur-sm"
+            />
+
+            {/* Modal Box */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="relative w-full max-w-md card p-6 bg-surface/90 border border-border/40 shadow-2xl space-y-6 text-center"
+            >
+              <div className="flex flex-col items-center space-y-3">
+                <div className="w-12 h-12 rounded-full bg-expense/10 flex items-center justify-center text-expense">
+                  <Trash2 className="w-6 h-6" strokeWidth={1.5} />
+                </div>
+                <h3 className="text-base font-light text-fg">
+                  Elimina Registrazione Debito
+                </h3>
+                <p className="text-xs text-muted font-light leading-relaxed max-w-xs">
+                  Sei sicuro di voler eliminare definitivamente questa registrazione di debito? Questa azione ripristinerà il saldo originario.
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setConfirmDeleteDebt(null)}
+                  className="flex-1 py-2.5 border border-border/20 text-muted hover:text-fg text-xs tracking-wider uppercase font-semibold rounded-xl t cursor-pointer"
+                >
+                  Annulla
+                </button>
+                <button
+                  onClick={executeDeleteDebt}
+                  className="flex-1 py-2.5 bg-expense text-white text-xs tracking-wider uppercase font-semibold rounded-xl hover:bg-expense/90 t cursor-pointer"
+                >
+                  Elimina
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

@@ -47,6 +47,8 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     fetchTransactions()
+    window.addEventListener('finance_db_changed', fetchTransactions)
+    return () => window.removeEventListener('finance_db_changed', fetchTransactions)
   }, [fetchTransactions])
 
   // ── 1. PREVIOUS ANALYTICS MODULES COMPUTATIONS (GLOBAL SUMMARY) ──────

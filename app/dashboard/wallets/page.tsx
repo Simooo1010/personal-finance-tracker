@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Wallet, ArrowLeftRight, Check, ArrowRight, Pencil, Trash2, X } from 'lucide-react'
 import { supabase, Transaction } from '@/lib/supabase'
 import { getWalletBalances, WalletType, parseTransaction } from '@/lib/transactions'
+import { pushAction } from '@/lib/actionsTracker'
 
 const walletNames: Record<WalletType, string> = {
   busta: '✉️ Busta',
@@ -37,6 +38,11 @@ export default function WalletsPage() {
   const [editAmount, setEditAmount] = useState('')
   const [editDate, setEditDate] = useState('')
 
+  const [confirmDeleteTransfer, setConfirmDeleteTransfer] = useState<{
+    sourceTx: Transaction
+    destTx?: Transaction
+  } | null>(null)
+
   const fetchTransactions = useCallback(async () => {
     const { data } = await supabase.from('transactions').select('*').order('created_at', { ascending: false })
     if (data) setTransactions(data)
@@ -45,6 +51,8 @@ export default function WalletsPage() {
 
   useEffect(() => {
     fetchTransactions()
+    window.addEventListener('finance_db_changed', fetchTransactions)
+    return () => window.removeEventListener('finance_db_changed', fetchTransactions)
   }, [fetchTransactions])
 
   const balances = getWalletBalances(transactions)
@@ -81,7 +89,16 @@ export default function WalletsPage() {
       created_at: nowStr
     }
 
-    await supabase.from('transactions').insert([sourceTx, destTx])
+    const { data } = await supabase.from('transactions').insert([sourceTx, destTx]).select()
+    if (data && data.length >= 2) {
+      const sTx = data.find(r => r.type === 'expense')
+      const dTx = data.find(r => r.type === 'income')
+      if (sTx && dTx) {
+        const label = `Eseguito spostamento ${walletNames[sourceWallet]} ➔ ${walletNames[destWallet]} (€${amt.toFixed(2)})`
+        pushAction('add_transfer', label, { sourceId: sTx.id, destId: dTx.id }, { sourceTx: sTx, destTx: dTx })
+      }
+    }
+
     setTransferAmount('')
     setSubmitting(false)
     fetchTransactions()
@@ -105,17 +122,28 @@ export default function WalletsPage() {
     setEditDate(`${year}-${month}-${day}T${hours}:${minutes}`)
   }
 
-  const handleDeleteClick = async (sourceTx: Transaction, destTx?: Transaction) => {
-    const confirmDelete = window.confirm("Sei sicuro di voler eliminare questo spostamento? Questa azione ripristinerà i saldi originari.")
-    if (!confirmDelete) return
+  const handleDeleteClick = (sourceTx: Transaction, destTx?: Transaction) => {
+    setConfirmDeleteTransfer({ sourceTx, destTx })
+  }
 
+  const executeDeleteTransfer = async () => {
+    if (!confirmDeleteTransfer) return
+    const { sourceTx, destTx } = confirmDeleteTransfer
+    setConfirmDeleteTransfer(null)
     setLoading(true)
+
     const ids = [sourceTx.id]
     if (destTx) ids.push(destTx.id)
 
     try {
-      await supabase.from('transactions').delete().in('id', ids)
-      fetchTransactions()
+      const { error } = await supabase.from('transactions').delete().in('id', ids)
+      if (!error) {
+        const parsedSource = parseTransaction(sourceTx)
+        const parsedDest = destTx ? parseTransaction(destTx) : null
+        const label = `Eliminato spostamento ${walletNames[parsedSource.wallet]} ➔ ${parsedDest ? walletNames[parsedDest.wallet] : 'Portafoglio'} (€${Number(sourceTx.amount).toFixed(2)})`
+        pushAction('delete_transfer', label, { sourceTx, destTx }, { sourceId: sourceTx.id, destId: destTx?.id })
+        fetchTransactions()
+      }
     } catch (e) {
       console.error(e)
       alert("Errore durante l'eliminazione dello spostamento.")
@@ -171,12 +199,23 @@ export default function WalletsPage() {
     }
 
     try {
-      await supabase.from('transactions').update(updatedSource).eq('id', editingTransfer.sourceTx.id)
+      const originalSourceTx = editingTransfer.sourceTx
+      const originalDestTx = editingTransfer.destTx
 
+      const { data: updatedSourceData } = await supabase.from('transactions').update(updatedSource).eq('id', editingTransfer.sourceTx.id).select()
+
+      let updatedDestDataRow = null
       if (editingTransfer.destTx) {
-        await supabase.from('transactions').update(updatedDest).eq('id', editingTransfer.destTx.id)
+        const { data: updatedDestData } = await supabase.from('transactions').update(updatedDest).eq('id', editingTransfer.destTx.id).select()
+        if (updatedDestData) updatedDestDataRow = updatedDestData[0]
       } else {
-        await supabase.from('transactions').insert([updatedDest])
+        const { data: insertedDestData } = await supabase.from('transactions').insert([updatedDest]).select()
+        if (insertedDestData) updatedDestDataRow = insertedDestData[0]
+      }
+
+      if (updatedSourceData && updatedSourceData[0]) {
+        const label = `Modificato spostamento in ${walletNames[editSourceWallet]} ➔ ${walletNames[editDestWallet]} (€${amt.toFixed(2)})`
+        pushAction('edit_transfer', label, { sourceTx: originalSourceTx, destTx: originalDestTx }, { sourceTx: updatedSourceData[0], destTx: updatedDestDataRow })
       }
 
       setEditingTransfer(null)
@@ -534,6 +573,57 @@ export default function WalletsPage() {
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Custom Confirmation Modal for Deleting Transfer */}
+      <AnimatePresence>
+        {confirmDeleteTransfer && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setConfirmDeleteTransfer(null)}
+              className="absolute inset-0 bg-bg/80 backdrop-blur-sm"
+            />
+
+            {/* Modal Box */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="relative w-full max-w-md card p-6 bg-surface/90 border border-border/40 shadow-2xl space-y-6 text-center"
+            >
+              <div className="flex flex-col items-center space-y-3">
+                <div className="w-12 h-12 rounded-full bg-expense/10 flex items-center justify-center text-expense">
+                  <Trash2 className="w-6 h-6" strokeWidth={1.5} />
+                </div>
+                <h3 className="text-base font-light text-fg">
+                  Elimina Spostamento Interno
+                </h3>
+                <p className="text-xs text-muted font-light leading-relaxed max-w-xs">
+                  Sei sicuro di voler eliminare definitivamente questo spostamento? I saldi originari dei portafogli coinvolti verranno ripristinati.
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setConfirmDeleteTransfer(null)}
+                  className="flex-1 py-2.5 border border-border/20 text-muted hover:text-fg text-xs tracking-wider uppercase font-semibold rounded-xl t cursor-pointer"
+                >
+                  Annulla
+                </button>
+                <button
+                  onClick={executeDeleteTransfer}
+                  className="flex-1 py-2.5 bg-expense text-white text-xs tracking-wider uppercase font-semibold rounded-xl hover:bg-expense/90 t cursor-pointer"
+                >
+                  Elimina
+                </button>
+              </div>
             </motion.div>
           </div>
         )}
