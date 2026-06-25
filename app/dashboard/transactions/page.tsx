@@ -6,6 +6,7 @@ import { Plus, Pencil, Trash2, Search, Calculator as CalcIcon, ArrowUpRight, Arr
 import { supabase, Transaction } from '@/lib/supabase'
 import TransactionForm from '@/components/TransactionForm'
 import Calculator from '@/components/Calculator'
+import { parseTransaction, getTransactionEffect, WalletType } from '@/lib/transactions'
 
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -14,6 +15,7 @@ export default function TransactionsPage() {
   const [editTx, setEditTx] = useState<Transaction | null>(null)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all')
+  const [walletFilter, setWalletFilter] = useState<'all' | WalletType>('all')
   const [showCalc, setShowCalc] = useState(false)
 
   const fetchTransactions = useCallback(async () => {
@@ -32,12 +34,17 @@ export default function TransactionsPage() {
   const filtered = transactions
     .filter(t => !t.title.endsWith('-transfer]'))
     .filter(t => {
-      const matchSearch = t.title.toLowerCase().includes(search.toLowerCase())
+      const parsed = parseTransaction(t)
+      const matchSearch = parsed.cleanTitle.toLowerCase().includes(search.toLowerCase())
       const matchFilter = filter === 'all' || t.type === filter
-      return matchSearch && matchFilter
+      const matchWallet = walletFilter === 'all' || parsed.wallet === walletFilter
+      return matchSearch && matchFilter && matchWallet
     })
 
-  const net = filtered.reduce((s, t) => s + (t.type === 'income' ? Number(t.amount) : -Number(t.amount)), 0)
+  const net = filtered.reduce((s, t) => {
+    const effect = getTransactionEffect(t)
+    return s + (effect.income - effect.expense)
+  }, 0)
   const fmt = (n: number) => n.toLocaleString('it-IT', { minimumFractionDigits: 2 })
 
   return (
@@ -93,22 +100,51 @@ export default function TransactionsPage() {
       </div>
 
       {/* Filters chips */}
-      <div className="flex items-center gap-2">
-        {(['all', 'income', 'expense'] as const).map(f => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`px-4 py-1.5 rounded-full text-xs font-normal t cursor-pointer ${
-              filter === f
-                ? 'bg-fg text-bg shadow-sm'
-                : 'text-muted hover:text-fg hover:bg-elevated/45'
-            }`}
-          >
-            {f === 'all' ? 'Tutte' : f === 'income' ? 'Entrate' : 'Uscite'}
-          </button>
-        ))}
-      </div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/5 pb-6">
+        <div className="space-y-1.5">
+          <span className="text-[9px] tracking-[0.2em] uppercase text-muted block">Tipo</span>
+          <div className="flex items-center gap-2">
+            {(['all', 'income', 'expense'] as const).map(f => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`px-4 py-1.5 rounded-full text-xs font-normal t cursor-pointer ${
+                  filter === f
+                    ? 'bg-fg text-bg shadow-sm'
+                    : 'text-muted hover:text-fg hover:bg-elevated/45'
+                }`}
+              >
+                {f === 'all' ? 'Tutte' : f === 'income' ? 'Entrate' : 'Uscite'}
+              </button>
+            ))}
+          </div>
+        </div>
 
+        <div className="space-y-1.5">
+          <span className="text-[9px] tracking-[0.2em] uppercase text-muted block">Portafoglio</span>
+          <div className="flex flex-wrap items-center gap-2">
+            {([
+              { id: 'all', label: 'Tutti' },
+              { id: 'busta', label: '✉️ Busta' },
+              { id: 'fuori', label: '✈️ Fuori' },
+              { id: 'apple', label: '🍎 Apple' },
+              { id: 'postepay', label: '💳 Postepay' }
+            ] as const).map(w => (
+              <button
+                key={w.id}
+                onClick={() => setWalletFilter(w.id)}
+                className={`px-4 py-1.5 rounded-full text-xs font-normal t cursor-pointer ${
+                  walletFilter === w.id
+                    ? 'bg-fg text-bg shadow-sm'
+                    : 'text-muted hover:text-fg hover:bg-elevated/45'
+                }`}
+              >
+                {w.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
       {/* Transactions List */}
       {loading ? (
         <div className="flex justify-center py-16">
@@ -122,7 +158,14 @@ export default function TransactionsPage() {
         <div className="divide-y divide-border/5">
           <AnimatePresence mode="popLayout">
             {filtered.map((t, i) => {
-              const cleanTitle = t.title.replace(/ \[(busta|fuori|busta-transfer|fuori-transfer)\]$/, '')
+              const parsed = parseTransaction(t)
+              const walletLabel = parsed.wallet === 'busta'
+                ? '✉️ Busta'
+                : parsed.wallet === 'fuori'
+                ? '✈️ Fuori'
+                : parsed.wallet === 'apple'
+                ? '🍎 Apple'
+                : '💳 Postepay'
               return (
                 <motion.div
                   key={t.id}
@@ -144,7 +187,17 @@ export default function TransactionsPage() {
                       )}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-light text-fg truncate">{cleanTitle}</p>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <p className="text-sm font-light text-fg truncate">{parsed.cleanTitle}</p>
+                        {parsed.isDebt && (
+                          <span className="px-1.5 py-0.5 rounded text-[8px] tracking-wide uppercase font-semibold bg-purple-500/10 text-purple-400">
+                            {parsed.debtInfo?.type === 'to_me' ? 'Credito' : 'Debito'}
+                          </span>
+                        )}
+                        <span className="px-1.5 py-0.5 rounded text-[8px] tracking-wide uppercase font-light bg-elevated text-muted">
+                          {walletLabel}
+                        </span>
+                      </div>
                       <p className="text-[10px] text-muted tracking-wider mt-0.5">
                         {new Date(t.created_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })} • {new Date(t.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
                       </p>

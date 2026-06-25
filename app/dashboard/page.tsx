@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import { TrendingUp, TrendingDown, Plus, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 import { supabase, Transaction } from '@/lib/supabase'
 import TransactionForm from '@/components/TransactionForm'
+import { getTransactionEffect, parseTransaction } from '@/lib/transactions'
 
 export default function DashboardHome() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -24,8 +25,15 @@ export default function DashboardHome() {
   useEffect(() => { fetchTransactions() }, [fetchTransactions])
 
   const realTransactions = transactions.filter(t => !t.title.endsWith('-transfer]'))
-  const totalIncome  = realTransactions.filter(t => t.type === 'income' ).reduce((s, t) => s + Number(t.amount), 0)
-  const totalExpense = realTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0)
+  
+  let totalIncome = 0
+  let totalExpense = 0
+  realTransactions.forEach(t => {
+    const effect = getTransactionEffect(t)
+    totalIncome += effect.income
+    totalExpense += effect.expense
+  })
+  
   const balance = totalIncome - totalExpense
   const recent = realTransactions.slice(0, 6)
 
@@ -119,7 +127,15 @@ export default function DashboardHome() {
         ) : (
           <div className="divide-y divide-border/5">
             {recent.map((t, i) => {
-              const cleanTitle = t.title.replace(/ \[(busta|fuori|busta-transfer|fuori-transfer)\]$/, '')
+              const parsed = parseTransaction(t)
+              const walletLabel = parsed.wallet === 'busta'
+                ? '✉️ Busta'
+                : parsed.wallet === 'fuori'
+                ? '✈️ Fuori'
+                : parsed.wallet === 'apple'
+                ? '🍎 Apple'
+                : '💳 Postepay'
+              
               return (
                 <motion.div
                   key={t.id}
@@ -139,7 +155,17 @@ export default function DashboardHome() {
                       )}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-light text-fg truncate">{cleanTitle}</p>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <p className="text-sm font-light text-fg truncate">{parsed.cleanTitle}</p>
+                        {parsed.isDebt && (
+                          <span className="px-1.5 py-0.5 rounded text-[8px] tracking-wide uppercase font-semibold bg-purple-500/10 text-purple-400">
+                            {parsed.debtInfo?.type === 'to_me' ? 'Credito' : 'Debito'}
+                          </span>
+                        )}
+                        <span className="px-1.5 py-0.5 rounded text-[8px] tracking-wide uppercase font-light bg-elevated text-muted">
+                          {walletLabel}
+                        </span>
+                      </div>
                       <p className="text-[10px] text-muted tracking-wider mt-0.5">
                         {new Date(t.created_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })} • {new Date(t.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
                       </p>

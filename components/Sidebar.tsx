@@ -2,12 +2,13 @@
 
 import { usePathname, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { Home, ArrowLeftRight, BarChart3, LogOut, Wallet } from 'lucide-react'
+import { Home, ArrowLeftRight, BarChart3, LogOut, Wallet, HandCoins } from 'lucide-react'
 
 const navItems = [
   { href: '/dashboard',              icon: Home,           label: 'Home' },
   { href: '/dashboard/wallets',      icon: Wallet,         label: 'Portafogli' },
   { href: '/dashboard/transactions', icon: ArrowLeftRight, label: 'Transazioni' },
+  { href: '/dashboard/debts',        icon: HandCoins,      label: 'Debiti' },
   { href: '/dashboard/analytics',    icon: BarChart3,      label: 'Analisi' },
 ]
 

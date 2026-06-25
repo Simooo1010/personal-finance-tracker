@@ -4,12 +4,28 @@ import { useEffect, useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { Wallet, ArrowLeftRight, Check, ArrowRight } from 'lucide-react'
 import { supabase, Transaction } from '@/lib/supabase'
+import { getWalletBalances, WalletType } from '@/lib/transactions'
+
+const walletNames: Record<WalletType, string> = {
+  busta: '✉️ Busta',
+  fuori: '✈️ Fuori',
+  apple: '🍎 Apple Account',
+  postepay: '💳 Postepay'
+}
+
+const walletDescriptions: Record<WalletType, string> = {
+  busta: 'Denaro liquido protetto e archiviato',
+  fuori: 'Denaro in tasca o portafoglio fisico',
+  apple: 'Credito digitale account Apple',
+  postepay: 'Carta prepagata Poste Italiane'
+}
 
 export default function WalletsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
   const [transferAmount, setTransferAmount] = useState('')
-  const [transferDirection, setTransferDirection] = useState<'to_fuori' | 'to_busta'>('to_fuori')
+  const [sourceWallet, setSourceWallet] = useState<WalletType>('fuori')
+  const [destWallet, setDestWallet] = useState<WalletType>('busta')
   const [submitting, setSubmitting] = useState(false)
 
   const fetchTransactions = useCallback(async () => {
@@ -22,40 +38,20 @@ export default function WalletsPage() {
     fetchTransactions()
   }, [fetchTransactions])
 
-  // Calculation of Busta and Fuori balances
-  const getBustaBalance = () => {
-    return transactions.reduce((acc, t) => {
-      const isBusta = t.title.endsWith(' [busta]') || t.title.endsWith(' [busta-transfer]')
-      if (!isBusta) return acc
-      const amt = Number(t.amount)
-      return acc + (t.type === 'income' ? amt : -amt)
-    }, 0)
-  }
-
-  const getFuoriBalance = () => {
-    return transactions.reduce((acc, t) => {
-      const isBusta = t.title.endsWith(' [busta]') || t.title.endsWith(' [busta-transfer]')
-      if (isBusta) return acc
-      const amt = Number(t.amount)
-      return acc + (t.type === 'income' ? amt : -amt)
-    }, 0)
-  }
-
-  const bustaVal = getBustaBalance()
-  const fuoriVal = getFuoriBalance()
+  const balances = getWalletBalances(transactions)
 
   const handleTransfer = async (e: React.FormEvent) => {
     e.preventDefault()
     const amt = parseFloat(transferAmount)
     if (isNaN(amt) || amt <= 0) return
 
-    // Quick validation check
-    if (transferDirection === 'to_fuori' && bustaVal < amt) {
-      alert("Fondi insufficienti in Busta.")
+    if (sourceWallet === destWallet) {
+      alert("Seleziona due portafogli differenti.")
       return
     }
-    if (transferDirection === 'to_busta' && fuoriVal < amt) {
-      alert("Fondi insufficienti fuori.")
+
+    if (balances[sourceWallet] < amt) {
+      alert(`Fondi insufficienti in ${walletNames[sourceWallet]}. Disponibili: €${fmt(balances[sourceWallet])}`)
       return
     }
 
@@ -63,18 +59,14 @@ export default function WalletsPage() {
     const nowStr = new Date().toISOString()
 
     const sourceTx = {
-      title: transferDirection === 'to_fuori' 
-        ? 'Spostamento Busta ➔ Tasche [busta-transfer]' 
-        : 'Spostamento Tasche ➔ Busta [fuori-transfer]',
+      title: `Spostamento ${walletNames[sourceWallet]} ➔ ${walletNames[destWallet]} [${sourceWallet}-transfer]`,
       amount: amt,
       type: 'expense' as const,
       created_at: nowStr
     }
 
     const destTx = {
-      title: transferDirection === 'to_fuori' 
-        ? 'Spostamento Busta ➔ Tasche [fuori-transfer]' 
-        : 'Spostamento Tasche ➔ Busta [busta-transfer]',
+      title: `Spostamento ${walletNames[sourceWallet]} ➔ ${walletNames[destWallet]} [${destWallet}-transfer]`,
       amount: amt,
       type: 'income' as const,
       created_at: nowStr
@@ -92,9 +84,7 @@ export default function WalletsPage() {
   const fmt = (n: number) => n.toLocaleString('it-IT', { minimumFractionDigits: 2 })
 
   const cleanTransferTitle = (title: string) => {
-    return title
-      .replace(' [busta-transfer]', '')
-      .replace(' [fuori-transfer]', '')
+    return title.replace(/ \[[a-z]+-transfer\]$/, '')
   }
 
   return (
@@ -106,53 +96,36 @@ export default function WalletsPage() {
         </h2>
       </div>
 
-      {/* Balances Grid */}
+      {/* Balances Grid (4 cards) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-        {/* Busta Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="card p-6 flex flex-col justify-between min-h-[140px]"
-        >
-          <div>
-            <span className="text-[9px] tracking-[0.25em] uppercase text-muted font-normal block mb-2">
-              ✉️ Deposito Busta
-            </span>
-            <h3 className="text-3xl font-thin tracking-tight text-fg">
-              €{fmt(bustaVal)}
-            </h3>
-          </div>
-          <p className="text-[10px] text-muted tracking-wider mt-4">
-            Denaro liquido protetto e archiviato
-          </p>
-        </motion.div>
-
-        {/* Fuori Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-          className="card p-6 flex flex-col justify-between min-h-[140px]"
-        >
-          <div>
-            <span className="text-[9px] tracking-[0.25em] uppercase text-muted font-normal block mb-2">
-              ✈️ Fuori / In Tasca / Carte
-            </span>
-            <h3 className="text-3xl font-thin tracking-tight text-fg">
-              €{fmt(fuoriVal)}
-            </h3>
-          </div>
-          <p className="text-[10px] text-muted tracking-wider mt-4">
-            Denaro in circolazione, portafoglio o carte
-          </p>
-        </motion.div>
+        {(Object.keys(walletNames) as WalletType[]).map((w, index) => (
+          <motion.div
+            key={w}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.05 }}
+            className="card p-6 flex flex-col justify-between min-h-[140px]"
+          >
+            <div>
+              <span className="text-[9px] tracking-[0.25em] uppercase text-muted font-normal block mb-2">
+                {walletNames[w]}
+              </span>
+              <h3 className="text-3xl font-thin tracking-tight text-fg">
+                €{fmt(balances[w])}
+              </h3>
+            </div>
+            <p className="text-[10px] text-muted tracking-wider mt-4">
+              {walletDescriptions[w]}
+            </p>
+          </motion.div>
+        ))}
       </div>
 
       {/* Transfer Form Section */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
+        transition={{ delay: 0.2 }}
         className="card p-6 space-y-6"
       >
         <div className="flex items-center gap-2 text-muted">
@@ -163,26 +136,42 @@ export default function WalletsPage() {
         </div>
 
         <form onSubmit={handleTransfer} className="space-y-6">
-          {/* Direction toggle */}
-          <div className="flex gap-1.5 p-1 bg-elevated rounded-xl">
-            <button
-              type="button"
-              onClick={() => setTransferDirection('to_fuori')}
-              className={`flex-1 py-2.5 rounded-lg text-xs font-normal t cursor-pointer ${
-                transferDirection === 'to_fuori' ? 'bg-fg text-bg shadow-sm' : 'text-muted hover:text-fg'
-              }`}
-            >
-              ✉️ Busta ➔ ✈️ Tasca (Preleva)
-            </button>
-            <button
-              type="button"
-              onClick={() => setTransferDirection('to_busta')}
-              className={`flex-1 py-2.5 rounded-lg text-xs font-normal t cursor-pointer ${
-                transferDirection === 'to_busta' ? 'bg-fg text-bg shadow-sm' : 'text-muted hover:text-fg'
-              }`}
-            >
-              ✈️ Tasca ➔ ✉️ Busta (Deposita)
-            </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Source select */}
+            <div>
+              <label className="text-[9px] tracking-[0.2em] uppercase text-muted block mb-1.5">
+                Da (Origine)
+              </label>
+              <select
+                value={sourceWallet}
+                onChange={e => setSourceWallet(e.target.value as WalletType)}
+                className="w-full bg-elevated border border-border/10 rounded-xl px-4 py-2.5 text-xs text-fg focus:outline-none focus:border-fg t"
+              >
+                {(Object.keys(walletNames) as WalletType[]).map(w => (
+                  <option key={w} value={w}>
+                    {walletNames[w]} (€{fmt(balances[w])})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Destination select */}
+            <div>
+              <label className="text-[9px] tracking-[0.2em] uppercase text-muted block mb-1.5">
+                A (Destinazione)
+              </label>
+              <select
+                value={destWallet}
+                onChange={e => setDestWallet(e.target.value as WalletType)}
+                className="w-full bg-elevated border border-border/10 rounded-xl px-4 py-2.5 text-xs text-fg focus:outline-none focus:border-fg t"
+              >
+                {(Object.keys(walletNames) as WalletType[]).map(w => (
+                  <option key={w} value={w}>
+                    {walletNames[w]} (€{fmt(balances[w])})
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Amount input */}
@@ -202,7 +191,7 @@ export default function WalletsPage() {
           {/* Submit */}
           <button
             type="submit"
-            disabled={submitting || !transferAmount}
+            disabled={submitting || !transferAmount || sourceWallet === destWallet}
             className="w-full py-3 bg-fg text-bg text-xs tracking-wider uppercase font-semibold rounded-xl t cursor-pointer disabled:opacity-40 flex items-center justify-center gap-2"
           >
             {submitting ? 'Elaborazione...' : 'Conferma Trasferimento'}
@@ -215,7 +204,7 @@ export default function WalletsPage() {
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.15 }}
+        transition={{ delay: 0.25 }}
         className="space-y-6"
       >
         <div className="pb-2 border-b border-border/10">
@@ -234,7 +223,7 @@ export default function WalletsPage() {
           </div>
         ) : (
           <div className="divide-y divide-border/5">
-            {transferHistory.map((t, i) => (
+            {transferHistory.map((t) => (
               <div key={t.id} className="flex items-center justify-between py-4">
                 <div className="space-y-0.5">
                   <p className="text-sm font-light text-fg">

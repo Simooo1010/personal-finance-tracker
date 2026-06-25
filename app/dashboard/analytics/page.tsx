@@ -16,6 +16,7 @@ import {
   Info
 } from 'lucide-react'
 import { supabase, Transaction } from '@/lib/supabase'
+import { parseTransaction, getTransactionEffect, WalletType } from '@/lib/transactions'
 
 type TimeRange = '1w' | '2w' | '1m' | '2m' | '6m' | '1y' | 'custom' | 'custom-period'
 type CustomPeriodUnit = 'days' | 'weeks' | 'months' | 'years'
@@ -25,7 +26,7 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true)
 
   // Navigation / Active View States
-  const [activeTab, setActiveTab] = useState<'panoramica' | 'patrimonio' | 'cassa' | 'efficienza'>('panoramica')
+  const [activeTab, setActiveTab] = useState<'panoramica' | 'patrimonio' | 'cassa' | 'efficienza' | 'debiti'>('panoramica')
   const [activeMetric, setActiveMetric] = useState<string>('net-worth')
 
   // Date Filtering States
@@ -131,6 +132,8 @@ export default function AnalyticsPage() {
         currentNetWorth: 0,
         currentBusta: 0,
         currentFuori: 0,
+        currentApple: 0,
+        currentPostepay: 0,
         totalOutsideExpense: 0,
         avgDailyOutsideExpense: 0
       },
@@ -148,16 +151,21 @@ export default function AnalyticsPage() {
     let initialNetWorth = 0
     let initialBusta = 0
     let initialFuori = 0
+    let initialApple = 0
+    let initialPostepay = 0
 
     const priorTxs = sortedAll.filter(t => new Date(t.created_at) < start)
     priorTxs.forEach(t => {
-      const amt = Number(t.amount)
-      const isBusta = t.title.endsWith(' [busta]') || t.title.endsWith(' [busta-transfer]')
-      const mult = t.type === 'income' ? 1 : -1
+      const parsed = parseTransaction(t)
+      const effect = getTransactionEffect(t)
+      const delta = effect.income - effect.expense
 
-      if (isBusta) initialBusta += amt * mult
-      else initialFuori += amt * mult
-      initialNetWorth += amt * mult
+      if (parsed.wallet === 'busta') initialBusta += delta
+      else if (parsed.wallet === 'fuori') initialFuori += delta
+      else if (parsed.wallet === 'apple') initialApple += delta
+      else if (parsed.wallet === 'postepay') initialPostepay += delta
+      
+      initialNetWorth += delta
     })
 
     const days: { date: Date; dateStr: string }[] = []
@@ -184,6 +192,8 @@ export default function AnalyticsPage() {
 
     let runningBusta = initialBusta
     let runningFuori = initialFuori
+    let runningApple = initialApple
+    let runningPostepay = initialPostepay
     let runningNetWorth = initialNetWorth
 
     const daily = days.map(day => {
@@ -194,29 +204,36 @@ export default function AnalyticsPage() {
       let dayOutsideExpense = 0
       let dayBustaDelta = 0
       let dayFuoriDelta = 0
+      let dayAppleDelta = 0
+      let dayPostepayDelta = 0
       let dayNetWorthDelta = 0
 
       dayTxs.forEach(t => {
-        const amt = Number(t.amount)
-        const isBusta = t.title.endsWith(' [busta]') || t.title.endsWith(' [busta-transfer]')
-        const mult = t.type === 'income' ? 1 : -1
+        const parsed = parseTransaction(t)
+        const effect = getTransactionEffect(t)
         const isTransfer = t.title.endsWith('-transfer]')
+        const delta = effect.income - effect.expense
 
-        if (isBusta) dayBustaDelta += amt * mult
-        else dayFuoriDelta += amt * mult
-        dayNetWorthDelta += amt * mult
+        if (parsed.wallet === 'busta') dayBustaDelta += delta
+        else if (parsed.wallet === 'fuori') dayFuoriDelta += delta
+        else if (parsed.wallet === 'apple') dayAppleDelta += delta
+        else if (parsed.wallet === 'postepay') dayPostepayDelta += delta
+
+        dayNetWorthDelta += delta
 
         if (!isTransfer) {
-          if (t.type === 'income') dayIncome += amt
-          else {
-            dayExpense += amt
-            if (!isBusta) dayOutsideExpense += amt
+          dayIncome += effect.income
+          dayExpense += effect.expense
+          if (parsed.wallet !== 'busta') {
+            dayOutsideExpense += effect.expense
           }
         }
       })
 
       runningBusta += dayBustaDelta
       runningFuori += dayFuoriDelta
+      runningApple += dayAppleDelta
+      runningPostepay += dayPostepayDelta
       runningNetWorth += dayNetWorthDelta
 
       return {
@@ -224,6 +241,8 @@ export default function AnalyticsPage() {
         dateStr: day.dateStr,
         busta: runningBusta,
         fuori: runningFuori,
+        apple: runningApple,
+        postepay: runningPostepay,
         netWorth: runningNetWorth,
         income: dayIncome,
         expense: dayExpense,
@@ -232,18 +251,22 @@ export default function AnalyticsPage() {
     })
 
     const rangeRealTxs = rangeTxs.filter(t => !t.title.endsWith('-transfer]'))
-    const rangeIncome = rangeRealTxs.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0)
-    const rangeExpense = rangeRealTxs.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0)
+    
+    let rangeIncome = 0
+    let rangeExpense = 0
+    rangeRealTxs.forEach(t => {
+      const effect = getTransactionEffect(t)
+      rangeIncome += effect.income
+      rangeExpense += effect.expense
+    })
+    
     const savingsRate = rangeIncome > 0 ? ((rangeIncome - rangeExpense) / rangeIncome) * 100 : 0
 
     const withdrawals = rangeTxs.filter(
       t => t.title.endsWith('[busta-transfer]') && t.type === 'expense'
     )
 
-    const outsideExpenses = rangeRealTxs.filter(
-      t => t.type === 'expense' && !t.title.endsWith(' [busta]')
-    )
-    const totalOutsideExpense = outsideExpenses.reduce((s, t) => s + Number(t.amount), 0)
+    const totalOutsideExpense = daily.reduce((s, d) => s + d.outsideExpense, 0)
     const avgDailyOutsideExpense = daily.length > 0 ? totalOutsideExpense / daily.length : 0
 
     let groupedFlows: { label: string; income: number; expense: number }[] = []
@@ -301,6 +324,8 @@ export default function AnalyticsPage() {
         currentNetWorth: runningNetWorth,
         currentBusta: runningBusta,
         currentFuori: runningFuori,
+        currentApple: runningApple,
+        currentPostepay: runningPostepay,
         totalOutsideExpense,
         avgDailyOutsideExpense
       },
@@ -405,6 +430,73 @@ export default function AnalyticsPage() {
 
   const fmt = (n: number) => n.toLocaleString('it-IT', { minimumFractionDigits: 2 })
 
+  const debtStats = useMemo(() => {
+    const debts = transactions
+      .map(t => {
+        const parsed = parseTransaction(t)
+        return {
+          amount: Number(t.amount),
+          ...parsed
+        }
+      })
+      .filter(item => item.isDebt && item.debtInfo !== null)
+
+    const activeDebts = debts.filter(d => d.debtInfo?.status === 'active')
+    const credits = activeDebts.filter(d => d.debtInfo?.type === 'to_me')
+    const totalCredits = credits.reduce((s, c) => s + c.amount, 0)
+
+    const ownDebts = activeDebts.filter(d => d.debtInfo?.type === 'by_me')
+    const totalDebts = ownDebts.reduce((s, d) => s + d.amount, 0)
+    const netDebts = totalCredits - totalDebts
+
+    const debitorsMap: Record<string, number> = {}
+    credits.forEach(c => {
+      const p = c.debtInfo!.person
+      debitorsMap[p] = (debitorsMap[p] || 0) + c.amount
+    })
+    const topDebitors = Object.entries(debitorsMap)
+      .map(([name, amount]) => ({ name, amount }))
+      .sort((a, b) => b.amount - a.amount)
+    const maxDebitorAmount = topDebitors.length > 0 ? topDebitors[0].amount : 1
+
+    const creditorsMap: Record<string, number> = {}
+    ownDebts.forEach(d => {
+      const p = d.debtInfo!.person
+      creditorsMap[p] = (creditorsMap[p] || 0) + d.amount
+    })
+    const topCreditors = Object.entries(creditorsMap)
+      .map(([name, amount]) => ({ name, amount }))
+      .sort((a, b) => b.amount - a.amount)
+    const maxCreditorAmount = topCreditors.length > 0 ? topCreditors[0].amount : 1
+
+    const wallets: WalletType[] = ['busta', 'fuori', 'apple', 'postepay']
+    const walletBreakdown = wallets.map(w => {
+      const wCredits = credits.filter(c => c.wallet === w).reduce((s, c) => s + c.amount, 0)
+      const wDebts = ownDebts.filter(d => d.wallet === w).reduce((s, d) => s + d.amount, 0)
+      return {
+        id: w,
+        name: w === 'busta' ? '✉️ Busta' : w === 'fuori' ? '✈️ Fuori' : w === 'apple' ? '🍎 Apple Account' : '💳 Postepay',
+        credits: wCredits,
+        debts: wDebts
+      }
+    })
+    const maxWalletDebtVal = Math.max(...walletBreakdown.map(w => Math.max(w.credits, w.debts)), 1)
+
+    return {
+      totalCredits,
+      totalDebts,
+      netDebts,
+      activeCreditsCount: credits.length,
+      activeDebtsCount: ownDebts.length,
+      topDebitors,
+      maxDebitorAmount,
+      topCreditors,
+      maxCreditorAmount,
+      walletBreakdown,
+      maxWalletDebtVal
+    }
+  }, [transactions])
+
   // Define thematic card groupings
   const themes = [
     {
@@ -477,6 +569,26 @@ export default function AnalyticsPage() {
           icon: Percent,
           getValue: () => `${analyticsData.totals.savingsRate?.toFixed(1) || '0.0'}%`,
           getSparklineData: () => analyticsData.daily.map(d => d.income - d.expense)
+        }
+      ]
+    },
+    {
+      id: 'debiti',
+      label: 'Debiti',
+      metrics: [
+        {
+          id: 'credits-to-redeem',
+          label: 'Da Riscattare',
+          icon: TrendingUp,
+          getValue: () => `€${fmt(debtStats.totalCredits)}`,
+          getSparklineData: () => []
+        },
+        {
+          id: 'debts-to-pay',
+          label: 'Da Pagare',
+          icon: TrendingDown,
+          getValue: () => `€${fmt(debtStats.totalDebts)}`,
+          getSparklineData: () => []
         }
       ]
     }
@@ -670,6 +782,140 @@ export default function AnalyticsPage() {
               </div>
             </motion.div>
           )}
+        </div>
+      ) : activeTab === 'debiti' ? (
+        /* ───── TAB 5: DEBT ANALYTICS VIEW ───── */
+        <div className="space-y-12">
+          {/* Summary Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 border-b border-border/10 pb-8">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-2 card p-4 bg-surface"
+            >
+              <span className="text-[9px] tracking-[0.25em] uppercase text-muted font-normal block">Crediti Attivi</span>
+              <h3 className="text-2xl font-thin tracking-tight text-income">€{fmt(debtStats.totalCredits)}</h3>
+              <p className="text-[10px] text-muted tracking-wider">{debtStats.activeCreditsCount} persone ti devono</p>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.05 }}
+              className="space-y-2 card p-4 bg-surface"
+            >
+              <span className="text-[9px] tracking-[0.25em] uppercase text-muted font-normal block">Debiti Attivi</span>
+              <h3 className="text-2xl font-thin tracking-tight text-expense">€{fmt(debtStats.totalDebts)}</h3>
+              <p className="text-[10px] text-muted tracking-wider">Devi a {debtStats.activeDebtsCount} persone</p>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="space-y-2 card p-4 bg-surface"
+            >
+              <span className="text-[9px] tracking-[0.25em] uppercase text-muted font-normal block">Bilancio Netto</span>
+              <h3 className={`text-2xl font-thin tracking-tight ${debtStats.netDebts >= 0 ? 'text-income' : 'text-expense'}`}>
+                {debtStats.netDebts >= 0 ? '+' : ''}€{fmt(debtStats.netDebts)}
+              </h3>
+              <p className="text-[10px] text-muted tracking-wider">Saldo crediti/debiti</p>
+            </motion.div>
+          </div>
+
+          {/* Breakdown Charts Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Top Debitori Chart */}
+            <div className="card p-6 space-y-6">
+              <span className="text-[9px] tracking-[0.25em] uppercase text-muted font-normal block">Chi ti deve (Top Debitori)</span>
+              {debtStats.topDebitors.length === 0 ? (
+                <p className="text-xs font-light text-muted py-6 text-center">Nessun creditore attivo</p>
+              ) : (
+                <div className="space-y-4">
+                  {debtStats.topDebitors.map((d, i) => {
+                    const pct = (d.amount / debtStats.maxDebitorAmount) * 100
+                    return (
+                      <div key={i} className="space-y-1.5">
+                        <div className="flex justify-between text-xs font-light">
+                          <span className="text-fg">{d.name}</span>
+                          <span className="text-income">€{fmt(d.amount)}</span>
+                        </div>
+                        <div className="h-1.5 bg-elevated rounded-full overflow-hidden">
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${pct}%` }}
+                            className="h-full bg-income rounded-full"
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Top Creditori Chart */}
+            <div className="card p-6 space-y-6">
+              <span className="text-[9px] tracking-[0.25em] uppercase text-muted font-normal block">A chi devi (Top Creditori)</span>
+              {debtStats.topCreditors.length === 0 ? (
+                <p className="text-xs font-light text-muted py-6 text-center">Nessun debito attivo</p>
+              ) : (
+                <div className="space-y-4">
+                  {debtStats.topCreditors.map((c, i) => {
+                    const pct = (c.amount / debtStats.maxCreditorAmount) * 100
+                    return (
+                      <div key={i} className="space-y-1.5">
+                        <div className="flex justify-between text-xs font-light">
+                          <span className="text-fg">{c.name}</span>
+                          <span className="text-expense">€{fmt(c.amount)}</span>
+                        </div>
+                        <div className="h-1.5 bg-elevated rounded-full overflow-hidden">
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${pct}%` }}
+                            className="h-full bg-expense rounded-full"
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Debts by Wallet Chart */}
+            <div className="card p-6 space-y-6 md:col-span-2">
+              <span className="text-[9px] tracking-[0.25em] uppercase text-muted font-normal block">Distribuzione Debiti/Crediti per Portafoglio</span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+                {debtStats.walletBreakdown.map((w, i) => {
+                  const maxVal = debtStats.maxWalletDebtVal || 1
+                  const credPct = (w.credits / maxVal) * 100
+                  const debPct = (w.debts / maxVal) * 100
+                  return (
+                    <div key={i} className="card bg-surface/50 p-4 space-y-3 flex flex-col justify-between">
+                      <span className="text-[9px] tracking-wider text-muted uppercase">{w.name}</span>
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[10px] text-muted">
+                          <span>Credito:</span>
+                          <span className="text-income">€{fmt(w.credits)}</span>
+                        </div>
+                        <div className="flex justify-between text-[10px] text-muted">
+                          <span>Debito:</span>
+                          <span className="text-expense">€{fmt(w.debts)}</span>
+                        </div>
+                      </div>
+                      <div className="space-y-1.5 pt-2 border-t border-border/5">
+                        <div className="h-1 bg-elevated rounded-full overflow-hidden flex gap-0.5">
+                          <div className="h-full bg-income" style={{ width: `${credPct}%` }} />
+                          <div className="h-full bg-expense" style={{ width: `${debPct}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
         </div>
       ) : (
         /* ───── TABS 2, 3, 4: ADVANCED GRAPHS DASHBOARD ───── */

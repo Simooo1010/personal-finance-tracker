@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, Calculator as CalcIcon, TrendingUp, TrendingDown } from 'lucide-react'
 import Calculator from './Calculator'
 import { supabase, Transaction } from '@/lib/supabase'
+import { parseTransaction, formatDebtTitle, WalletType } from '@/lib/transactions'
 
 interface TransactionFormProps {
   isOpen: boolean
@@ -21,15 +22,12 @@ export default function TransactionForm({
   const [title,    setTitle]    = useState('')
   const [amount,   setAmount]   = useState('')
   const [type,     setType]     = useState<'income' | 'expense'>(defaultType)
-  const [wallet,   setWallet]   = useState<'busta' | 'fuori'>('fuori')
+  const [wallet,   setWallet]   = useState<WalletType>('fuori')
   const [createdAt, setCreatedAt] = useState('')
   const [showCalc, setShowCalc] = useState(false)
   const [saving,   setSaving]   = useState(false)
   const [mounted,  setMounted]  = useState(false)
   const [isMobile, setIsMobile] = useState(true)
-
-  // Clean tag suffix from transaction title
-  const cleanTitle = (t: string) => t.replace(/ \[(busta|fuori|busta-transfer|fuori-transfer)\]$/, '')
 
   // Format date to local ISO string YYYY-MM-DDTHH:MM for input datetime-local
   const formatForInput = (dateStr?: string) => {
@@ -41,12 +39,20 @@ export default function TransactionForm({
   // Initialize form when editing changes or opening
   useEffect(() => {
     if (isOpen) {
-      const isBusta = editTransaction?.title.endsWith(' [busta]') || editTransaction?.title.endsWith(' [busta-transfer]')
-      setWallet(isBusta ? 'busta' : 'fuori')
-      setTitle(editTransaction ? cleanTitle(editTransaction.title) : '')
-      setAmount(editTransaction?.amount?.toString() || '')
-      setType(editTransaction?.type || defaultType)
-      setCreatedAt(formatForInput(editTransaction?.created_at))
+      if (editTransaction) {
+        const parsed = parseTransaction(editTransaction)
+        setWallet(parsed.wallet)
+        setTitle(parsed.cleanTitle)
+        setAmount(editTransaction.amount?.toString() || '')
+        setType(editTransaction.type)
+        setCreatedAt(formatForInput(editTransaction.created_at))
+      } else {
+        setWallet('fuori')
+        setTitle('')
+        setAmount('')
+        setType(defaultType)
+        setCreatedAt(formatForInput())
+      }
     }
   }, [isOpen, editTransaction, defaultType])
 
@@ -74,10 +80,26 @@ export default function TransactionForm({
     if (!title.trim() || !amount || parseFloat(amount) <= 0) return
     setSaving(true)
     
-    // Append the tag to the title
-    const suffix = wallet === 'busta' ? ' [busta]' : ' [fuori]'
+    // Append the tag to the title or preserve debt format
+    let finalTitle = ''
+    if (editTransaction && editTransaction.title.startsWith('[DEBT:')) {
+      const parsed = parseTransaction(editTransaction)
+      if (parsed.isDebt && parsed.debtInfo) {
+        finalTitle = formatDebtTitle({
+          type: parsed.debtInfo.type,
+          person: parsed.debtInfo.person,
+          desc: title.trim(),
+          status: parsed.debtInfo.status
+        }, wallet)
+      } else {
+        finalTitle = title.trim() + ` [${wallet}]`
+      }
+    } else {
+      finalTitle = title.trim() + ` [${wallet}]`
+    }
+
     const payload = { 
-      title: title.trim() + suffix, 
+      title: finalTitle, 
       amount: parseFloat(amount), 
       type,
       created_at: new Date(createdAt).toISOString()
@@ -169,25 +191,28 @@ export default function TransactionForm({
               <label className="text-[9px] tracking-[0.2em] uppercase text-muted block mb-1.5">
                 {type === 'income' ? 'Deposita in' : 'Preleva da'}
               </label>
-              <div className="flex gap-1 p-1 bg-elevated rounded-xl">
-                <button
-                  type="button"
-                  onClick={() => setWallet('busta')}
-                  className={`flex-1 py-2 rounded-lg text-xs font-normal t cursor-pointer ${
-                    wallet === 'busta' ? 'bg-fg text-bg shadow-sm' : 'text-muted hover:text-fg'
-                  }`}
-                >
-                  ✉️ Busta
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setWallet('fuori')}
-                  className={`flex-1 py-2 rounded-lg text-xs font-normal t cursor-pointer ${
-                    wallet === 'fuori' ? 'bg-fg text-bg shadow-sm' : 'text-muted hover:text-fg'
-                  }`}
-                >
-                  ✈️ Fuori
-                </button>
+              <div className="grid grid-cols-2 gap-1.5 p-1 bg-elevated rounded-xl">
+                {(['busta', 'fuori', 'apple', 'postepay'] as const).map(w => {
+                  const label = w === 'busta' 
+                    ? '✉️ Busta' 
+                    : w === 'fuori' 
+                    ? '✈️ Fuori' 
+                    : w === 'apple' 
+                    ? '🍎 Apple Account' 
+                    : '💳 Postepay'
+                  return (
+                    <button
+                      key={w}
+                      type="button"
+                      onClick={() => setWallet(w)}
+                      className={`py-2 rounded-lg text-xs font-normal t cursor-pointer ${
+                        wallet === w ? 'bg-fg text-bg shadow-sm' : 'text-muted hover:text-fg'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
