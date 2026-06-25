@@ -263,7 +263,7 @@ export default function AnalyticsPage() {
     const savingsRate = rangeIncome > 0 ? ((rangeIncome - rangeExpense) / rangeIncome) * 100 : 0
 
     const withdrawals = rangeTxs.filter(
-      t => t.title.endsWith('[busta-transfer]') && t.type === 'expense'
+      t => t.title.endsWith('-transfer]') && t.type === 'expense'
     )
 
     const totalOutsideExpense = daily.reduce((s, d) => s + d.outsideExpense, 0)
@@ -361,12 +361,12 @@ export default function AnalyticsPage() {
     const plotW = width - pad.left - pad.right
     const plotH = height - pad.top - pad.bottom
 
-    let values: { y1: number; y2?: number }[] = []
+    let values: { y1: number; y2?: number; y3?: number; y4?: number }[] = []
 
     if (activeMetric === 'net-worth') {
       values = daily.map(d => ({ y1: d.netWorth }))
     } else if (activeMetric === 'busta-vs-fuori') {
-      values = daily.map(d => ({ y1: d.busta, y2: d.fuori }))
+      values = daily.map(d => ({ y1: d.busta, y2: d.fuori, y3: d.apple, y4: d.postepay }))
     } else if (activeMetric === 'burn-rate') {
       values = daily.map(d => ({ y1: d.outsideExpense }))
     } else if (activeMetric === 'withdrawals') {
@@ -382,7 +382,12 @@ export default function AnalyticsPage() {
 
     if (values.length === 0) return null
 
-    const allY = values.flatMap(v => [v.y1, v.y2 !== undefined ? v.y2 : v.y1])
+    const allY = values.flatMap(v => {
+      if (activeMetric === 'busta-vs-fuori') {
+        return [v.y1, v.y2!, v.y3!, v.y4!]
+      }
+      return [v.y1]
+    })
     const minY = Math.min(...allY)
     const maxY = Math.max(...allY)
     const diffY = maxY - minY === 0 ? 10 : maxY - minY
@@ -393,17 +398,25 @@ export default function AnalyticsPage() {
       const x = pad.left + (i / (daily.length - 1)) * plotW
       const y1Val = values[i].y1
       const y2Val = values[i].y2
+      const y3Val = values[i].y3
+      const y4Val = values[i].y4
       const y1 = pad.top + (1 - (y1Val - yMin) / (yMax - yMin)) * plotH
       const y2 = y2Val !== undefined ? pad.top + (1 - (y2Val - yMin) / (yMax - yMin)) * plotH : undefined
+      const y3 = y3Val !== undefined ? pad.top + (1 - (y3Val - yMin) / (yMax - yMin)) * plotH : undefined
+      const y4 = y4Val !== undefined ? pad.top + (1 - (y4Val - yMin) / (yMax - yMin)) * plotH : undefined
 
       return {
         x,
         y1,
         y2,
+        y3,
+        y4,
         date: day.date,
         dateStr: day.dateStr,
         val1: y1Val,
-        val2: y2Val
+        val2: y2Val,
+        val3: y3Val,
+        val4: y4Val
       }
     })
 
@@ -526,25 +539,25 @@ export default function AnalyticsPage() {
     },
     {
       id: 'cassa',
-      label: 'Portafogli & Prelievi',
+      label: 'Portafogli & Spostamenti',
       metrics: [
         {
           id: 'busta-vs-fuori',
           label: 'Distribuzione Fondi',
           icon: Wallet,
-          getValue: () => `B: €${fmt(analyticsData.totals.currentBusta || 0)} | F: €${fmt(analyticsData.totals.currentFuori || 0)}`,
+          getValue: () => `B: €${fmt(analyticsData.totals.currentBusta || 0)} | F: €${fmt(analyticsData.totals.currentFuori || 0)} | A: €${fmt(analyticsData.totals.currentApple || 0)} | P: €${fmt(analyticsData.totals.currentPostepay || 0)}`,
           getSparklineData: () => analyticsData.daily.map(d => d.busta)
         },
         {
           id: 'burn-rate',
-          label: 'Consumo Fuori',
+          label: 'Consumo Attivo',
           icon: Flame,
           getValue: () => `€${fmt(analyticsData.totals.avgDailyOutsideExpense || 0)} / gg`,
           getSparklineData: () => analyticsData.daily.map(d => d.outsideExpense)
         },
         {
           id: 'withdrawals',
-          label: 'Prelievi Busta',
+          label: 'Spostamenti Interni',
           icon: ArrowLeftRight,
           getValue: () => `${analyticsData.withdrawals.length} volte (Tot: €${fmt(analyticsData.withdrawals.reduce((s,t)=>s+Number(t.amount), 0))})`,
           getSparklineData: () => {
@@ -991,7 +1004,9 @@ export default function AnalyticsPage() {
                         (() => {
                           const sparkBusta = analyticsData.daily.map(d => d.busta)
                           const sparkFuori = analyticsData.daily.map(d => d.fuori)
-                          const allPoints = [...sparkBusta, ...sparkFuori]
+                          const sparkApple = analyticsData.daily.map(d => d.apple || 0)
+                          const sparkPostepay = analyticsData.daily.map(d => d.postepay || 0)
+                          const allPoints = [...sparkBusta, ...sparkFuori, ...sparkApple, ...sparkPostepay]
                           const minVal = Math.min(...allPoints)
                           const maxVal = Math.max(...allPoints)
                           const diffVal = maxVal - minVal === 0 ? 1 : maxVal - minVal
@@ -1009,6 +1024,8 @@ export default function AnalyticsPage() {
                             <svg width="85" height="28" className="opacity-75">
                               <path d={getPath(sparkBusta)} fill="none" stroke="var(--muted)" strokeWidth="1" />
                               <path d={getPath(sparkFuori)} fill="none" stroke="#818cf8" strokeWidth="1" />
+                              <path d={getPath(sparkApple)} fill="none" stroke="#38bdf8" strokeWidth="1" />
+                              <path d={getPath(sparkPostepay)} fill="none" stroke="#eab308" strokeWidth="1" />
                             </svg>
                           )
                         })()
@@ -1312,6 +1329,14 @@ export default function AnalyticsPage() {
                       <stop offset="0%" stopColor="#818cf8" stopOpacity="0.08" />
                       <stop offset="100%" stopColor="#818cf8" stopOpacity="0.0" />
                     </linearGradient>
+                    <linearGradient id="area-grad-apple" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.08" />
+                      <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.0" />
+                    </linearGradient>
+                    <linearGradient id="area-grad-postepay" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#eab308" stopOpacity="0.08" />
+                      <stop offset="100%" stopColor="#eab308" stopOpacity="0.0" />
+                    </linearGradient>
                   </defs>
 
                   <line
@@ -1343,6 +1368,7 @@ export default function AnalyticsPage() {
 
                   {activeMetric === 'busta-vs-fuori' ? (
                     <>
+                      {/* Busta */}
                       <path
                         d={`${activeChartCoords.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y1}`).join(' ')} L ${
                           activeChartCoords.points[activeChartCoords.points.length - 1].x
@@ -1358,6 +1384,7 @@ export default function AnalyticsPage() {
                         strokeWidth="1.2"
                       />
 
+                      {/* Fuori */}
                       <path
                         d={`${activeChartCoords.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y2}`).join(' ')} L ${
                           activeChartCoords.points[activeChartCoords.points.length - 1].x
@@ -1370,6 +1397,38 @@ export default function AnalyticsPage() {
                         d={activeChartCoords.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y2!}`).join(' ')}
                         fill="none"
                         stroke="#818cf8"
+                        strokeWidth="1.2"
+                      />
+
+                      {/* Apple Account */}
+                      <path
+                        d={`${activeChartCoords.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y3}`).join(' ')} L ${
+                          activeChartCoords.points[activeChartCoords.points.length - 1].x
+                        } ${activeChartCoords.height - activeChartCoords.pad.bottom} L ${activeChartCoords.points[0].x} ${
+                          activeChartCoords.height - activeChartCoords.pad.bottom
+                        } Z`}
+                        fill="url(#area-grad-apple)"
+                      />
+                      <path
+                        d={activeChartCoords.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y3!}`).join(' ')}
+                        fill="none"
+                        stroke="#38bdf8"
+                        strokeWidth="1.2"
+                      />
+
+                      {/* Postepay */}
+                      <path
+                        d={`${activeChartCoords.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y4}`).join(' ')} L ${
+                          activeChartCoords.points[activeChartCoords.points.length - 1].x
+                        } ${activeChartCoords.height - activeChartCoords.pad.bottom} L ${activeChartCoords.points[0].x} ${
+                          activeChartCoords.height - activeChartCoords.pad.bottom
+                        } Z`}
+                        fill="url(#area-grad-postepay)"
+                      />
+                      <path
+                        d={activeChartCoords.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y4!}`).join(' ')}
+                        fill="none"
+                        stroke="#eab308"
                         strokeWidth="1.2"
                       />
                     </>
@@ -1432,6 +1491,18 @@ export default function AnalyticsPage() {
                             cy={activeChartCoords.points[hoveredIndex].y2!}
                             r="4"
                             fill="#818cf8"
+                          />
+                          <circle
+                            cx={activeChartCoords.points[hoveredIndex].x}
+                            cy={activeChartCoords.points[hoveredIndex].y3!}
+                            r="4"
+                            fill="#38bdf8"
+                          />
+                          <circle
+                            cx={activeChartCoords.points[hoveredIndex].x}
+                            cy={activeChartCoords.points[hoveredIndex].y4!}
+                            r="4"
+                            fill="#eab308"
                           />
                         </>
                       ) : (
@@ -1508,6 +1579,14 @@ export default function AnalyticsPage() {
                           <span>Fuori:</span>
                           <span className="font-normal">€{fmt(activeChartCoords.points[hoveredIndex].val2!)}</span>
                         </p>
+                        <p className="text-[#38bdf8] flex justify-between gap-4">
+                          <span>Apple:</span>
+                          <span className="font-normal">€{fmt(activeChartCoords.points[hoveredIndex].val3!)}</span>
+                        </p>
+                        <p className="text-[#eab308] flex justify-between gap-4">
+                          <span>Postepay:</span>
+                          <span className="font-normal">€{fmt(activeChartCoords.points[hoveredIndex].val4!)}</span>
+                        </p>
                       </div>
                     ) : (
                       <p className="text-sm font-light text-fg">
@@ -1518,7 +1597,7 @@ export default function AnalyticsPage() {
                 )}
                 
                 {activeMetric === 'busta-vs-fuori' && (
-                  <div className="flex justify-center gap-6 text-[10px] text-muted tracking-wider pt-2">
+                  <div className="flex flex-wrap justify-center gap-6 text-[10px] text-muted tracking-wider pt-2">
                     <div className="flex items-center gap-1.5">
                       <div className="w-2 h-2 rounded-full bg-muted" />
                       <span>Envelope Busta</span>
@@ -1526,6 +1605,14 @@ export default function AnalyticsPage() {
                     <div className="flex items-center gap-1.5">
                       <div className="w-2 h-2 rounded-full bg-[#818cf8]" />
                       <span>Pocket Fuori</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full bg-[#38bdf8]" />
+                      <span>Apple Account</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full bg-[#eab308]" />
+                      <span>Postepay</span>
                     </div>
                   </div>
                 )}
@@ -1538,7 +1625,7 @@ export default function AnalyticsPage() {
             {activeMetric === 'withdrawals' && (
               <>
                 <div className="card p-5 space-y-2">
-                  <span className="text-[9px] tracking-wider text-muted uppercase">Importo Medio Prelievo</span>
+                  <span className="text-[9px] tracking-wider text-muted uppercase">Importo Medio Spostamento</span>
                   <h4 className="text-2xl font-thin tracking-tight text-fg">
                     €{fmt(
                       analyticsData.withdrawals.length > 0 
@@ -1547,11 +1634,11 @@ export default function AnalyticsPage() {
                     )}
                   </h4>
                   <p className="text-[10px] text-muted tracking-wide">
-                    Calcolato su {analyticsData.withdrawals.length} prelievi registrati
+                    Calcolato su {analyticsData.withdrawals.length} spostamenti registrati
                   </p>
                 </div>
                 <div className="card p-5 space-y-2">
-                  <span className="text-[9px] tracking-wider text-muted uppercase">Prelievo Massimo</span>
+                  <span className="text-[9px] tracking-wider text-muted uppercase">Spostamento Massimo</span>
                   <h4 className="text-2xl font-thin tracking-tight text-fg text-expense">
                     €{fmt(
                       analyticsData.withdrawals.length > 0 
@@ -1560,7 +1647,7 @@ export default function AnalyticsPage() {
                     )}
                   </h4>
                   <p className="text-[10px] text-muted tracking-wide">
-                    La singola ricarica di contante più elevata nel periodo
+                    Il singolo trasferimento interno più elevato nel periodo
                   </p>
                 </div>
               </>
