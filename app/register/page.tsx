@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
+import { Check } from 'lucide-react'
 import { createClient } from '@/lib/supabaseClient'
 import { createDefaultWallet } from '@/lib/wallets'
 
@@ -13,7 +14,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-
+  const [isSuccess, setIsSuccess] = useState(false)
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -39,9 +40,33 @@ export default function RegisterPage() {
 
     if (data.user) {
       await createDefaultWallet(data.user.id)
-      router.push('/onboarding')
-      router.refresh()
+      setIsSuccess(true)
     }
+  }
+
+  if (isSuccess) {
+    return (
+      <div className="fixed inset-0 bg-bg flex flex-col items-center justify-center px-6">
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-sm space-y-10 text-center"
+        >
+          <div className="w-16 h-16 bg-income/10 rounded-full flex items-center justify-center mx-auto text-income">
+            <Check className="w-8 h-8" strokeWidth={1.5} />
+          </div>
+          <div className="space-y-4">
+            <h1 className="text-xl font-light text-fg">Controlla la tua email</h1>
+            <p className="text-sm font-light text-muted leading-relaxed">
+              Abbiamo inviato un'email di conferma. Clicca sul link al suo interno per attivare il tuo account.
+            </p>
+          </div>
+          <Link href="/login" className="block w-full py-3 bg-fg text-bg rounded-xl text-xs tracking-wider uppercase font-medium hover:opacity-90 t cursor-pointer">
+            Vai al Login
+          </Link>
+        </motion.div>
+      </div>
+    )
   }
 
   return (

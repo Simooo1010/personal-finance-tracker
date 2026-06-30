@@ -9,7 +9,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <WalletProvider>
       <div className="min-h-dvh bg-bg text-fg flex">
         <Sidebar />
-        <main className="flex-1 px-6 sm:px-12 pb-28 sm:pb-12 pt-6 sm:pt-10 sm:ml-56 max-w-3xl mx-auto w-full">
+        <main className="flex-1 px-6 sm:px-12 pb-28 sm:pb-12 pt-6 sm:pt-10 lg:ml-64 max-w-3xl mx-auto w-full">
           {children}
         </main>
         <BottomNav />

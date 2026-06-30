@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Wallet, ArrowLeftRight, Check, ArrowRight, Pencil, Trash2, X } from 'lucide-react'
+import { Wallet, ArrowLeftRight, Check, ArrowRight, Pencil, Trash2, X, Info } from 'lucide-react'
 import { Transaction } from '@/lib/supabase'
 import { getWalletBalances, parseTransaction } from '@/lib/transactions'
 import { pushAction } from '@/lib/actionsTracker'
@@ -18,6 +18,30 @@ export default function WalletsPage() {
   const [sourceWallet, setSourceWallet] = useState<string>('')
   const [destWallet, setDestWallet] = useState<string>('')
   const [submitting, setSubmitting] = useState(false)
+
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false)
+
+  useEffect(() => {
+    if (wallets.length > 0 && !hasCheckedOnboarding) {
+      const isHidden = localStorage.getItem('hide_wallet_onboarding') === 'true'
+      if (!isHidden && wallets.length === 1 && wallets[0].slug === 'generale') {
+        setShowOnboarding(true)
+      }
+      setHasCheckedOnboarding(true)
+    }
+  }, [wallets, hasCheckedOnboarding])
+
+  const dismissOnboarding = () => {
+    localStorage.setItem('hide_wallet_onboarding', 'true')
+    setShowOnboarding(false)
+  }
+
+  const setupPresetWallets = async () => {
+    setLoading(true)
+    dismissOnboarding()
+    setLoading(false)
+  }
 
   const [editingTransfer, setEditingTransfer] = useState<{
     sourceTx: Transaction
@@ -238,6 +262,66 @@ export default function WalletsPage() {
 
   return (
     <div className="space-y-12 py-4">
+      {/* Onboarding Overlay */}
+      <AnimatePresence>
+        {showOnboarding && (
+          <div className="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-bg text-fg">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-lg space-y-12"
+            >
+              <div className="text-center space-y-3">
+                <h1 className="text-3xl font-thin tracking-tight">I tuoi Portafogli</h1>
+                <p className="text-muted font-light">
+                  Gestisci i tuoi soldi separandoli in diversi contenitori.
+                </p>
+              </div>
+
+              <div className="bg-surface rounded-3xl p-8 border border-border/5 space-y-5 shadow-2xl">
+                <div className="flex items-center gap-3">
+                  <div className="bg-income/10 p-2.5 rounded-full">
+                    <Info className="w-6 h-6 text-income" strokeWidth={1.5} />
+                  </div>
+                  <h2 className="text-xl font-light">Cosa sono i Portafogli?</h2>
+                </div>
+                
+                <div className="space-y-4 text-sm font-light text-muted leading-relaxed">
+                  <p>
+                    I portafogli ti permettono di separare i tuoi soldi in diversi contenitori 
+                    (es. Contanti, Conto in Banca, Risparmi).
+                  </p>
+                  <p>
+                    Attualmente hai solo il portafoglio "Generale". Vuoi configurare portafogli specifici?
+                  </p>
+                  <p className="text-muted/60">
+                    Se non ti serve questa funzionalità, puoi semplicemente ignorarla e 
+                    continuare a usare il portafoglio predefinito in qualsiasi momento.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-4 pt-4">
+                <button
+                  onClick={setupPresetWallets}
+                  className="flex-1 py-4 bg-surface border border-border/20 text-fg rounded-2xl text-xs tracking-wider uppercase font-medium hover:bg-elevated t cursor-pointer"
+                >
+                  Configura Ora
+                </button>
+                
+                <button
+                  onClick={dismissOnboarding}
+                  className="flex-1 py-4 bg-fg text-bg rounded-2xl text-xs tracking-wider uppercase font-medium hover:opacity-90 t cursor-pointer"
+                >
+                  Continua Senza
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <div className="flex items-center justify-between pb-3 border-b border-border/10">
         <h2 className="text-[10px] tracking-[0.3em] uppercase text-muted font-normal">

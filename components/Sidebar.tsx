@@ -18,7 +18,7 @@ export default function Sidebar() {
   const router = useRouter()
 
   return (
-    <aside className="hidden lg:flex flex-col w-64 shrink-0 h-dvh sticky top-0 bg-surface border-r border-border px-4 py-6">
+    <aside className="hidden lg:flex flex-col w-64 fixed inset-y-0 left-0 bg-surface border-r border-border px-4 py-6 z-40">
       {/* Brand */}
       <div className="px-3 mb-8">
         <span className="text-sm font-light tracking-widest uppercase text-fg">Finance</span>
