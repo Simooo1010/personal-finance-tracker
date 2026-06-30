@@ -2,15 +2,16 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowLeftRight, ArrowRight, Pencil, Trash2, X, Info } from 'lucide-react'
+import { ArrowLeftRight, ArrowRight, Pencil, Trash2, X, Info, Plus } from 'lucide-react'
 import { Transaction } from '@/lib/supabase'
 import { getWalletBalances, parseTransaction } from '@/lib/transactions'
 import { pushAction } from '@/lib/actionsTracker'
 import { createClient } from '@/lib/supabaseClient'
 import { useWallets } from '@/components/WalletContext'
+import { createWallet } from '@/lib/wallets'
 
 export default function WalletsPage() {
-  const { wallets, walletMap, defaultWallet, walletSlugs } = useWallets()
+  const { wallets, walletMap, defaultWallet, walletSlugs, refetchWallets } = useWallets()
   const supabase = createClient()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
@@ -21,6 +22,12 @@ export default function WalletsPage() {
 
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false)
+
+  // Custom wallet creation states
+  const [showAddWalletModal, setShowAddWalletModal] = useState(false)
+  const [newWalletName, setNewWalletName] = useState('')
+  const [newWalletDesc, setNewWalletDesc] = useState('')
+  const [addingWallet, setAddingWallet] = useState(false)
 
   useEffect(() => {
     if (wallets.length > 0 && !hasCheckedOnboarding) {
@@ -40,8 +47,56 @@ export default function WalletsPage() {
 
   const setupPresetWallets = async () => {
     setLoading(true)
-    dismissOnboarding()
-    setLoading(false)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        await createWallet(user.id, { slug: 'busta', name: '✉️ Busta', description: 'Denaro liquido protetto e archiviato', position: 1 })
+        await createWallet(user.id, { slug: 'fuori', name: '✈️ Fuori', description: 'Denaro in tasca o portafoglio fisico', position: 2 })
+        await createWallet(user.id, { slug: 'apple', name: '🍎 Apple Account', description: 'Credito digitale account Apple', position: 3 })
+        await createWallet(user.id, { slug: 'postepay', name: '💳 Postepay', description: 'Carta prepagata Poste Italiane', position: 4 })
+        await refetchWallets()
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      dismissOnboarding()
+      setLoading(false)
+    }
+  }
+
+  const handleCreateWallet = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newWalletName.trim()) return
+    setAddingWallet(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const slug = newWalletName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')
+        if (!slug) {
+          alert('Nome portafoglio non valido')
+          return
+        }
+        if (wallets.some(w => w.slug === slug)) {
+          alert('Esiste già un portafoglio con questo nome o con un nome simile')
+          return
+        }
+        await createWallet(user.id, {
+          slug,
+          name: newWalletName.trim(),
+          description: newWalletDesc.trim() || null,
+          position: wallets.length
+        })
+        await refetchWallets()
+        setNewWalletName('')
+        setNewWalletDesc('')
+        setShowAddWalletModal(false)
+      }
+    } catch (err) {
+      console.error(err)
+      alert("Errore durante la creazione del portafoglio.")
+    } finally {
+      setAddingWallet(false)
+    }
   }
 
   const [editingTransfer, setEditingTransfer] = useState<{
@@ -339,6 +394,12 @@ export default function WalletsPage() {
         <h2 className="text-[10px] tracking-[0.3em] uppercase text-muted font-normal">
           Gestione Portafogli
         </h2>
+        <button
+          onClick={() => setShowAddWalletModal(true)}
+          className="flex items-center gap-1 text-[9px] tracking-[0.2em] uppercase text-fg hover:opacity-80 transition-opacity cursor-pointer font-medium"
+        >
+          <Plus className="w-3.5 h-3.5" /> Aggiungi
+        </button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -720,6 +781,91 @@ export default function WalletsPage() {
                   Elimina
                 </button>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Add Wallet Modal */}
+      <AnimatePresence>
+        {showAddWalletModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowAddWalletModal(false)}
+              className="absolute inset-0 bg-bg/85 backdrop-blur-sm"
+            />
+
+            {/* Modal Box */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="relative w-full max-w-md card p-6 bg-surface/90 border border-border/40 shadow-2xl space-y-6 overflow-hidden"
+            >
+              <div className="flex items-center justify-between border-b border-border/10 pb-4">
+                <div className="flex items-center gap-2 text-muted">
+                  <Plus className="w-4 h-4" strokeWidth={1.5} />
+                  <span className="text-[10px] tracking-[0.25em] uppercase font-normal">
+                    Nuovo Portafoglio
+                  </span>
+                </div>
+                <button
+                  onClick={() => setShowAddWalletModal(false)}
+                  className="p-1.5 hover:bg-elevated rounded-lg text-muted hover:text-fg t cursor-pointer"
+                >
+                  <X className="w-4 h-4" strokeWidth={1.5} />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateWallet} className="space-y-5">
+                <div>
+                  <label className="text-[9px] tracking-[0.2em] uppercase text-muted block mb-1">
+                    Nome Portafoglio
+                  </label>
+                  <input
+                    type="text"
+                    value={newWalletName}
+                    onChange={e => setNewWalletName(e.target.value)}
+                    placeholder="es. Risparmi, Hype..."
+                    required
+                    className="w-full bg-transparent border-b border-border/30 py-2 text-sm font-light text-fg focus:outline-none focus:border-fg t"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[9px] tracking-[0.2em] uppercase text-muted block mb-1">
+                    Descrizione (Opzionale)
+                  </label>
+                  <input
+                    type="text"
+                    value={newWalletDesc}
+                    onChange={e => setNewWalletDesc(e.target.value)}
+                    placeholder="es. Risparmi a lungo termine"
+                    className="w-full bg-transparent border-b border-border/30 py-2 text-sm font-light text-fg focus:outline-none focus:border-fg t"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddWalletModal(false)}
+                    className="flex-1 py-3 border border-border/20 text-muted hover:text-fg text-xs tracking-wider uppercase font-semibold rounded-xl t cursor-pointer"
+                  >
+                    Annulla
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={addingWallet || !newWalletName.trim()}
+                    className="flex-1 py-3 bg-fg text-bg text-xs tracking-wider uppercase font-semibold rounded-xl t cursor-pointer disabled:opacity-40"
+                  >
+                    {addingWallet ? 'Creazione...' : 'Crea'}
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}
