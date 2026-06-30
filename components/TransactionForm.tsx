@@ -106,11 +106,13 @@ export default function TransactionForm({
       finalTitle = title.trim() + ` [${wallet}]`
     }
 
+    const { data: { user } } = await supabase.auth.getUser()
     const payload = { 
       title: finalTitle, 
       amount: parseFloat(amount), 
       type,
-      created_at: new Date(createdAt).toISOString()
+      created_at: new Date(createdAt).toISOString(),
+      user_id: user?.id
     }
     
     if (editTransaction) {

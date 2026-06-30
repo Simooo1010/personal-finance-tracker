@@ -68,7 +68,9 @@ export default function WalletsPage() {
   } | null>(null)
 
   const fetchTransactions = useCallback(async () => {
-    const { data } = await supabase.from('transactions').select('*').order('created_at', { ascending: false })
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase.from('transactions').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
     if (data) setTransactions(data)
     setLoading(false)
   }, [])
@@ -100,7 +102,9 @@ export default function WalletsPage() {
     setSubmitting(true)
     const nowStr = new Date().toISOString()
 
+    const { data: { user } } = await supabase.auth.getUser()
     const sourceTx = {
+      user_id: user?.id,
       title: `Spostamento ${walletMap[sourceWallet] || sourceWallet} ➔ ${walletMap[destWallet] || destWallet} [${sourceWallet}-transfer]`,
       amount: amt,
       type: 'expense' as const,
@@ -108,6 +112,7 @@ export default function WalletsPage() {
     }
 
     const destTx = {
+      user_id: user?.id,
       title: `Spostamento ${walletMap[sourceWallet] || sourceWallet} ➔ ${walletMap[destWallet] || destWallet} [${destWallet}-transfer]`,
       amount: amt,
       type: 'income' as const,
@@ -211,7 +216,9 @@ export default function WalletsPage() {
     setSubmitting(true)
     const isoDate = new Date(editDate).toISOString()
 
+    const { data: { user } } = await supabase.auth.getUser()
     const updatedSource = {
+      user_id: user?.id,
       title: `Spostamento ${walletMap[editSourceWallet] || editSourceWallet} ➔ ${walletMap[editDestWallet] || editDestWallet} [${editSourceWallet}-transfer]`,
       amount: amt,
       type: 'expense' as const,
@@ -219,6 +226,7 @@ export default function WalletsPage() {
     }
 
     const updatedDest = {
+      user_id: user?.id,
       title: `Spostamento ${walletMap[editSourceWallet] || editSourceWallet} ➔ ${walletMap[editDestWallet] || editDestWallet} [${editDestWallet}-transfer]`,
       amount: amt,
       type: 'income' as const,
