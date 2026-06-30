@@ -3,20 +3,24 @@
 import { useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Pencil, Trash2, Search, Calculator as CalcIcon, ArrowUpRight, ArrowDownRight } from 'lucide-react'
-import { supabase, Transaction } from '@/lib/supabase'
+import { Transaction } from '@/lib/supabase'
 import TransactionForm from '@/components/TransactionForm'
 import Calculator from '@/components/Calculator'
-import { parseTransaction, getTransactionEffect, WalletType } from '@/lib/transactions'
+import { parseTransaction, getTransactionEffect } from '@/lib/transactions'
+import { createClient } from '@/lib/supabaseClient'
+import { useWallets } from '@/components/WalletContext'
 import { pushAction } from '@/lib/actionsTracker'
 
 export default function TransactionsPage() {
+  const { wallets, walletMap, defaultWallet, hasMultipleWallets } = useWallets()
+  const supabase = createClient()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editTx, setEditTx] = useState<Transaction | null>(null)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all')
-  const [walletFilter, setWalletFilter] = useState<'all' | WalletType>('all')
+  const [walletFilter, setWalletFilter] = useState<string>('all')
   const [showCalc, setShowCalc] = useState(false)
 
   const fetchTransactions = useCallback(async () => {
@@ -37,7 +41,7 @@ export default function TransactionsPage() {
 
     const { error } = await supabase.from('transactions').delete().eq('id', id)
     if (!error) {
-      const parsed = parseTransaction(txToDelete)
+      const parsed = parseTransaction(txToDelete, defaultWallet)
       const label = parsed.isDebt
         ? `Eliminato debito "${parsed.cleanTitle}" (${parsed.debtInfo?.person})`
         : `Eliminata transazione "${parsed.cleanTitle}" (€${Number(txToDelete.amount).toFixed(2)})`
@@ -50,7 +54,7 @@ export default function TransactionsPage() {
   const filtered = transactions
     .filter(t => !t.title.endsWith('-transfer]'))
     .filter(t => {
-      const parsed = parseTransaction(t)
+      const parsed = parseTransaction(t, defaultWallet)
       const matchSearch = parsed.cleanTitle.toLowerCase().includes(search.toLowerCase())
       const matchFilter = filter === 'all' || t.type === filter
       const matchWallet = walletFilter === 'all' || parsed.wallet === walletFilter
@@ -58,7 +62,7 @@ export default function TransactionsPage() {
     })
 
   const net = filtered.reduce((s, t) => {
-    const effect = getTransactionEffect(t)
+    const effect = getTransactionEffect(t, defaultWallet)
     return s + (effect.income - effect.expense)
   }, 0)
   const fmt = (n: number) => n.toLocaleString('it-IT', { minimumFractionDigits: 2 })
@@ -136,30 +140,36 @@ export default function TransactionsPage() {
           </div>
         </div>
 
-        <div className="space-y-1.5">
-          <span className="text-[9px] tracking-[0.2em] uppercase text-muted block">Portafoglio</span>
-          <div className="flex flex-wrap items-center gap-2">
-            {([
-              { id: 'all', label: 'Tutti' },
-              { id: 'busta', label: '✉️ Busta' },
-              { id: 'fuori', label: '✈️ Fuori' },
-              { id: 'apple', label: '🍎 Apple' },
-              { id: 'postepay', label: '💳 Postepay' }
-            ] as const).map(w => (
+        {hasMultipleWallets && (
+          <div className="space-y-1.5">
+            <span className="text-[9px] tracking-[0.2em] uppercase text-muted block">Portafoglio</span>
+            <div className="flex flex-wrap items-center gap-2">
               <button
-                key={w.id}
-                onClick={() => setWalletFilter(w.id)}
+                onClick={() => setWalletFilter('all')}
                 className={`px-4 py-1.5 rounded-full text-xs font-normal t cursor-pointer ${
-                  walletFilter === w.id
+                  walletFilter === 'all'
                     ? 'bg-fg text-bg shadow-sm'
                     : 'text-muted hover:text-fg hover:bg-elevated/45'
                 }`}
               >
-                {w.label}
+                Tutti
               </button>
-            ))}
+              {wallets.map(w => (
+                <button
+                  key={w.slug}
+                  onClick={() => setWalletFilter(w.slug)}
+                  className={`px-4 py-1.5 rounded-full text-xs font-normal t cursor-pointer ${
+                    walletFilter === w.slug
+                      ? 'bg-fg text-bg shadow-sm'
+                      : 'text-muted hover:text-fg hover:bg-elevated/45'
+                  }`}
+                >
+                  {w.name}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
       {/* Transactions List */}
       {loading ? (
@@ -174,14 +184,8 @@ export default function TransactionsPage() {
         <div className="divide-y divide-border/5">
           <AnimatePresence mode="popLayout">
             {filtered.map((t, i) => {
-              const parsed = parseTransaction(t)
-              const walletLabel = parsed.wallet === 'busta'
-                ? '✉️ Busta'
-                : parsed.wallet === 'fuori'
-                ? '✈️ Fuori'
-                : parsed.wallet === 'apple'
-                ? '🍎 Apple'
-                : '💳 Postepay'
+              const parsed = parseTransaction(t, defaultWallet)
+              const walletLabel = walletMap[parsed.wallet] || parsed.wallet
               return (
                 <motion.div
                   key={t.id}

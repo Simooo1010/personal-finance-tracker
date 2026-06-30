@@ -3,18 +3,15 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Trash2, Pencil, Check, X, ArrowUpRight, ArrowDownRight, User, FileText, Calendar, Wallet } from 'lucide-react'
-import { supabase, Transaction } from '@/lib/supabase'
-import { parseTransaction, formatDebtTitle, WalletType, DebtInfo } from '@/lib/transactions'
+import { Transaction } from '@/lib/supabase'
+import { parseTransaction, formatDebtTitle, DebtInfo } from '@/lib/transactions'
 import { pushAction } from '@/lib/actionsTracker'
-
-const walletNames: Record<WalletType, string> = {
-  busta: '✉️ Busta',
-  fuori: '✈️ Fuori',
-  apple: '🍎 Apple Account',
-  postepay: '💳 Postepay'
-}
+import { createClient } from '@/lib/supabaseClient'
+import { useWallets } from '@/components/WalletContext'
 
 export default function DebtsPage() {
+  const { wallets, walletMap, defaultWallet, hasMultipleWallets } = useWallets()
+  const supabase = createClient()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -26,7 +23,7 @@ export default function DebtsPage() {
   const [person, setPerson] = useState('')
   const [desc, setDesc] = useState('')
   const [amount, setAmount] = useState('')
-  const [wallet, setWallet] = useState<WalletType>('fuori')
+  const [wallet, setWallet] = useState<string>(defaultWallet)
   const [createdAt, setCreatedAt] = useState('')
   const [debtType, setDebtType] = useState<'to_me' | 'by_me'>('to_me') // to_me: Mi devono; by_me: Devo a
   const [saving, setSaving] = useState(false)
@@ -53,7 +50,7 @@ export default function DebtsPage() {
   const debtsList = useMemo(() => {
     return transactions
       .map(t => {
-        const parsed = parseTransaction(t)
+        const parsed = parseTransaction(t, defaultWallet)
         return {
           id: t.id,
           rawTitle: t.title,
@@ -94,7 +91,7 @@ export default function DebtsPage() {
     setPerson('')
     setDesc('')
     setAmount('')
-    setWallet('fuori')
+    setWallet(defaultWallet)
     setDebtType('to_me')
     setCreatedAt(formatForInput())
     setIsOpen(true)
@@ -333,7 +330,7 @@ export default function DebtsPage() {
             {displayedList.map((debt, index) => {
               const info = debt.debtInfo!
               const isCompleted = info.status === 'completed'
-              const walletLabel = walletNames[debt.wallet] || debt.wallet
+              const walletLabel = walletMap[debt.wallet] || debt.wallet
 
               return (
                 <motion.div
@@ -532,25 +529,27 @@ export default function DebtsPage() {
                   </div>
 
                   {/* Wallet selection */}
-                  <div>
-                    <label className="text-[9px] tracking-[0.2em] uppercase text-muted block mb-1.5">
-                      {debtType === 'to_me' ? 'Portafoglio (Da cui sono usciti)' : 'Portafoglio (In cui entrano)'}
-                    </label>
-                    <div className="grid grid-cols-2 gap-1.5 p-1 bg-elevated rounded-xl">
-                      {(['busta', 'fuori', 'apple', 'postepay'] as const).map(w => (
-                        <button
-                          key={w}
-                          type="button"
-                          onClick={() => setWallet(w)}
-                          className={`py-2 rounded-lg text-xs font-normal t cursor-pointer ${
-                            wallet === w ? 'bg-fg text-bg shadow-sm' : 'text-muted hover:text-fg'
-                          }`}
-                        >
-                          {walletNames[w]}
-                        </button>
-                      ))}
+                  {hasMultipleWallets && (
+                    <div>
+                      <label className="text-[9px] tracking-[0.2em] uppercase text-muted block mb-1.5">
+                        {debtType === 'to_me' ? 'Portafoglio (Da cui sono usciti)' : 'Portafoglio (In cui entrano)'}
+                      </label>
+                      <div className="grid grid-cols-2 gap-1.5 p-1 bg-elevated rounded-xl">
+                        {wallets.map(w => (
+                          <button
+                            key={w.slug}
+                            type="button"
+                            onClick={() => setWallet(w.slug)}
+                            className={`py-2 rounded-lg text-xs font-normal t cursor-pointer ${
+                              wallet === w.slug ? 'bg-fg text-bg shadow-sm' : 'text-muted hover:text-fg'
+                            }`}
+                          >
+                            {w.name}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Date & Time */}
                   <div>

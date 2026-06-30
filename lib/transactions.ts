@@ -1,23 +1,24 @@
 import { Transaction } from './supabase'
 
-export type WalletType = 'busta' | 'fuori' | 'apple' | 'postepay'
-
 export interface DebtInfo {
-  type: 'to_me' | 'by_me' // to_me = others owe me (da riscattare / credit); by_me = I owe others (da pagare / debt)
+  type: 'to_me' | 'by_me'
   person: string
   desc: string
-  status: 'active' | 'completed' // active = outstanding; completed = paid/redeemed
+  status: 'active' | 'completed'
 }
 
 export interface ParsedTransaction {
   transaction: Transaction
   isDebt: boolean
   debtInfo: DebtInfo | null
-  wallet: WalletType
+  wallet: string
   cleanTitle: string
 }
 
-export function parseTransaction(t: Transaction): ParsedTransaction {
+// Regex to extract wallet slug from title end: matches [slug] or [slug-transfer]
+const WALLET_TAG_REGEX = /\s*\[([a-zA-Z0-9_-]+?)(?:-transfer)?\]$/
+
+export function parseTransaction(t: Transaction, defaultWallet: string = 'generale'): ParsedTransaction {
   const title = t.title
   
   // 1. Check if it's a debt
@@ -45,21 +46,18 @@ export function parseTransaction(t: Transaction): ParsedTransaction {
     }
   }
 
-  // 2. Determine wallet/position
-  let wallet: WalletType = 'fuori' // default fallback
-  if (title.endsWith(' [busta]') || title.endsWith(' [busta-transfer]')) {
-    wallet = 'busta'
-  } else if (title.endsWith(' [fuori]') || title.endsWith(' [fuori-transfer]')) {
-    wallet = 'fuori'
-  } else if (title.endsWith(' [apple]') || title.endsWith(' [apple-transfer]')) {
-    wallet = 'apple'
-  } else if (title.endsWith(' [postepay]') || title.endsWith(' [postepay-transfer]')) {
-    wallet = 'postepay'
+  // 2. Determine wallet/position dynamically using regex
+  let wallet: string = defaultWallet
+  const isTransfer = title.endsWith('-transfer]')
+  
+  const match = title.match(WALLET_TAG_REGEX)
+  if (match) {
+    wallet = match[1]
   }
 
   // 3. Clean up the title if it's not a debt
   if (!isDebt) {
-    cleanTitle = title.replace(/ \[(busta|fuori|apple|postepay|busta-transfer|fuori-transfer|apple-transfer|postepay-transfer)\]$/, '')
+    cleanTitle = title.replace(WALLET_TAG_REGEX, '')
   }
 
   return {
@@ -71,7 +69,7 @@ export function parseTransaction(t: Transaction): ParsedTransaction {
   }
 }
 
-export function formatDebtTitle(info: Omit<DebtInfo, 'wallet'>, wallet: WalletType): string {
+export function formatDebtTitle(info: Omit<DebtInfo, 'wallet'>, wallet: string): string {
   const jsonStr = JSON.stringify({
     type: info.type,
     person: info.person,
@@ -81,22 +79,19 @@ export function formatDebtTitle(info: Omit<DebtInfo, 'wallet'>, wallet: WalletTy
   return `[DEBT:${jsonStr}] [${wallet}]`
 }
 
-export function getTransactionEffect(t: Transaction): { income: number; expense: number } {
-  const parsed = parseTransaction(t)
+export function getTransactionEffect(t: Transaction, defaultWallet: string = 'generale'): { income: number; expense: number } {
+  const parsed = parseTransaction(t, defaultWallet)
   if (parsed.isDebt && parsed.debtInfo) {
     if (parsed.debtInfo.status === 'completed') {
       return { income: 0, expense: 0 }
     }
     if (parsed.debtInfo.type === 'to_me') {
-      // lending money: acts as an expense (reduces balance)
       return { income: 0, expense: Number(t.amount) }
     } else {
-      // borrowing money: acts as an income (increases balance)
       return { income: Number(t.amount), expense: 0 }
     }
   }
   
-  // Normal transactions
   if (t.type === 'income') {
     return { income: Number(t.amount), expense: 0 }
   } else {
@@ -104,17 +99,16 @@ export function getTransactionEffect(t: Transaction): { income: number; expense:
   }
 }
 
-export function getWalletBalances(transactions: Transaction[]): Record<WalletType, number> {
-  const balances: Record<WalletType, number> = {
-    busta: 0,
-    fuori: 0,
-    apple: 0,
-    postepay: 0
-  }
+export function getWalletBalances(transactions: Transaction[], walletSlugs: string[], defaultWallet: string = 'generale'): Record<string, number> {
+  const balances: Record<string, number> = {}
+  walletSlugs.forEach(slug => { balances[slug] = 0 })
   
   transactions.forEach(t => {
-    const parsed = parseTransaction(t)
-    const effect = getTransactionEffect(t)
+    const parsed = parseTransaction(t, defaultWallet)
+    const effect = getTransactionEffect(t, defaultWallet)
+    if (balances[parsed.wallet] === undefined) {
+      balances[parsed.wallet] = 0
+    }
     balances[parsed.wallet] += (effect.income - effect.expense)
   })
   

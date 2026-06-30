@@ -3,40 +3,37 @@
 import { useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Wallet, ArrowLeftRight, Check, ArrowRight, Pencil, Trash2, X } from 'lucide-react'
-import { supabase, Transaction } from '@/lib/supabase'
-import { getWalletBalances, WalletType, parseTransaction } from '@/lib/transactions'
+import { Transaction } from '@/lib/supabase'
+import { getWalletBalances, parseTransaction } from '@/lib/transactions'
 import { pushAction } from '@/lib/actionsTracker'
-
-const walletNames: Record<WalletType, string> = {
-  busta: '✉️ Busta',
-  fuori: '✈️ Fuori',
-  apple: '🍎 Apple Account',
-  postepay: '💳 Postepay'
-}
-
-const walletDescriptions: Record<WalletType, string> = {
-  busta: 'Denaro liquido protetto e archiviato',
-  fuori: 'Denaro in tasca o portafoglio fisico',
-  apple: 'Credito digitale account Apple',
-  postepay: 'Carta prepagata Poste Italiane'
-}
+import { createClient } from '@/lib/supabaseClient'
+import { useWallets } from '@/components/WalletContext'
 
 export default function WalletsPage() {
+  const { wallets, walletMap, defaultWallet, walletSlugs } = useWallets()
+  const supabase = createClient()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
   const [transferAmount, setTransferAmount] = useState('')
-  const [sourceWallet, setSourceWallet] = useState<WalletType>('fuori')
-  const [destWallet, setDestWallet] = useState<WalletType>('busta')
+  const [sourceWallet, setSourceWallet] = useState<string>('')
+  const [destWallet, setDestWallet] = useState<string>('')
   const [submitting, setSubmitting] = useState(false)
 
   const [editingTransfer, setEditingTransfer] = useState<{
     sourceTx: Transaction
     destTx?: Transaction
   } | null>(null)
-  const [editSourceWallet, setEditSourceWallet] = useState<WalletType>('fuori')
-  const [editDestWallet, setEditDestWallet] = useState<WalletType>('busta')
+  const [editSourceWallet, setEditSourceWallet] = useState<string>('')
+  const [editDestWallet, setEditDestWallet] = useState<string>('')
   const [editAmount, setEditAmount] = useState('')
   const [editDate, setEditDate] = useState('')
+
+  useEffect(() => {
+    if (wallets.length > 0) {
+      if (!sourceWallet) setSourceWallet(wallets[0].slug)
+      if (!destWallet && wallets.length > 1) setDestWallet(wallets[1].slug)
+    }
+  }, [wallets, sourceWallet, destWallet])
 
   const [confirmDeleteTransfer, setConfirmDeleteTransfer] = useState<{
     sourceTx: Transaction
@@ -55,7 +52,7 @@ export default function WalletsPage() {
     return () => window.removeEventListener('finance_db_changed', fetchTransactions)
   }, [fetchTransactions])
 
-  const balances = getWalletBalances(transactions)
+  const balances = getWalletBalances(transactions, walletSlugs, defaultWallet)
 
   const handleTransfer = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -68,7 +65,7 @@ export default function WalletsPage() {
     }
 
     if (balances[sourceWallet] < amt) {
-      alert(`Fondi insufficienti in ${walletNames[sourceWallet]}. Disponibili: €${fmt(balances[sourceWallet])}`)
+      alert(`Fondi insufficienti in ${walletMap[sourceWallet] || sourceWallet}. Disponibili: €${fmt(balances[sourceWallet])}`)
       return
     }
 
@@ -76,14 +73,14 @@ export default function WalletsPage() {
     const nowStr = new Date().toISOString()
 
     const sourceTx = {
-      title: `Spostamento ${walletNames[sourceWallet]} ➔ ${walletNames[destWallet]} [${sourceWallet}-transfer]`,
+      title: `Spostamento ${walletMap[sourceWallet] || sourceWallet} ➔ ${walletMap[destWallet] || destWallet} [${sourceWallet}-transfer]`,
       amount: amt,
       type: 'expense' as const,
       created_at: nowStr
     }
 
     const destTx = {
-      title: `Spostamento ${walletNames[sourceWallet]} ➔ ${walletNames[destWallet]} [${destWallet}-transfer]`,
+      title: `Spostamento ${walletMap[sourceWallet] || sourceWallet} ➔ ${walletMap[destWallet] || destWallet} [${destWallet}-transfer]`,
       amount: amt,
       type: 'income' as const,
       created_at: nowStr
@@ -94,7 +91,7 @@ export default function WalletsPage() {
       const sTx = data.find(r => r.type === 'expense')
       const dTx = data.find(r => r.type === 'income')
       if (sTx && dTx) {
-        const label = `Eseguito spostamento ${walletNames[sourceWallet]} ➔ ${walletNames[destWallet]} (€${amt.toFixed(2)})`
+        const label = `Eseguito spostamento ${walletMap[sourceWallet] || sourceWallet} ➔ ${walletMap[destWallet] || destWallet} (€${amt.toFixed(2)})`
         pushAction('add_transfer', label, { sourceId: sTx.id, destId: dTx.id }, { sourceTx: sTx, destTx: dTx })
       }
     }
@@ -105,12 +102,12 @@ export default function WalletsPage() {
   }
 
   const handleEditClick = (sourceTx: Transaction, destTx?: Transaction) => {
-    const parsedSource = parseTransaction(sourceTx)
-    const parsedDest = destTx ? parseTransaction(destTx) : null
+    const parsedSource = parseTransaction(sourceTx, defaultWallet)
+    const parsedDest = destTx ? parseTransaction(destTx, defaultWallet) : null
 
     setEditingTransfer({ sourceTx, destTx })
     setEditSourceWallet(parsedSource.wallet)
-    setEditDestWallet(parsedDest ? parsedDest.wallet : 'busta')
+    setEditDestWallet(parsedDest ? parsedDest.wallet : defaultWallet)
     setEditAmount(sourceTx.amount.toString())
     
     const d = new Date(sourceTx.created_at)
@@ -138,9 +135,11 @@ export default function WalletsPage() {
     try {
       const { error } = await supabase.from('transactions').delete().in('id', ids)
       if (!error) {
-        const parsedSource = parseTransaction(sourceTx)
-        const parsedDest = destTx ? parseTransaction(destTx) : null
-        const label = `Eliminato spostamento ${walletNames[parsedSource.wallet]} ➔ ${parsedDest ? walletNames[parsedDest.wallet] : 'Portafoglio'} (€${Number(sourceTx.amount).toFixed(2)})`
+        const parsedSource = parseTransaction(sourceTx, defaultWallet)
+        const parsedDest = destTx ? parseTransaction(destTx, defaultWallet) : null
+        const sourceLabel = walletMap[parsedSource.wallet] || parsedSource.wallet
+        const destLabel = parsedDest ? (walletMap[parsedDest.wallet] || parsedDest.wallet) : 'Portafoglio'
+        const label = `Eliminato spostamento ${sourceLabel} ➔ ${destLabel} (€${Number(sourceTx.amount).toFixed(2)})`
         pushAction('delete_transfer', label, { sourceTx, destTx }, { sourceId: sourceTx.id, destId: destTx?.id })
         fetchTransactions()
       }
@@ -167,17 +166,17 @@ export default function WalletsPage() {
       return
     }
 
-    const parsedOrigSource = parseTransaction(editingTransfer.sourceTx)
+    const parsedOrigSource = parseTransaction(editingTransfer.sourceTx, defaultWallet)
     const originalSourceWallet = parsedOrigSource.wallet
     const originalAmount = Number(editingTransfer.sourceTx.amount)
 
-    let available = balances[editSourceWallet]
+    let available = balances[editSourceWallet] || 0
     if (editSourceWallet === originalSourceWallet) {
       available += originalAmount
     }
     
     if (available < amt) {
-      alert(`Fondi insufficienti in ${walletNames[editSourceWallet]}. Disponibili: €${fmt(available)}`)
+      alert(`Fondi insufficienti in ${walletMap[editSourceWallet] || editSourceWallet}. Disponibili: €${fmt(available)}`)
       return
     }
 
@@ -185,14 +184,14 @@ export default function WalletsPage() {
     const isoDate = new Date(editDate).toISOString()
 
     const updatedSource = {
-      title: `Spostamento ${walletNames[editSourceWallet]} ➔ ${walletNames[editDestWallet]} [${editSourceWallet}-transfer]`,
+      title: `Spostamento ${walletMap[editSourceWallet] || editSourceWallet} ➔ ${walletMap[editDestWallet] || editDestWallet} [${editSourceWallet}-transfer]`,
       amount: amt,
       type: 'expense' as const,
       created_at: isoDate
     }
 
     const updatedDest = {
-      title: `Spostamento ${walletNames[editSourceWallet]} ➔ ${walletNames[editDestWallet]} [${editDestWallet}-transfer]`,
+      title: `Spostamento ${walletMap[editSourceWallet] || editSourceWallet} ➔ ${walletMap[editDestWallet] || editDestWallet} [${editDestWallet}-transfer]`,
       amount: amt,
       type: 'income' as const,
       created_at: isoDate
@@ -214,7 +213,7 @@ export default function WalletsPage() {
       }
 
       if (updatedSourceData && updatedSourceData[0]) {
-        const label = `Modificato spostamento in ${walletNames[editSourceWallet]} ➔ ${walletNames[editDestWallet]} (€${amt.toFixed(2)})`
+        const label = `Modificato spostamento in ${walletMap[editSourceWallet] || editSourceWallet} ➔ ${walletMap[editDestWallet] || editDestWallet} (€${amt.toFixed(2)})`
         pushAction('edit_transfer', label, { sourceTx: originalSourceTx, destTx: originalDestTx }, { sourceTx: updatedSourceData[0], destTx: updatedDestDataRow })
       }
 
@@ -246,11 +245,10 @@ export default function WalletsPage() {
         </h2>
       </div>
 
-      {/* Balances Grid (4 cards) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-        {(Object.keys(walletNames) as WalletType[]).map((w, index) => (
+        {wallets.map((w, index) => (
           <motion.div
-            key={w}
+            key={w.slug}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.05 }}
@@ -258,15 +256,17 @@ export default function WalletsPage() {
           >
             <div>
               <span className="text-[9px] tracking-[0.25em] uppercase text-muted font-normal block mb-2">
-                {walletNames[w]}
+                {w.name}
               </span>
               <h3 className="text-3xl font-thin tracking-tight text-fg">
-                €{fmt(balances[w])}
+                €{fmt(balances[w.slug] || 0)}
               </h3>
             </div>
-            <p className="text-[10px] text-muted tracking-wider mt-4">
-              {walletDescriptions[w]}
-            </p>
+            {w.description && (
+              <p className="text-[10px] text-muted tracking-wider mt-4">
+                {w.description}
+              </p>
+            )}
           </motion.div>
         ))}
       </div>
@@ -294,12 +294,12 @@ export default function WalletsPage() {
               </label>
               <select
                 value={sourceWallet}
-                onChange={e => setSourceWallet(e.target.value as WalletType)}
+                onChange={e => setSourceWallet(e.target.value)}
                 className="w-full bg-elevated border border-border/10 rounded-xl px-4 py-2.5 text-xs text-fg focus:outline-none focus:border-fg t"
               >
-                {(Object.keys(walletNames) as WalletType[]).map(w => (
-                  <option key={w} value={w}>
-                    {walletNames[w]} (€{fmt(balances[w])})
+                {wallets.map(w => (
+                  <option key={w.slug} value={w.slug}>
+                    {w.name} (€{fmt(balances[w.slug] || 0)})
                   </option>
                 ))}
               </select>
@@ -312,12 +312,12 @@ export default function WalletsPage() {
               </label>
               <select
                 value={destWallet}
-                onChange={e => setDestWallet(e.target.value as WalletType)}
+                onChange={e => setDestWallet(e.target.value)}
                 className="w-full bg-elevated border border-border/10 rounded-xl px-4 py-2.5 text-xs text-fg focus:outline-none focus:border-fg t"
               >
-                {(Object.keys(walletNames) as WalletType[]).map(w => (
-                  <option key={w} value={w}>
-                    {walletNames[w]} (€{fmt(balances[w])})
+                {wallets.map(w => (
+                  <option key={w.slug} value={w.slug}>
+                    {w.name} (€{fmt(balances[w.slug] || 0)})
                   </option>
                 ))}
               </select>
@@ -374,11 +374,11 @@ export default function WalletsPage() {
         ) : (
           <div className="divide-y divide-border/5">
             {transferHistory.map((t) => {
-              const parsed = parseTransaction(t)
+              const parsed = parseTransaction(t, defaultWallet)
               const counterpart = transactions.find(
                 u => u.created_at === t.created_at && u.id !== t.id && u.title.endsWith('-transfer]')
               )
-              const destWalletType = counterpart ? parseTransaction(counterpart).wallet : null
+              const destWalletType = counterpart ? parseTransaction(counterpart, defaultWallet).wallet : null
 
               return (
                 <div key={t.id} className="flex items-center justify-between py-4 group">
@@ -389,7 +389,7 @@ export default function WalletsPage() {
                       </p>
                       {destWalletType && (
                         <span className="px-1.5 py-0.5 rounded text-[8px] tracking-wide uppercase font-light bg-elevated text-muted">
-                          {walletNames[parsed.wallet]} ➔ {walletNames[destWalletType]}
+                          {walletMap[parsed.wallet] || parsed.wallet} ➔ {walletMap[destWalletType] || destWalletType}
                         </span>
                       )}
                     </div>
@@ -470,22 +470,22 @@ export default function WalletsPage() {
                     </label>
                     <select
                       value={editSourceWallet}
-                      onChange={e => setEditSourceWallet(e.target.value as WalletType)}
+                      onChange={e => setEditSourceWallet(e.target.value)}
                       className="w-full bg-elevated border border-border/10 rounded-xl px-4 py-2.5 text-xs text-fg focus:outline-none focus:border-fg t"
                     >
-                      {(Object.keys(walletNames) as WalletType[]).map(w => {
-                        const parsedOrigSource = parseTransaction(editingTransfer.sourceTx)
+                      {wallets.map(w => {
+                        const parsedOrigSource = parseTransaction(editingTransfer.sourceTx, defaultWallet)
                         const originalSourceWallet = parsedOrigSource.wallet
                         const originalAmount = Number(editingTransfer.sourceTx.amount)
 
-                        let walletBal = balances[w]
-                        if (w === originalSourceWallet) {
+                        let walletBal = balances[w.slug] || 0
+                        if (w.slug === originalSourceWallet) {
                           walletBal += originalAmount
                         }
 
                         return (
-                          <option key={w} value={w}>
-                            {walletNames[w]} (€{fmt(walletBal)})
+                          <option key={w.slug} value={w.slug}>
+                            {w.name} (€{fmt(walletBal)})
                           </option>
                         )
                       })}
@@ -499,22 +499,22 @@ export default function WalletsPage() {
                     </label>
                     <select
                       value={editDestWallet}
-                      onChange={e => setEditDestWallet(e.target.value as WalletType)}
+                      onChange={e => setEditDestWallet(e.target.value)}
                       className="w-full bg-elevated border border-border/10 rounded-xl px-4 py-2.5 text-xs text-fg focus:outline-none focus:border-fg t"
                     >
-                      {(Object.keys(walletNames) as WalletType[]).map(w => {
-                        const parsedOrigSource = parseTransaction(editingTransfer.sourceTx)
+                      {wallets.map(w => {
+                        const parsedOrigSource = parseTransaction(editingTransfer.sourceTx, defaultWallet)
                         const originalSourceWallet = parsedOrigSource.wallet
                         const originalAmount = Number(editingTransfer.sourceTx.amount)
 
-                        let walletBal = balances[w]
-                        if (w === originalSourceWallet) {
+                        let walletBal = balances[w.slug] || 0
+                        if (w.slug === originalSourceWallet) {
                           walletBal += originalAmount
                         }
 
                         return (
-                          <option key={w} value={w}>
-                            {walletNames[w]} (€{fmt(walletBal)})
+                          <option key={w.slug} value={w.slug}>
+                            {w.name} (€{fmt(walletBal)})
                           </option>
                         )
                       })}

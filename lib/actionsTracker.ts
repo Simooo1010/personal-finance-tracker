@@ -1,4 +1,5 @@
-import { supabase, Transaction } from './supabase'
+import { Transaction } from './supabase'
+import { createClient } from './supabaseClient'
 
 export interface TrackedAction {
   id: string
@@ -76,6 +77,7 @@ export function pushAction(
 
 // Perform Undo
 export async function performUndo(): Promise<boolean> {
+  const supabase = createClient()
   const history = getHistory()
   const index = getHistoryIndex()
 
@@ -135,6 +137,7 @@ export async function performUndo(): Promise<boolean> {
 
 // Perform Redo
 export async function performRedo(): Promise<boolean> {
+  const supabase = createClient()
   const history = getHistory()
   const index = getHistoryIndex()
 

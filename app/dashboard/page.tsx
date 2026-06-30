@@ -3,11 +3,15 @@
 import { useEffect, useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { TrendingUp, TrendingDown, Plus, ArrowUpRight, ArrowDownRight } from 'lucide-react'
-import { supabase, Transaction } from '@/lib/supabase'
+import { Transaction } from '@/lib/supabase'
 import TransactionForm from '@/components/TransactionForm'
 import { getTransactionEffect, parseTransaction } from '@/lib/transactions'
+import { createClient } from '@/lib/supabaseClient'
+import { useWallets } from '@/components/WalletContext'
 
 export default function DashboardHome() {
+  const { walletMap, defaultWallet } = useWallets()
+  const supabase = createClient()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [showForm, setShowForm] = useState(false)
   const [formType, setFormType] = useState<'income' | 'expense'>('income')
@@ -33,7 +37,7 @@ export default function DashboardHome() {
   let totalIncome = 0
   let totalExpense = 0
   realTransactions.forEach(t => {
-    const effect = getTransactionEffect(t)
+    const effect = getTransactionEffect(t, defaultWallet)
     totalIncome += effect.income
     totalExpense += effect.expense
   })
@@ -131,14 +135,8 @@ export default function DashboardHome() {
         ) : (
           <div className="divide-y divide-border/5">
             {recent.map((t, i) => {
-              const parsed = parseTransaction(t)
-              const walletLabel = parsed.wallet === 'busta'
-                ? '✉️ Busta'
-                : parsed.wallet === 'fuori'
-                ? '✈️ Fuori'
-                : parsed.wallet === 'apple'
-                ? '🍎 Apple'
-                : '💳 Postepay'
+              const parsed = parseTransaction(t, defaultWallet)
+              const walletLabel = walletMap[parsed.wallet] || parsed.wallet
               
               return (
                 <motion.div

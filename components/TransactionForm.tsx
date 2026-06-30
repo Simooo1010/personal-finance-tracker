@@ -5,9 +5,11 @@ import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Calculator as CalcIcon, TrendingUp, TrendingDown } from 'lucide-react'
 import Calculator from './Calculator'
-import { supabase, Transaction } from '@/lib/supabase'
-import { parseTransaction, formatDebtTitle, WalletType } from '@/lib/transactions'
+import { Transaction } from '@/lib/supabase'
+import { createClient } from '@/lib/supabaseClient'
+import { parseTransaction, formatDebtTitle } from '@/lib/transactions'
 import { pushAction } from '@/lib/actionsTracker'
+import { useWallets } from '@/components/WalletContext'
 
 interface TransactionFormProps {
   isOpen: boolean
@@ -20,10 +22,12 @@ interface TransactionFormProps {
 export default function TransactionForm({
   isOpen, onClose, onSaved, editTransaction, defaultType = 'income',
 }: TransactionFormProps) {
+  const { wallets, defaultWallet, hasMultipleWallets } = useWallets()
+  const supabase = createClient()
   const [title,    setTitle]    = useState('')
   const [amount,   setAmount]   = useState('')
   const [type,     setType]     = useState<'income' | 'expense'>(defaultType)
-  const [wallet,   setWallet]   = useState<WalletType>('fuori')
+  const [wallet,   setWallet]   = useState<string>(defaultWallet)
   const [createdAt, setCreatedAt] = useState('')
   const [showCalc, setShowCalc] = useState(false)
   const [saving,   setSaving]   = useState(false)
@@ -48,14 +52,14 @@ export default function TransactionForm({
         setType(editTransaction.type)
         setCreatedAt(formatForInput(editTransaction.created_at))
       } else {
-        setWallet('fuori')
+        setWallet(defaultWallet)
         setTitle('')
         setAmount('')
         setType(defaultType)
         setCreatedAt(formatForInput())
       }
     }
-  }, [isOpen, editTransaction, defaultType])
+  }, [isOpen, editTransaction, defaultType, defaultWallet])
 
   useEffect(() => {
     setMounted(true)
@@ -204,34 +208,27 @@ export default function TransactionForm({
             </div>
 
             {/* Segmented control for Wallet */}
-            <div className="mb-8">
-              <label className="text-[9px] tracking-[0.2em] uppercase text-muted block mb-1.5">
-                {type === 'income' ? 'Deposita in' : 'Preleva da'}
-              </label>
-              <div className="grid grid-cols-2 gap-1.5 p-1 bg-elevated rounded-xl">
-                {(['busta', 'fuori', 'apple', 'postepay'] as const).map(w => {
-                  const label = w === 'busta' 
-                    ? '✉️ Busta' 
-                    : w === 'fuori' 
-                    ? '✈️ Fuori' 
-                    : w === 'apple' 
-                    ? '🍎 Apple Account' 
-                    : '💳 Postepay'
-                  return (
+            {hasMultipleWallets && (
+              <div className="mb-8">
+                <label className="text-[9px] tracking-[0.2em] uppercase text-muted block mb-1.5">
+                  {type === 'income' ? 'Deposita in' : 'Preleva da'}
+                </label>
+                <div className="grid grid-cols-2 gap-1.5 p-1 bg-elevated rounded-xl">
+                  {wallets.map(w => (
                     <button
-                      key={w}
+                      key={w.slug}
                       type="button"
-                      onClick={() => setWallet(w)}
+                      onClick={() => setWallet(w.slug)}
                       className={`py-2 rounded-lg text-xs font-normal t cursor-pointer ${
-                        wallet === w ? 'bg-fg text-bg shadow-sm' : 'text-muted hover:text-fg'
+                        wallet === w.slug ? 'bg-fg text-bg shadow-sm' : 'text-muted hover:text-fg'
                       }`}
                     >
-                      {label}
+                      {w.name}
                     </button>
-                  )
-                })}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Ghost Inputs Fields */}
             <div className="space-y-6 mb-8">
