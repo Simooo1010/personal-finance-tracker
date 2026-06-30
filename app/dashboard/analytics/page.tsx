@@ -152,7 +152,7 @@ export default function AnalyticsPage() {
 
     // Cumulative calculations
     let initialNetWorth = 0
-    let initialBalances: Record<string, number> = {}
+    const initialBalances: Record<string, number> = {}
     walletSlugs.forEach(s => initialBalances[s] = 0)
 
     const priorTxs = sortedAll.filter(t => new Date(t.created_at) < start)
@@ -167,7 +167,7 @@ export default function AnalyticsPage() {
     })
 
     const days: { date: Date; dateStr: string }[] = []
-    let curr = new Date(start)
+    const curr = new Date(start)
     while (curr <= end) {
       days.push({
         date: new Date(curr),
@@ -188,7 +188,7 @@ export default function AnalyticsPage() {
       txsByDay[k].push(t)
     })
 
-    let runningBalances = { ...initialBalances }
+    const runningBalances = { ...initialBalances }
     let runningNetWorth = initialNetWorth
 
     const daily = days.map(day => {
@@ -197,7 +197,7 @@ export default function AnalyticsPage() {
       let dayIncome = 0
       let dayExpense = 0
       let dayOutsideExpense = 0
-      let dayBalancesDelta: Record<string, number> = {}
+      const dayBalancesDelta: Record<string, number> = {}
       let dayNetWorthDelta = 0
 
       dayTxs.forEach(t => {

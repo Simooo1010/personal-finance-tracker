@@ -46,12 +46,14 @@ export default function TransactionForm({
     if (isOpen) {
       if (editTransaction) {
         const parsed = parseTransaction(editTransaction)
+         
         setWallet(parsed.wallet)
         setTitle(parsed.cleanTitle)
         setAmount(editTransaction.amount?.toString() || '')
         setType(editTransaction.type)
         setCreatedAt(formatForInput(editTransaction.created_at))
       } else {
+         
         setWallet(defaultWallet)
         setTitle('')
         setAmount('')
@@ -62,6 +64,7 @@ export default function TransactionForm({
   }, [isOpen, editTransaction, defaultType, defaultWallet])
 
   useEffect(() => {
+     
     setMounted(true)
     setIsMobile(window.innerWidth < 640)
     const handleResize = () => setIsMobile(window.innerWidth < 640)

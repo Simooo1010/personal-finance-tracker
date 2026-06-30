@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { Check } from 'lucide-react'
@@ -9,7 +8,6 @@ import { createClient } from '@/lib/supabaseClient'
 import { createDefaultWallet } from '@/lib/wallets'
 
 export default function RegisterPage() {
-  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -58,7 +56,7 @@ export default function RegisterPage() {
           <div className="space-y-4">
             <h1 className="text-xl font-light text-fg">Controlla la tua email</h1>
             <p className="text-sm font-light text-muted leading-relaxed">
-              Abbiamo inviato un'email di conferma. Clicca sul link al suo interno per attivare il tuo account.
+              Abbiamo inviato un&apos;email di conferma. Clicca sul link al suo interno per attivare il tuo account.
             </p>
           </div>
           <Link href="/login" className="block w-full py-3 bg-fg text-bg rounded-xl text-xs tracking-wider uppercase font-medium hover:opacity-90 t cursor-pointer">

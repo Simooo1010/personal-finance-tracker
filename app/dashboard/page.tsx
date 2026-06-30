@@ -27,6 +27,7 @@ export default function DashboardHome() {
   }, [])
 
   useEffect(() => {
+     
     fetchTransactions()
     window.addEventListener('finance_db_changed', fetchTransactions)
     return () => window.removeEventListener('finance_db_changed', fetchTransactions)

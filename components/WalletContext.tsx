@@ -44,6 +44,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, [userId])
 
   useEffect(() => {
+     
     if (userId) fetchWallets()
   }, [userId, fetchWallets])
 

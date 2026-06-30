@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Check, Delete } from 'lucide-react'
@@ -126,14 +126,14 @@ const safeEval = (expr: string): number | null => {
     const tokens = tokenize(clean)
     const processed = preprocessTokens(tokens)
     return evaluateRPN(processed)
-  } catch (e) {
+  } catch (_e) {
     return null
   }
 }
 
 export default function Calculator({ isOpen, onClose, onConfirm, initialValue }: CalculatorProps) {
   const [formula, setFormula] = useState('0')
-  const [liveResult, setLiveResult] = useState<number | null>(null)
+  const liveResult = useMemo(() => safeEval(formula), [formula])
   const [waitingForOperand, setWaitingForOperand] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [isMobile, setIsMobile] = useState(true)
@@ -141,19 +141,16 @@ export default function Calculator({ isOpen, onClose, onConfirm, initialValue }:
   // Sync with initialValue when opening
   useEffect(() => {
     if (isOpen) {
+       
       setFormula(initialValue?.toString() || '0')
       setWaitingForOperand(false)
     }
   }, [isOpen, initialValue])
 
-  // Live evaluation as formula changes
   useEffect(() => {
-    const res = safeEval(formula)
-    setLiveResult(res)
-  }, [formula])
-
-  useEffect(() => {
+     
     setMounted(true)
+     
     setIsMobile(window.innerWidth < 640)
     const handleResize = () => setIsMobile(window.innerWidth < 640)
     window.addEventListener('resize', handleResize)

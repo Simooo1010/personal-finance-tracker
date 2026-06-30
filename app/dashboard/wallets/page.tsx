@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Wallet, ArrowLeftRight, Check, ArrowRight, Pencil, Trash2, X, Info } from 'lucide-react'
+import { ArrowLeftRight, ArrowRight, Pencil, Trash2, X, Info } from 'lucide-react'
 import { Transaction } from '@/lib/supabase'
 import { getWalletBalances, parseTransaction } from '@/lib/transactions'
 import { pushAction } from '@/lib/actionsTracker'
@@ -26,6 +26,7 @@ export default function WalletsPage() {
     if (wallets.length > 0 && !hasCheckedOnboarding) {
       const isHidden = localStorage.getItem('hide_wallet_onboarding') === 'true'
       if (!isHidden && wallets.length === 1 && wallets[0].slug === 'generale') {
+         
         setShowOnboarding(true)
       }
       setHasCheckedOnboarding(true)
@@ -52,8 +53,10 @@ export default function WalletsPage() {
   const [editAmount, setEditAmount] = useState('')
   const [editDate, setEditDate] = useState('')
 
+   
   useEffect(() => {
     if (wallets.length > 0) {
+       
       if (!sourceWallet) setSourceWallet(wallets[0].slug)
       if (!destWallet && wallets.length > 1) setDestWallet(wallets[1].slug)
     }
@@ -71,6 +74,7 @@ export default function WalletsPage() {
   }, [])
 
   useEffect(() => {
+     
     fetchTransactions()
     window.addEventListener('finance_db_changed', fetchTransactions)
     return () => window.removeEventListener('finance_db_changed', fetchTransactions)
@@ -293,7 +297,7 @@ export default function WalletsPage() {
                     (es. Contanti, Conto in Banca, Risparmi).
                   </p>
                   <p>
-                    Attualmente hai solo il portafoglio "Generale". Vuoi configurare portafogli specifici?
+                    Attualmente hai solo il portafoglio &quot;Generale&quot;. Vuoi configurare portafogli specifici?
                   </p>
                   <p className="text-muted/60">
                     Se non ti serve questa funzionalità, puoi semplicemente ignorarla e 

@@ -48,7 +48,6 @@ export function parseTransaction(t: Transaction, defaultWallet: string = 'genera
 
   // 2. Determine wallet/position dynamically using regex
   let wallet: string = defaultWallet
-  const isTransfer = title.endsWith('-transfer]')
   
   const match = title.match(WALLET_TAG_REGEX)
   if (match) {

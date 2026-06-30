@@ -1,4 +1,3 @@
-import { Transaction } from './supabase'
 import { createClient } from './supabaseClient'
 
 export interface TrackedAction {
@@ -6,7 +5,9 @@ export interface TrackedAction {
   timestamp: string
   type: string
   label: string
+   
   undoData: any
+   
   redoData: any
 }
 
@@ -31,7 +32,7 @@ export function getHistoryIndex(): number {
   try {
     const index = localStorage.getItem(INDEX_KEY)
     return index ? parseInt(index) : -1
-  } catch (e) {
+  } catch {
     return -1
   }
 }
@@ -53,7 +54,9 @@ function saveHistoryState(history: TrackedAction[], index: number) {
 export function pushAction(
   type: string,
   label: string,
+   
   undoData: any,
+   
   redoData: any
 ) {
   const history = getHistory()
