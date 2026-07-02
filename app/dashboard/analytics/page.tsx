@@ -19,18 +19,21 @@ import { Transaction } from '@/lib/supabase'
 import { createClient } from '@/lib/supabaseClient'
 import { useWallets } from '@/components/WalletContext'
 import { parseTransaction, getTransactionEffect } from '@/lib/transactions'
+import { useAi } from '@/components/AiContext'
+import { AiAnalysisTab } from '@/components/AiAnalysisTab'
 
 type TimeRange = '1w' | '2w' | '1m' | '2m' | '6m' | '1y' | 'custom' | 'custom-period'
 type CustomPeriodUnit = 'days' | 'weeks' | 'months' | 'years'
 
 export default function AnalyticsPage() {
   const { wallets, walletMap, defaultWallet, walletSlugs } = useWallets()
+  const { isAiEnabled } = useAi()
   const supabase = createClient()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
 
   // Navigation / Active View States
-  const [activeTab, setActiveTab] = useState<'panoramica' | 'patrimonio' | 'cassa' | 'efficienza' | 'debiti'>('panoramica')
+  const [activeTab, setActiveTab] = useState<'panoramica' | 'patrimonio' | 'cassa' | 'efficienza' | 'debiti' | 'ai'>('panoramica')
   const [activeMetric, setActiveMetric] = useState<string>('net-worth')
 
   // Date Filtering States
@@ -605,7 +608,8 @@ export default function AnalyticsPage() {
     }
   ]
 
-  const activeGroup = themes.find(t => t.id === activeTab)
+  const allThemes = isAiEnabled ? [...themes, { id: 'ai', label: 'AI', metrics: [] }] : themes
+  const activeGroup = allThemes.find(t => t.id === activeTab)
 
   if (loading) {
     return (
@@ -620,7 +624,7 @@ export default function AnalyticsPage() {
 
       {/* Main Thematic Tab Selection (A) */}
       <div className="flex gap-6 border-b border-border/10 pb-3 overflow-x-auto scrollbar-none">
-        {themes.map(t => (
+        {allThemes.map(t => (
           <button
             key={t.id}
             onClick={() => {
@@ -794,6 +798,8 @@ export default function AnalyticsPage() {
             </motion.div>
           )}
         </div>
+      ) : activeTab === 'ai' ? (
+        <AiAnalysisTab />
       ) : activeTab === 'debiti' ? (
         /* ───── TAB 5: DEBT ANALYTICS VIEW ───── */
         <div className="space-y-12">

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { TrendingUp, TrendingDown, Plus, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 import { Transaction } from '@/lib/supabase'
@@ -10,6 +11,7 @@ import { createClient } from '@/lib/supabaseClient'
 import { useWallets } from '@/components/WalletContext'
 
 export default function DashboardHome() {
+  const router = useRouter()
   const { walletMap, defaultWallet } = useWallets()
   const supabase = createClient()
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -44,6 +46,18 @@ export default function DashboardHome() {
   
   const balance = totalIncome - totalExpense
   const recent = realTransactions.slice(0, 6)
+
+  const debtsList = transactions
+    .map(t => ({ id: t.id, amount: Number(t.amount), ...parseTransaction(t, defaultWallet) }))
+    .filter(item => item.isDebt && item.debtInfo !== null)
+
+  const totalToRedeem = debtsList
+    .filter(d => d.debtInfo?.type === 'to_me' && d.debtInfo.status === 'active')
+    .reduce((sum, d) => sum + d.amount, 0)
+
+  const totalToPay = debtsList
+    .filter(d => d.debtInfo?.type === 'by_me' && d.debtInfo.status === 'active')
+    .reduce((sum, d) => sum + d.amount, 0)
 
   const fmt = (n: number) => n.toLocaleString('it-IT', { minimumFractionDigits: 2 })
 
@@ -110,6 +124,29 @@ export default function DashboardHome() {
           Uscita
         </motion.button>
       </div>
+
+      {/* Debts Summary Card */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15 }}
+        onClick={() => router.push('/dashboard/debts')}
+        className="card p-5 cursor-pointer hover:border-border/20 t flex flex-col justify-between"
+      >
+        <span className="text-[10px] tracking-[0.3em] uppercase text-muted font-normal block mb-4">
+          Situazione Debiti
+        </span>
+        <div className="grid grid-cols-2 gap-4 divide-x divide-border/5">
+          <div>
+            <span className="text-[9px] tracking-[0.25em] uppercase text-muted block mb-1">Da ricevere</span>
+            <p className="text-xl font-light text-income">€{fmt(totalToRedeem)}</p>
+          </div>
+          <div className="pl-4">
+            <span className="text-[9px] tracking-[0.25em] uppercase text-muted block mb-1">Da pagare</span>
+            <p className="text-xl font-light text-expense">€{fmt(totalToPay)}</p>
+          </div>
+        </div>
+      </motion.div>
 
       {/* Recent Ledger List */}
       <motion.div

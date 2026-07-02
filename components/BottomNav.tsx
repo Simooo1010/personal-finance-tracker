@@ -2,19 +2,32 @@
 
 import { usePathname, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { Home, ArrowLeftRight, BarChart3, Wallet, HandCoins } from 'lucide-react'
-
-const navItems = [
+import { Home, ArrowLeftRight, BarChart3, Wallet, HandCoins, History } from 'lucide-react'
+import { useAi } from '@/components/AiContext'
+import { SparkleIcon } from '@/components/SparkleIcon'
+const originalNavItems = [
   { href: '/dashboard',              icon: Home,           label: 'Home' },
   { href: '/dashboard/wallets',      icon: Wallet,         label: 'Portafogli' },
   { href: '/dashboard/transactions', icon: ArrowLeftRight, label: 'Transazioni' },
   { href: '/dashboard/debts',        icon: HandCoins,      label: 'Debiti' },
   { href: '/dashboard/analytics',    icon: BarChart3,      label: 'Analisi' },
+  { href: '/dashboard/log',          icon: History,        label: 'Registro' },
 ]
 
 export default function BottomNav() {
   const pathname = usePathname()
   const router = useRouter()
+  const { isAiEnabled, loading } = useAi()
+
+  const navItems = isAiEnabled ? [
+    { href: '/dashboard',              icon: Home,           label: 'Home' },
+    { href: '/dashboard/activity',     icon: ArrowLeftRight, label: 'Attività' },
+    { href: '/dashboard/analytics',    icon: BarChart3,      label: 'Analisi' },
+    { href: '/dashboard/log',          icon: History,        label: 'Registro' },
+    { href: '/dashboard/ai-chat',      icon: SparkleIcon,    label: 'AI Chat' },
+  ] : originalNavItems
+
+  if (loading) return null // Wait for AI context to load to avoid flickering
 
   return (
     <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 lg:hidden safe-b">
