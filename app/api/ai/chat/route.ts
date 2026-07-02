@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabaseServer'
 import { parseTransaction, getTransactionEffect, getWalletBalances } from '@/lib/transactions'
+import { getGCPAuthToken } from '@/lib/gcpAuth'
 
 export async function POST(req: Request) {
-  const apiKey = process.env.GEMINI_API_KEY
-  if (!apiKey) {
+  const gcpKeyString = process.env.GCP_SERVICE_ACCOUNT_KEY
+  const projectId = process.env.GCP_PROJECT_ID
+  
+  if (!gcpKeyString || !projectId) {
     return NextResponse.json({ enabled: false }, { status: 200 })
   }
 
@@ -120,13 +123,19 @@ Usa queste informazioni per rispondere in modo preciso, orientato ai dati e prat
       ]
     }))
 
-    // 5. Call Gemini REST API
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`
+    const gcpKey = JSON.parse(gcpKeyString)
+    const clientEmail = gcpKey.client_email
+    const privateKey = gcpKey.private_key
+    const token = await getGCPAuthToken(clientEmail, privateKey)
 
-    const response = await fetch(geminiUrl, {
+    // Vertex AI REST API URL
+    const vertexUrl = `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/google/models/gemini-2.5-flash:generateContent`
+
+    const response = await fetch(vertexUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
         contents,
