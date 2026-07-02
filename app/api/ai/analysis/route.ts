@@ -83,13 +83,18 @@ export async function POST(req: Request) {
     const balances = getWalletBalances(transactions, walletSlugs, defaultWallet)
     let netWorth = Object.values(balances).reduce((sum, bal) => sum + bal, 0)
 
-    // Filter recent transactions (last 30 days) and format them
+    // Filter recent transactions (last 30 days and last 7 days) and format them
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+    const sevenDaysAgo = new Date()
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
 
     const recentRealTx = transactions
       .filter(t => !t.title.endsWith('-transfer]'))
       .filter(t => new Date(t.created_at) >= thirtyDaysAgo)
+
+    const weeklyRealTx = recentRealTx.filter(t => new Date(t.created_at) >= sevenDaysAgo)
 
     let totalIncome30d = 0
     let totalExpense30d = 0
@@ -100,7 +105,22 @@ export async function POST(req: Request) {
     })
     const savingsRate30d = totalIncome30d > 0 ? ((totalIncome30d - totalExpense30d) / totalIncome30d) * 100 : 0
 
-    const formattedTxList = recentRealTx.slice(0, 15).map(t => {
+    let totalIncome7d = 0
+    let totalExpense7d = 0
+    weeklyRealTx.forEach(t => {
+      const effect = getTransactionEffect(t, defaultWallet)
+      totalIncome7d += effect.income
+      totalExpense7d += effect.expense
+    })
+    const savingsRate7d = totalIncome7d > 0 ? ((totalIncome7d - totalExpense7d) / totalIncome7d) * 100 : 0
+
+    const formattedTxList30d = recentRealTx.slice(0, 15).map(t => {
+      const parsed = parseTransaction(t, defaultWallet)
+      const date = new Date(t.created_at).toLocaleDateString('it-IT')
+      return `- [${date}] ${t.type === 'income' ? 'Entrata' : 'Uscita'} su [${walletMap[parsed.wallet] || parsed.wallet}]: "${parsed.cleanTitle}" (€${Number(t.amount).toFixed(2)})`
+    }).join('\n')
+
+    const formattedTxList7d = weeklyRealTx.map(t => {
       const parsed = parseTransaction(t, defaultWallet)
       const date = new Date(t.created_at).toLocaleDateString('it-IT')
       return `- [${date}] ${t.type === 'income' ? 'Entrata' : 'Uscita'} su [${walletMap[parsed.wallet] || parsed.wallet}]: "${parsed.cleanTitle}" (€${Number(t.amount).toFixed(2)})`
@@ -133,24 +153,38 @@ export async function POST(req: Request) {
     }).join('\n')
 
     // 4. Call Gemini REST API
-    const systemPrompt = `Sei un consulente finanziario personale virtuale integrato in un'app di tracciamento spese. Il tuo stile è estremamente minimalista, elegante, amichevole ma diretto, e privo di formalismi inutili. Parla in italiano.
+    const systemPrompt = `Sei un consulente finanziario personale virtuale di livello avanzato integrato in un'app di tracciamento spese per adolescenti. Il tuo stile è estremamente minimalista, elegante, amichevole ma diretto, e privo di formalismi inutili. Parla in italiano.
 
 [IMPORTANTE CONTESTO UTENTE]
-L'utente di questa applicazione è un minorenne. Non percepisce entrate regolari o stipendi fissi. Le sue entrate sono saltuarie e irregolari, costituite principalmente da mance, regali o piccole ricompense per lavoretti occasionali. Adatta la tua analisi ed i tuoi consigli a questo specifico contesto: non suggerire investimenti complessi o pianificazioni basate su redditi mensili fissi. Concentrati sulla gestione del denaro a breve termine e sull'educazione al risparmio per ragazzi.
+L'utente di questa applicazione è un minorenne. Le sue entrate sono occasionali e irregolari (mance, regali, lavoretti). Adatta tutti i tuoi consigli a questo specifico contesto (niente investimenti complessi, mercati azionari o pianificazioni basate su stipendi fissi). Concentrati sulla gestione pratica del denaro e sull'educazione al risparmio per ragazzi.
 
-Analizza i dati forniti e restituisci un report strutturato esattamente in questi 4 punti (usa solo Markdown semplice, senza saluti o introduzioni verbose):
+Analizza i dati forniti (con particolare focus sugli ultimi 7 giorni) e restituisci un report strutturato esattamente in questi 5 punti (usa Markdown semplice ed elegante, senza saluti o introduzioni verbose):
 
-1. **Stato di Salute Generale**: Valutazione dello stato di salute generale del patrimonio complessivo del ragazzo.
-2. **Analisi dei Flussi**: Commento sul tasso di risparmio mensile, valutando la sostenibilità delle spese rispetto alle entrate occasionali registrate.
-3. **Punti di Attenzione**: Segnala anomalie (ad esempio, se l'utente sta spendendo troppo da un portafoglio specifico, se un portafoglio sta finendo i fondi, o se ci sono troppi crediti fermi da riscuotere da amici o parenti).
-4. **Strategia per la Settimana**: Fornisci 2 o 3 consigli pratici e azionabili per la settimana a venire adattati a un adolescente (es. come dilazionare le piccole spese o ricordare di riscuotere un credito).`
+1. **Stato di Salute e Risparmio**: Valutazione dello stato economico complessivo. Commenta il saldo totale e metti a confronto il tasso di risparmio degli ultimi 7 giorni con quello degli ultimi 30 giorni per evidenziare se il trend settimanale è in miglioramento o peggioramento.
+2. **Analisi delle Spese Settimanali**: Un esame approfondito di DOVE sono andati i soldi negli ultimi 7 giorni. Raggruppa le spese per categoria o scopo (es. snack/cibo, gaming, uscite con amici, trasporti) e indica chiaramente quali voci o acquisti specifici hanno inciso di più sul budget della settimana.
+3. **Opportunità di Risparmio e Cambiamenti**: Identifica comportamenti da correggere e suggerisci modifiche concrete. Indica in quali categorie l'utente sta spendendo in modo impulsivo o eccessivo, proponendo alternative pratiche per tagliare i costi (es. limitare i piccoli acquisti ripetitivi o gestire meglio i portafogli che si stanno svuotando).
+4. **Piano d'Azione per la Settimana**: Fornisci da 2 a 4 suggerimenti pratici, realistici e personalizzati per i prossimi giorni (es. rimandare una spesa non urgente, riscuotere un credito attivo, o porsi un limite massimo di spesa per una determinata attività).
+5. **L'Angolo del Guru (Spazio Libero & Creativo)**: In questa sezione hai totale libertà e autonomia creativa. Trova un angolo di analisi unico, profondo o inaspettato basato sui dati dell'utente, oppure inventa una rubrica originale che cambia ogni volta (es. "La sfida di risparmio segreta", "La statistica bizzarra", "L'analisi filosofica di un acquisto", "L'equazione del valore", "Il consiglio psicologico per resistere allo shopping", "Una previsione sul futuro basata sulle abitudini di oggi"). Stupisci l'utente con una riflessione acuta, intelligente o di grande ispirazione che vada oltre il semplice calcolo dei numeri. Potrai anche divagare in modo originale o dare un taglio psicologico o narrativo unico, a tua discrezione.`
 
     const userPrompt = `Ecco i dati finanziari correnti dell'utente:
 - Saldo Totale (Net Worth): €${netWorth.toFixed(2)}
 - Dettaglio Portafogli:
 ${walletDetails}
-- Transazioni degli ultimi 30 giorni (Entrate totali: €${totalIncome30d.toFixed(2)}, Uscite totali: €${totalExpense30d.toFixed(2)}, Tasso di risparmio: ${savingsRate30d.toFixed(1)}%):
-${formattedTxList || 'Nessuna transazione recente.'}
+
+[DATI DEGLI ULTIMI 7 GIORNI (QUESTA SETTIMANA)]
+- Entrate settimanali: €${totalIncome7d.toFixed(2)}
+- Uscite settimanali: €${totalExpense7d.toFixed(2)}
+- Tasso di risparmio settimanale: ${savingsRate7d.toFixed(1)}%
+- Transazioni della settimana:
+${formattedTxList7d || 'Nessuna transazione registrata questa settimana.'}
+
+[DATI DEGLI ULTIMI 30 GIORNI]
+- Entrate mensili: €${totalIncome30d.toFixed(2)}
+- Uscite mensili: €${totalExpense30d.toFixed(2)}
+- Tasso di risparmio mensile: ${savingsRate30d.toFixed(1)}%
+- Transazioni degli ultimi 30 giorni (max 15 mostrate):
+${formattedTxList30d || 'Nessuna transazione recente negli ultimi 30 giorni.'}
+
 - Situazione Debiti/Crediti:
   * Crediti attivi (denaro da riscuotere): €${totalCredits.toFixed(2)}
   * Debiti attivi (denaro da saldare): €${totalDebts.toFixed(2)}
