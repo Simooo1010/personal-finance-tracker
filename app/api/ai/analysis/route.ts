@@ -173,6 +173,7 @@ ${formattedDebtsList ? `\nElenco dettagliato:\n${formattedDebtsList}` : '\nNessu
       body: JSON.stringify({
         contents: [
           {
+            role: 'user',
             parts: [
               { text: userPrompt }
             ]

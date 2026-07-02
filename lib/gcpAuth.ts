@@ -21,8 +21,12 @@ export async function getGCPAuthToken(clientEmail: string, privateKey: string): 
   const signer = crypto.createSign('RSA-SHA256')
   signer.update(signatureInput)
   
-  // Format the private key if it contains literal '\n' characters instead of actual newlines
-  const formattedPrivateKey = privateKey.replace(/\\n/g, '\n')
+  // Format the private key cleanly (stripping any bad whitespace/newlines and reforming)
+  const body = privateKey
+    .replace('-----BEGIN PRIVATE KEY-----', '')
+    .replace('-----END PRIVATE KEY-----', '')
+    .replace(/\s+/g, '')
+  const formattedPrivateKey = `-----BEGIN PRIVATE KEY-----\n${body}\n-----END PRIVATE KEY-----`
   
   const signature = signer.sign(formattedPrivateKey, 'base64url')
   const jwt = `${signatureInput}.${signature}`
