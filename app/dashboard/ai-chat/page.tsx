@@ -79,11 +79,67 @@ export default function AiChatPage() {
     const exportRegex = /```json:export\s*([\s\S]*?)\s*```/g
     let match
     while ((match = exportRegex.exec(content)) !== null) {
+      const jsonStr = match[1]
       try {
-        const parsed = JSON.parse(match[1])
-        exports.push(parsed)
+        const parsed = JSON.parse(jsonStr)
+        if (parsed && typeof parsed === 'object') {
+          // Guarantee that rows and headers are arrays and exp is safe to map
+          parsed.rows = Array.isArray(parsed.rows) ? parsed.rows : []
+          parsed.headers = Array.isArray(parsed.headers) ? parsed.headers : []
+          exports.push(parsed)
+        }
       } catch (e) {
-        console.error("Failed to parse export block:", e)
+        console.error("Failed strict JSON parse, trying loose parsing:", e)
+        // Fallback loose parser for unescaped double quotes inside HTML attributes
+        try {
+          const typeMatch = /"type"\s*:\s*"([^"]+)"/.exec(jsonStr)
+          const filenameMatch = /"filename"\s*:\s*"([^"]+)"/.exec(jsonStr)
+          
+          if (typeMatch && filenameMatch) {
+            const type = typeMatch[1]
+            const filename = filenameMatch[1]
+            let rows: any[] = []
+            let headers: string[] = []
+            
+            // Extract rows array content
+            const rowsMatch = /"rows"\s*:\s*\[([\s\S]*?)\]\s*(?:,|\})/.exec(jsonStr)
+            if (rowsMatch) {
+              const rowsContent = rowsMatch[1].trim()
+              if (type === 'csv' || type === 'xlsx') {
+                const subArrayRegex = /\[([\s\S]*?)\]/g
+                let subMatch
+                while ((subMatch = subArrayRegex.exec(rowsContent)) !== null) {
+                  const items = subMatch[1].split(',').map(item => {
+                    return item.trim().replace(/^["']|["']$/g, '').replace(/\\"/g, '"')
+                  })
+                  rows.push(items)
+                }
+              } else {
+                const stringRegex = /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g
+                let strMatch
+                while ((strMatch = stringRegex.exec(rowsContent)) !== null) {
+                  const val = strMatch[0].slice(1, -1).replace(/\\"/g, '"').replace(/\\n/g, '\n')
+                  rows.push(val)
+                }
+              }
+            }
+            
+            // Extract headers if present
+            const headersMatch = /"headers"\s*:\s*\[([\s\S]*?)\]/.exec(jsonStr)
+            if (headersMatch) {
+              const headersContent = headersMatch[1].trim()
+              const stringRegex = /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g
+              let strMatch
+              while ((strMatch = stringRegex.exec(headersContent)) !== null) {
+                headers.push(strMatch[0].slice(1, -1).replace(/\\"/g, '"'))
+              }
+            }
+            
+            exports.push({ type, filename, headers, rows })
+          }
+        } catch (looseErr) {
+          console.error("Loose parsing failed as well:", looseErr)
+        }
       }
     }
     
@@ -92,19 +148,24 @@ export default function AiChatPage() {
   }
 
   const triggerDownload = (exp: any) => {
+    if (!exp) return
     const { type, filename, headers, rows } = exp
     let content = ''
     let mimeType = 'text/plain'
     
+    // Type guards
+    const safeHeaders = Array.isArray(headers) ? headers : []
+    const safeRows = Array.isArray(rows) ? rows : []
+    
     if (type === 'csv' || type === 'xlsx') {
       content = '\uFEFF'
-      if (headers && headers.length > 0) {
-        content += headers.join(';') + '\n'
+      if (safeHeaders.length > 0) {
+        content += safeHeaders.join(';') + '\n'
       }
-      content += rows.map((r: any) => r.join(';')).join('\n')
+      content += safeRows.map((r: any) => Array.isArray(r) ? r.join(';') : r).join('\n')
       mimeType = 'text/csv;charset=utf-8;'
     } else if (type === 'txt') {
-      content = rows.map((r: any) => Array.isArray(r) ? r.join(' ') : r).join('\n')
+      content = safeRows.map((r: any) => Array.isArray(r) ? r.join(' ') : r).join('\n')
       mimeType = 'text/plain;charset=utf-8;'
     } else if (type === 'html') {
       const win = window.open('', '_blank')
@@ -133,7 +194,7 @@ export default function AiChatPage() {
                 <p style="font-size: 12px; color: #666; margin: 5px 0 0 0;">Generato il ${new Date().toLocaleDateString('it-IT')}</p>
               </div>
               <button onclick="window.print()" style="margin-bottom: 20px; padding: 10px 20px; background: #000; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">Stampa / Salva in PDF</button>
-              ${rows.join('\n')}
+              ${safeRows.join('\n')}
               <div class="footer">
                 Personal Finance Tracker • Assistente AI
               </div>

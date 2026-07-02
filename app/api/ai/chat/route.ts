@@ -131,6 +131,7 @@ Se l'utente ti chiede di generare, esportare o scaricare un file (es. Excel/XLSX
 - Per il formato "xlsx" o "csv", compila la tabella con i dati richiesti (es. elenco delle transazioni o riepilogo debiti). Usa come delimitatore dei campi la virgola o lascia che il client lo gestisca.
 - Per il formato "txt", puoi lasciare "headers" vuoto ed inserire le righe di testo in "rows" (es. ["Riga 1", "Riga 2"]).
 - Per il formato "html" (usato per generare i PDF da stampare), compila "rows" con codice HTML per un report tabellare o riassuntivo (es. ["<table>...</table>"]). Il client aprirà questa pagina per stamparla in PDF.
+- ATTENZIONE: Per evitare conflitti con la sintassi JSON, all'interno del codice HTML per "html" usa solo apici singoli (') per le classi o gli stili CSS (es. <table style='width: 100%'> o <td class='text-sm'>). Non inserire virgolette doppie (") all'interno di stringhe HTML o causerebbe un errore di parsing JSON.
 - Non spiegare il blocco JSON all'utente, rispondi semplicemente confermando la generazione del file (es: "Ecco il file pronto per il download:").
 `
 
