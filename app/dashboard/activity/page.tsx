@@ -23,6 +23,7 @@ export default function ActivityPage() {
   const [editingWalletId, setEditingWalletId] = useState<string | null>(null)
   const [walletName, setWalletName] = useState('')
   const [walletDesc, setWalletDesc] = useState('')
+  const [walletEmoji, setWalletEmoji] = useState('💰')
   const [savingWallet, setSavingWallet] = useState(false)
   const [confirmDeleteWallet, setConfirmDeleteWallet] = useState<{ id: string, name: string } | null>(null)
 
@@ -32,6 +33,8 @@ export default function ActivityPage() {
   const [sourceWallet, setSourceWallet] = useState<string>('')
   const [destWallet, setDestWallet] = useState<string>('')
   const [submittingTransfer, setSubmittingTransfer] = useState(false)
+  const [editingTransfer, setEditingTransfer] = useState<{ sourceTx: Transaction, destTx?: Transaction } | null>(null)
+  const [confirmDeleteTransfer, setConfirmDeleteTransfer] = useState<{ sourceTx: Transaction, destTx?: Transaction } | null>(null)
 
   // Transaction Ledger States
   const [showTxForm, setShowTxForm] = useState(false)
@@ -70,10 +73,11 @@ export default function ActivityPage() {
     e.preventDefault()
     if (!walletName.trim()) return
     setSavingWallet(true)
+    const fullName = `${walletEmoji} ${walletName.trim()}`
     try {
       if (editingWalletId) {
         await updateWallet(editingWalletId, {
-          name: walletName.trim(),
+          name: fullName,
           description: walletDesc.trim() || null
         })
       } else {
@@ -87,7 +91,7 @@ export default function ActivityPage() {
           }
           await createWallet(user.id, {
             slug,
-            name: walletName.trim(),
+            name: fullName,
             description: walletDesc.trim() || null,
             position: wallets.length
           })
@@ -97,11 +101,26 @@ export default function ActivityPage() {
       setShowWalletForm(false)
       setWalletName('')
       setWalletDesc('')
+      setWalletEmoji('💰')
     } catch (err) {
       console.error(err)
     } finally {
       setSavingWallet(false)
     }
+  }
+
+  const handleEditWalletClick = (w: any) => {
+    setEditingWalletId(w.id)
+    const match = w.name.match(/^([\u2000-\u32FF\ud83c-\udbff\udc00-\udfff\u200d\ufe0f]+)\s+(.*)$/)
+    if (match) {
+      setWalletEmoji(match[1])
+      setWalletName(match[2])
+    } else {
+      setWalletEmoji('💰')
+      setWalletName(w.name)
+    }
+    setWalletDesc(w.description || '')
+    setShowWalletForm(true)
   }
 
   const handleDeleteWallet = async () => {
@@ -131,37 +150,123 @@ export default function ActivityPage() {
     e.preventDefault()
     const amt = parseFloat(transferAmount)
     if (isNaN(amt) || amt <= 0 || sourceWallet === destWallet) return
-    if (balances[sourceWallet] < amt) {
+
+    const origAmount = editingTransfer ? Number(editingTransfer.sourceTx.amount) : 0
+    const sourceBalLimit = balances[sourceWallet] + (sourceWallet === (editingTransfer ? parseTransaction(editingTransfer.sourceTx, defaultWallet).wallet : '') ? origAmount : 0)
+
+    if (sourceBalLimit < amt) {
       alert(`Fondi insufficienti in ${walletMap[sourceWallet] || sourceWallet}.`)
       return
     }
 
     setSubmittingTransfer(true)
-    const nowStr = new Date().toISOString()
     const { data: { user } } = await supabase.auth.getUser()
-    
-    const sourceTx = {
-      user_id: user?.id,
-      title: `Spostamento ${walletMap[sourceWallet] || sourceWallet} ➔ ${walletMap[destWallet] || destWallet} [${sourceWallet}-transfer]`,
-      amount: amt,
-      type: 'expense' as const,
-      created_at: nowStr
+
+    if (editingTransfer) {
+      const origSource = editingTransfer.sourceTx
+      const origDest = editingTransfer.destTx
+
+      const updatedSource = {
+        title: `Spostamento ${walletMap[sourceWallet] || sourceWallet} ➔ ${walletMap[destWallet] || destWallet} [${sourceWallet}-transfer]`,
+        amount: amt,
+        type: 'expense' as const,
+      }
+
+      const updatedDest = {
+        title: `Spostamento ${walletMap[sourceWallet] || sourceWallet} ➔ ${walletMap[destWallet] || destWallet} [${destWallet}-transfer]`,
+        amount: amt,
+        type: 'income' as const,
+      }
+
+      await supabase.from('transactions').update(updatedSource).eq('id', origSource.id)
+      if (origDest) {
+        await supabase.from('transactions').update(updatedDest).eq('id', origDest.id)
+      } else {
+        await supabase.from('transactions').insert([{
+          ...updatedDest,
+          user_id: user?.id,
+          created_at: origSource.created_at
+        }])
+      }
+
+      const label = `Modificato spostamento ${walletMap[sourceWallet] || sourceWallet} ➔ ${walletMap[destWallet] || destWallet} (€${amt.toFixed(2)})`
+      pushAction('edit_transfer', label, { sourceTx: origSource, destTx: origDest }, { sourceTx: { ...origSource, ...updatedSource }, destTx: origDest ? { ...origDest, ...updatedDest } : null })
+      setEditingTransfer(null)
+    } else {
+      const nowStr = new Date().toISOString()
+      const sourceTx = {
+        user_id: user?.id,
+        title: `Spostamento ${walletMap[sourceWallet] || sourceWallet} ➔ ${walletMap[destWallet] || destWallet} [${sourceWallet}-transfer]`,
+        amount: amt,
+        type: 'expense' as const,
+        created_at: nowStr
+      }
+
+      const destTx = {
+        user_id: user?.id,
+        title: `Spostamento ${walletMap[sourceWallet] || sourceWallet} ➔ ${walletMap[destWallet] || destWallet} [${destWallet}-transfer]`,
+        amount: amt,
+        type: 'income' as const,
+        created_at: nowStr
+      }
+
+      const { data } = await supabase.from('transactions').insert([sourceTx, destTx]).select()
+      if (data && data.length >= 2) {
+        const sTx = data.find(r => r.type === 'expense')
+        const dTx = data.find(r => r.type === 'income')
+        if (sTx && dTx) {
+          const label = `Eseguito spostamento ${walletMap[sourceWallet] || sourceWallet} ➔ ${walletMap[destWallet] || destWallet} (€${amt.toFixed(2)})`
+          pushAction('add_transfer', label, { sourceId: sTx.id, destId: dTx.id }, { sourceTx: sTx, destTx: dTx })
+        }
+      }
     }
 
-    const destTx = {
-      user_id: user?.id,
-      title: `Spostamento ${walletMap[sourceWallet] || sourceWallet} ➔ ${walletMap[destWallet] || destWallet} [${destWallet}-transfer]`,
-      amount: amt,
-      type: 'income' as const,
-      created_at: nowStr
-    }
-
-    await supabase.from('transactions').insert([sourceTx, destTx])
-    
     setTransferAmount('')
     setShowTransferModal(false)
     setSubmittingTransfer(false)
     fetchTransactions()
+  }
+
+  const handleEditTransferClick = (sourceTx: Transaction, destTx?: Transaction) => {
+    const parsedSource = parseTransaction(sourceTx, defaultWallet)
+    const parsedDest = destTx ? parseTransaction(destTx, defaultWallet) : null
+
+    setEditingTransfer({ sourceTx, destTx })
+    setSourceWallet(parsedSource.wallet)
+    setDestWallet(parsedDest ? parsedDest.wallet : defaultWallet)
+    setTransferAmount(sourceTx.amount.toString())
+    setShowTransferModal(true)
+  }
+
+  const handleDeleteTransferClick = (sourceTx: Transaction, destTx?: Transaction) => {
+    setConfirmDeleteTransfer({ sourceTx, destTx })
+  }
+
+  const executeDeleteTransfer = async () => {
+    if (!confirmDeleteTransfer) return
+    const { sourceTx, destTx } = confirmDeleteTransfer
+    setConfirmDeleteTransfer(null)
+    setLoading(true)
+
+    const ids = [sourceTx.id]
+    if (destTx) ids.push(destTx.id)
+
+    try {
+      const { error } = await supabase.from('transactions').delete().in('id', ids)
+      if (!error) {
+        const parsedSource = parseTransaction(sourceTx, defaultWallet)
+        const parsedDest = destTx ? parseTransaction(destTx, defaultWallet) : null
+        const sourceLabel = walletMap[parsedSource.wallet] || parsedSource.wallet
+        const destLabel = parsedDest ? (walletMap[parsedDest.wallet] || parsedDest.wallet) : 'Portafoglio'
+        const label = `Eliminato spostamento ${sourceLabel} ➔ ${destLabel} (€${Number(sourceTx.amount).toFixed(2)})`
+        pushAction('delete_transfer', label, { sourceTx, destTx }, { sourceId: sourceTx.id, destId: destTx?.id })
+        fetchTransactions()
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoading(false)
+    }
   }
 
   // --- Transaction Ledger Logic ---
@@ -237,14 +342,9 @@ export default function ActivityPage() {
               </p>
               
               {/* Wallet Actions (visible on hover) */}
-              <div className="absolute top-4 right-4 flex items-center gap-1 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+              <div className="absolute top-4 right-4 flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                 <button
-                  onClick={() => {
-                    setEditingWalletId(w.id)
-                    setWalletName(w.name)
-                    setWalletDesc(w.description || '')
-                    setShowWalletForm(true)
-                  }}
+                  onClick={() => handleEditWalletClick(w)}
                   className="w-7 h-7 flex items-center justify-center rounded-lg bg-surface/50 text-muted hover:text-fg t cursor-pointer"
                 >
                   <Pencil className="w-3.5 h-3.5" />
@@ -387,7 +487,7 @@ export default function ActivityPage() {
                         {t.type === 'income' ? '+' : '-'}€{fmt(Number(t.amount))}
                       </span>
                       
-                      <div className="flex items-center gap-0.5 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center gap-0.5 md:opacity-0 md:group-hover:opacity-100 opacity-100 transition-opacity">
                         <button
                           onClick={() => { setEditTx(t); setShowTxForm(true) }}
                           className="w-7 h-7 flex items-center justify-center rounded-lg text-muted hover:text-fg hover:bg-elevated/60 t cursor-pointer"
@@ -408,6 +508,84 @@ export default function ActivityPage() {
             </AnimatePresence>
           </div>
         )}
+      </section>
+
+      {/* Storico Spostamenti Section */}
+      <section className="space-y-6">
+        <div className="pb-3 border-b border-border/10">
+          <h2 className="text-[10px] tracking-[0.3em] uppercase text-muted font-normal">
+            Storico Spostamenti
+          </h2>
+        </div>
+
+        {(() => {
+          const transferHistory = transactions.filter(t => t.title.endsWith('-transfer]') && t.type === 'expense')
+          
+          if (transferHistory.length === 0) {
+            return (
+              <div className="py-10 text-center">
+                <p className="text-sm text-muted font-light">Nessun trasferimento registrato</p>
+              </div>
+            )
+          }
+
+          return (
+            <div className="divide-y divide-border/5">
+              {transferHistory.map((t) => {
+                const parsed = parseTransaction(t, defaultWallet)
+                const counterpart = transactions.find(
+                  u => u.created_at === t.created_at && u.id !== t.id && u.title.endsWith('-transfer]')
+                )
+                const destWalletType = counterpart ? parseTransaction(counterpart, defaultWallet).wallet : null
+                
+                const cleanTransferTitle = (title: string) => {
+                  return title.replace(/\[.*-transfer\]/, '').trim()
+                }
+
+                return (
+                  <div key={t.id} className="flex items-center justify-between py-4 group">
+                    <div className="space-y-0.5 min-w-0">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <p className="text-sm font-light text-fg truncate">
+                          {cleanTransferTitle(t.title)}
+                        </p>
+                        {destWalletType && (
+                          <span className="px-1.5 py-0.5 rounded text-[8px] tracking-wide uppercase font-light bg-elevated text-muted">
+                            {walletMap[parsed.wallet] || parsed.wallet} ➔ {walletMap[destWalletType] || destWalletType}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-muted tracking-wider">
+                        {new Date(t.created_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })} • {new Date(t.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3 ml-3 shrink-0">
+                      <span className="text-sm font-light text-muted">
+                        €{fmt(Number(t.amount))}
+                      </span>
+                      
+                      <div className="flex items-center gap-0.5 md:opacity-0 md:group-hover:opacity-100 opacity-100 transition-opacity">
+                        <button
+                          onClick={() => handleEditTransferClick(t, counterpart)}
+                          className="w-7 h-7 flex items-center justify-center rounded-lg text-muted hover:text-fg hover:bg-elevated/60 t cursor-pointer"
+                        >
+                          <Pencil className="w-3.5 h-3.5" strokeWidth={1.5} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteTransferClick(t, counterpart)}
+                          className="w-7 h-7 flex items-center justify-center rounded-lg text-muted hover:text-expense hover:bg-expense/5 t cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })()}
       </section>
 
       {/* Forms & Modals */}
@@ -440,6 +618,23 @@ export default function ActivityPage() {
                 <button onClick={() => setShowWalletForm(false)} className="p-1.5 hover:bg-elevated rounded-lg text-muted hover:text-fg"><X className="w-4 h-4"/></button>
               </div>
               <form onSubmit={handleSaveWallet} className="space-y-5">
+                <div>
+                  <label className="text-[9px] tracking-[0.2em] uppercase text-muted block mb-1.5">Emoji</label>
+                  <div className="flex flex-wrap gap-2 p-2 bg-elevated/40 rounded-xl">
+                    {['💰', '💳', '💼', '🐷', '💵', '🏦', '🪙', '🛍️', '📈', '🏠', '🚗'].map(emoji => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => setWalletEmoji(emoji)}
+                        className={`w-9 h-9 text-lg flex items-center justify-center rounded-lg hover:bg-elevated transition-colors ${
+                          walletEmoji === emoji ? 'bg-elevated border border-border/20' : ''
+                        }`}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <div>
                   <label className="text-[9px] tracking-[0.2em] uppercase text-muted block mb-1.5">Nome</label>
                   <input type="text" value={walletName} onChange={e => setWalletName(e.target.value)} required className="w-full bg-transparent border-b border-border/30 px-2 py-2 text-sm text-fg focus:outline-none focus:border-fg t" />
@@ -502,6 +697,25 @@ export default function ActivityPage() {
               <div className="flex gap-3">
                 <button onClick={() => setConfirmDeleteWallet(null)} className="flex-1 py-2.5 border border-border/20 text-muted hover:text-fg text-xs uppercase rounded-xl">Annulla</button>
                 <button onClick={handleDeleteWallet} className="flex-1 py-2.5 bg-expense text-white text-xs uppercase rounded-xl">Elimina</button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Transfer Confirm */}
+      <AnimatePresence>
+        {confirmDeleteTransfer && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setConfirmDeleteTransfer(null)} className="absolute inset-0 bg-bg/80 backdrop-blur-sm" />
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} className="relative w-full max-w-md card p-6 bg-surface/90 border border-border/40 shadow-2xl space-y-6 text-center">
+              <h3 className="text-base font-light text-fg">Elimina Spostamento?</h3>
+              <p className="text-xs text-muted font-light">
+                Sei sicuro di voler eliminare questo trasferimento di €{fmt(Number(confirmDeleteTransfer.sourceTx.amount))}?
+              </p>
+              <div className="flex gap-3">
+                <button onClick={() => setConfirmDeleteTransfer(null)} className="flex-1 py-2.5 border border-border/20 text-muted hover:text-fg text-xs uppercase rounded-xl">Annulla</button>
+                <button onClick={executeDeleteTransfer} className="flex-1 py-2.5 bg-expense text-white text-xs uppercase rounded-xl">Elimina</button>
               </div>
             </motion.div>
           </div>

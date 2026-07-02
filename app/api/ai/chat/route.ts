@@ -113,7 +113,26 @@ ${formattedDebtsList ? `- Dettaglio Debiti/Crediti:\n${formattedDebtsList}` : '-
 - Transazioni recenti (ultimi 30 giorni):
 ${formattedTxList || 'Nessuna transazione recente.'}
 
-Usa queste informazioni per rispondere in modo preciso, orientato ai dati e pratico a tutte le domande dell'utente riguardanti la sua situazione economica personale. Cerca di essere conciso ed evita risposte prolisse. Se l'utente ti chiede se può permettersi una determinata spesa, fai una valutazione basata sul suo saldo e sul suo comportamento finanziario recente, tenendo conto del suo contesto da minorenne.`
+Usa queste informazioni per rispondere in modo preciso, orientato ai dati e pratico a tutte le domande dell'utente riguardanti la sua situazione economica personale. Cerca di essere conciso ed evita risposte prolisse. Se l'utente ti chiede se può permettersi una determinata spesa, fai una valutazione basata sul suo saldo e sul suo comportamento finanziario recente, tenendo conto del suo contesto da minorenne.
+
+[ABILITÀ GENERAZIONE FILE]
+Se l'utente ti chiede di generare, esportare o scaricare un file (es. Excel/XLSX, CSV, PDF, TXT), DEVI rispondere includendo un blocco di codice JSON speciale con questa identica sintassi:
+\`\`\`json:export
+{
+  "type": "csv" | "xlsx" | "txt" | "html",
+  "filename": "nome_file.estensione",
+  "headers": ["Colonna 1", "Colonna 2", ...],
+  "rows": [
+    ["Valore A1", "Valore A2", ...],
+    ["Valore B1", "Valore B2", ...]
+  ]
+}
+\`\`\`
+- Per il formato "xlsx" o "csv", compila la tabella con i dati richiesti (es. elenco delle transazioni o riepilogo debiti). Usa come delimitatore dei campi la virgola o lascia che il client lo gestisca.
+- Per il formato "txt", puoi lasciare "headers" vuoto ed inserire le righe di testo in "rows" (es. ["Riga 1", "Riga 2"]).
+- Per il formato "html" (usato per generare i PDF da stampare), compila "rows" con codice HTML per un report tabellare o riassuntivo (es. ["<table>...</table>"]). Il client aprirà questa pagina per stamparla in PDF.
+- Non spiegare il blocco JSON all'utente, rispondi semplicemente confermando la generazione del file (es: "Ecco il file pronto per il download:").
+`
 
     // 4. Map frontend message history to Gemini API format
     const contents = messages.map((m: any) => ({
@@ -146,7 +165,7 @@ Usa queste informazioni per rispondere in modo preciso, orientato ai dati e prat
         },
         generationConfig: {
           temperature: 0.7,
-          maxOutputTokens: 1024
+          maxOutputTokens: 8192
         }
       })
     })

@@ -186,7 +186,7 @@ ${formattedDebtsList ? `\nElenco dettagliato:\n${formattedDebtsList}` : '\nNessu
         },
         generationConfig: {
           temperature: 0.2,
-          maxOutputTokens: 1024
+          maxOutputTokens: 8192
         }
       })
     })

@@ -122,7 +122,7 @@ export default function LogPage() {
                         </p>
                         
                         {!isCancelled && (
-                          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex items-center gap-2 md:opacity-0 md:group-hover:opacity-100 opacity-100 transition-opacity">
                             <button
                               onClick={() => handleEdit(action)}
                               className="p-1.5 rounded-md hover:bg-elevated text-muted hover:text-fg transition-colors"
