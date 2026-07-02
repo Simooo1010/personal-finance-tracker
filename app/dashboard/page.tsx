@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { TrendingUp, TrendingDown, Plus, ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import { TrendingUp, TrendingDown, Plus, ArrowUpRight, ArrowDownRight, History } from 'lucide-react'
 import { Transaction } from '@/lib/supabase'
 import TransactionForm from '@/components/TransactionForm'
 import { getTransactionEffect, parseTransaction } from '@/lib/transactions'
@@ -71,13 +71,22 @@ export default function DashboardHome() {
         transition={{ duration: 0.5 }}
         className="space-y-6"
       >
-        <div>
-          <span className="text-[10px] tracking-[0.3em] uppercase text-muted font-normal block mb-2">
-            Disponibilità Attuale
-          </span>
-          <h1 className={`text-6xl sm:text-7xl font-thin tracking-tight text-fg ${balance < 0 ? 'text-expense' : ''}`}>
-            €{fmt(balance)}
-          </h1>
+        <div className="flex justify-between items-start">
+          <div>
+            <span className="text-[10px] tracking-[0.3em] uppercase text-muted font-normal block mb-2">
+              Disponibilità Attuale
+            </span>
+            <h1 className={`text-6xl sm:text-7xl font-thin tracking-tight text-fg ${balance < 0 ? 'text-expense' : ''}`}>
+              €{fmt(balance)}
+            </h1>
+          </div>
+          <button 
+            onClick={() => router.push('/dashboard/log')}
+            className="p-3 rounded-full bg-surface border border-border/10 text-fg hover:bg-elevated transition-colors"
+            title="Registro Attività"
+          >
+            <History className="w-5 h-5" strokeWidth={1.5} />
+          </button>
         </div>
 
         {/* Quick Stats Grid */}

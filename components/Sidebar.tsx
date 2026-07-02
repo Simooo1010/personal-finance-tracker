@@ -12,7 +12,6 @@ const originalNavItems = [
   { href: '/dashboard/transactions', icon: ArrowLeftRight, label: 'Transazioni' },
   { href: '/dashboard/debts',        icon: HandCoins,      label: 'Debiti' },
   { href: '/dashboard/analytics',    icon: BarChart3,      label: 'Analisi' },
-  { href: '/dashboard/log',          icon: History,        label: 'Registro' },
 ]
 
 export default function Sidebar() {
@@ -25,7 +24,6 @@ export default function Sidebar() {
     { href: '/dashboard/activity',     icon: ArrowLeftRight, label: 'Attività' },
     { href: '/dashboard/debts',        icon: HandCoins,      label: 'Debiti' },
     { href: '/dashboard/analytics',    icon: BarChart3,      label: 'Analisi' },
-    { href: '/dashboard/log',          icon: History,        label: 'Registro' },
     { href: '/dashboard/ai-chat',      icon: SparkleIcon,    label: 'AI Chat' },
   ] : originalNavItems
 

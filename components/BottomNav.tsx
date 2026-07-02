@@ -11,7 +11,6 @@ const originalNavItems = [
   { href: '/dashboard/transactions', icon: ArrowLeftRight, label: 'Transazioni' },
   { href: '/dashboard/debts',        icon: HandCoins,      label: 'Debiti' },
   { href: '/dashboard/analytics',    icon: BarChart3,      label: 'Analisi' },
-  { href: '/dashboard/log',          icon: History,        label: 'Registro' },
 ]
 
 export default function BottomNav() {
@@ -23,7 +22,6 @@ export default function BottomNav() {
     { href: '/dashboard',              icon: Home,           label: 'Home' },
     { href: '/dashboard/activity',     icon: ArrowLeftRight, label: 'Attività' },
     { href: '/dashboard/analytics',    icon: BarChart3,      label: 'Analisi' },
-    { href: '/dashboard/log',          icon: History,        label: 'Registro' },
     { href: '/dashboard/ai-chat',      icon: SparkleIcon,    label: 'AI Chat' },
   ] : originalNavItems
 
