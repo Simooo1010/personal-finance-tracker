@@ -8,7 +8,7 @@ import { getWalletBalances, parseTransaction } from '@/lib/transactions'
 import { pushAction } from '@/lib/actionsTracker'
 import { createClient } from '@/lib/supabaseClient'
 import { useWallets } from '@/components/WalletContext'
-import { createWallet } from '@/lib/wallets'
+import { createWallet, updateWallet, deleteWallet } from '@/lib/wallets'
 
 export default function WalletsPage() {
   const { wallets, walletMap, defaultWallet, walletSlugs, refetchWallets } = useWallets()
@@ -25,9 +25,11 @@ export default function WalletsPage() {
 
   // Custom wallet creation states
   const [showAddWalletModal, setShowAddWalletModal] = useState(false)
+  const [editingWalletId, setEditingWalletId] = useState<string | null>(null)
   const [newWalletName, setNewWalletName] = useState('')
   const [newWalletDesc, setNewWalletDesc] = useState('')
   const [addingWallet, setAddingWallet] = useState(false)
+  const [confirmDeleteWallet, setConfirmDeleteWallet] = useState<{ id: string, name: string } | null>(null)
 
   useEffect(() => {
     if (wallets.length > 0 && !hasCheckedOnboarding) {
@@ -64,38 +66,77 @@ export default function WalletsPage() {
     }
   }
 
-  const handleCreateWallet = async (e: React.FormEvent) => {
+  const handleSaveWallet = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newWalletName.trim()) return
     setAddingWallet(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const slug = newWalletName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')
-        if (!slug) {
-          alert('Nome portafoglio non valido')
-          return
-        }
-        if (wallets.some(w => w.slug === slug)) {
-          alert('Esiste già un portafoglio con questo nome o con un nome simile')
-          return
-        }
-        await createWallet(user.id, {
-          slug,
+      if (editingWalletId) {
+        await updateWallet(editingWalletId, {
           name: newWalletName.trim(),
-          description: newWalletDesc.trim() || null,
-          position: wallets.length
+          description: newWalletDesc.trim() || null
         })
+      } else {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const slug = newWalletName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')
+          if (!slug) {
+            alert('Nome portafoglio non valido')
+            setAddingWallet(false)
+            return
+          }
+          if (wallets.some(w => w.slug === slug)) {
+            alert('Esiste già un portafoglio con questo nome o con un nome simile')
+            setAddingWallet(false)
+            return
+          }
+          await createWallet(user.id, {
+            slug,
+            name: newWalletName.trim(),
+            description: newWalletDesc.trim() || null,
+            position: wallets.length
+          })
+        }
+      }
+      await refetchWallets()
+      setNewWalletName('')
+      setNewWalletDesc('')
+      setEditingWalletId(null)
+      setShowAddWalletModal(false)
+    } catch (err) {
+      console.error(err)
+      alert("Errore durante il salvataggio del portafoglio.")
+    } finally {
+      setAddingWallet(false)
+    }
+  }
+
+  const handleEditWalletClick = (w: any) => {
+    setEditingWalletId(w.id)
+    setNewWalletName(w.name)
+    setNewWalletDesc(w.description || '')
+    setShowAddWalletModal(true)
+  }
+
+  const handleDeleteWallet = async () => {
+    if (!confirmDeleteWallet) return
+    setLoading(true)
+    try {
+      const walletToDel = wallets.find(w => w.id === confirmDeleteWallet.id)
+      if (walletToDel) {
+        const txToDelete = transactions.filter(t => parseTransaction(t, defaultWallet).wallet === walletToDel.slug)
+        if (txToDelete.length > 0) {
+          await supabase.from('transactions').delete().in('id', txToDelete.map(t => t.id))
+        }
+        await deleteWallet(confirmDeleteWallet.id)
         await refetchWallets()
-        setNewWalletName('')
-        setNewWalletDesc('')
-        setShowAddWalletModal(false)
+        await fetchTransactions()
       }
     } catch (err) {
       console.error(err)
-      alert("Errore durante la creazione del portafoglio.")
     } finally {
-      setAddingWallet(false)
+      setConfirmDeleteWallet(null)
+      setLoading(false)
     }
   }
 
@@ -395,7 +436,7 @@ export default function WalletsPage() {
           Gestione Portafogli
         </h2>
         <button
-          onClick={() => setShowAddWalletModal(true)}
+          onClick={() => { setEditingWalletId(null); setNewWalletName(''); setNewWalletDesc(''); setShowAddWalletModal(true); }}
           className="flex items-center gap-1 text-[9px] tracking-[0.2em] uppercase text-fg hover:opacity-80 transition-opacity cursor-pointer font-medium"
         >
           <Plus className="w-3.5 h-3.5" /> Aggiungi
@@ -409,7 +450,7 @@ export default function WalletsPage() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.05 }}
-            className="card p-6 flex flex-col justify-between min-h-[140px]"
+            className="card p-6 flex flex-col justify-between min-h-[140px] relative group"
           >
             <div>
               <span className="text-[9px] tracking-[0.25em] uppercase text-muted font-normal block mb-2">
@@ -420,10 +461,26 @@ export default function WalletsPage() {
               </h3>
             </div>
             {w.description && (
-              <p className="text-[10px] text-muted tracking-wider mt-4">
+              <p className="text-[10px] text-muted tracking-wider mt-4 truncate">
                 {w.description}
               </p>
             )}
+            
+            {/* Wallet Actions (visible on hover) */}
+            <div className="absolute top-4 right-4 flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={() => handleEditWalletClick(w)}
+                className="w-7 h-7 flex items-center justify-center rounded-lg bg-surface/50 text-muted hover:text-fg t cursor-pointer"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => setConfirmDeleteWallet({ id: w.id, name: w.name })}
+                className="w-7 h-7 flex items-center justify-center rounded-lg bg-surface/50 text-muted hover:text-expense t cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </motion.div>
         ))}
       </div>
@@ -786,6 +843,23 @@ export default function WalletsPage() {
         )}
       </AnimatePresence>
 
+      {/* Delete Wallet Confirm */}
+      <AnimatePresence>
+        {confirmDeleteWallet && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setConfirmDeleteWallet(null)} className="absolute inset-0 bg-bg/80 backdrop-blur-sm" />
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} className="relative w-full max-w-md card p-6 bg-surface/90 border border-border/40 shadow-2xl space-y-6 text-center">
+              <h3 className="text-base font-light text-fg">Elimina {confirmDeleteWallet.name}?</h3>
+              <p className="text-xs text-muted font-light">Eliminando questo portafoglio, eliminerai anche tutte le transazioni associate.</p>
+              <div className="flex gap-3">
+                <button onClick={() => setConfirmDeleteWallet(null)} className="flex-1 py-2.5 border border-border/20 text-muted hover:text-fg text-xs uppercase rounded-xl cursor-pointer">Annulla</button>
+                <button onClick={handleDeleteWallet} className="flex-1 py-2.5 bg-expense text-white text-xs uppercase rounded-xl hover:opacity-90 cursor-pointer">Elimina</button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Add Wallet Modal */}
       <AnimatePresence>
         {showAddWalletModal && (
@@ -808,9 +882,9 @@ export default function WalletsPage() {
             >
               <div className="flex items-center justify-between border-b border-border/10 pb-4">
                 <div className="flex items-center gap-2 text-muted">
-                  <Plus className="w-4 h-4" strokeWidth={1.5} />
+                  {editingWalletId ? <Pencil className="w-4 h-4" strokeWidth={1.5} /> : <Plus className="w-4 h-4" strokeWidth={1.5} />}
                   <span className="text-[10px] tracking-[0.25em] uppercase font-normal">
-                    Nuovo Portafoglio
+                    {editingWalletId ? 'Modifica Portafoglio' : 'Nuovo Portafoglio'}
                   </span>
                 </div>
                 <button
@@ -821,7 +895,7 @@ export default function WalletsPage() {
                 </button>
               </div>
 
-              <form onSubmit={handleCreateWallet} className="space-y-5">
+              <form onSubmit={handleSaveWallet} className="space-y-5">
                 <div>
                   <label className="text-[9px] tracking-[0.2em] uppercase text-muted block mb-1">
                     Nome Portafoglio
@@ -862,7 +936,7 @@ export default function WalletsPage() {
                     disabled={addingWallet || !newWalletName.trim()}
                     className="flex-1 py-3 bg-fg text-bg text-xs tracking-wider uppercase font-semibold rounded-xl t cursor-pointer disabled:opacity-40"
                   >
-                    {addingWallet ? 'Creazione...' : 'Crea'}
+                    {addingWallet ? 'Salvataggio...' : (editingWalletId ? 'Salva' : 'Crea')}
                   </button>
                 </div>
               </form>
