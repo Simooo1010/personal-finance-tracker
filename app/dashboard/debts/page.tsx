@@ -116,6 +116,7 @@ export default function DebtsPage() {
     if (!person.trim() || !amount || parseFloat(amount) <= 0 || !createdAt) return
     
     setSaving(true)
+    const { data: { user } } = await supabase.auth.getUser()
     const formattedTitle = formatDebtTitle({
       type: debtType,
       person: person.trim(),
@@ -130,7 +131,8 @@ export default function DebtsPage() {
       title: formattedTitle,
       amount: parseFloat(amount),
       type: dbType,
-      created_at: new Date(createdAt).toISOString()
+      created_at: new Date(createdAt).toISOString(),
+      user_id: user?.id
     }
 
     if (editingId) {
