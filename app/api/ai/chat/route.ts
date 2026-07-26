@@ -12,7 +12,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { messages } = await req.json()
+    const { messages, sessionId } = await req.json()
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json({ error: 'Messaggi mancanti o formato non valido' }, { status: 400 })
     }
@@ -24,7 +24,28 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Non autorizzato' }, { status: 401 })
     }
 
-    // 2. Fetch financial context
+    // 2. Fetch User Long-Term AI Memory & Past Sessions Summary
+    const { data: memoryData } = await supabase
+      .from('user_ai_memory')
+      .select('memory_text')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    const userMemoryText = memoryData?.memory_text || ''
+
+    // Fetch past chat session titles for additional context
+    const { data: pastSessions } = await supabase
+      .from('chat_sessions')
+      .select('id, title, updated_at')
+      .eq('user_id', user.id)
+      .order('updated_at', { ascending: false })
+      .limit(10)
+
+    const pastTopicsText = pastSessions && pastSessions.length > 0
+      ? pastSessions.map(s => `- ${s.title}`).join('\n')
+      : 'Nessuna conversazione precedente.'
+
+    // 3. Fetch financial context
     // Fetch wallets
     const { data: wallets, error: walletsError } = await supabase
       .from('wallets')
@@ -97,12 +118,20 @@ export async function POST(req: Request) {
       .map(d => `- ${d.debtInfo?.type === 'to_me' ? 'Credito da' : 'Debito verso'} ${d.debtInfo?.person}: "${d.debtInfo?.desc}" (€${d.amount.toFixed(2)})`)
       .join('\n')
 
-    // 3. System Prompt containing the user's financial situation
-    const systemPrompt = `Sei un assistente virtuale di finanza personale integrato nell'app di tracciamento spese dell'utente. Il tuo stile è estremamente minimalista, amichevole ma professionale, diretto e privo di formalismi. Parla in italiano.
-    
-[IMPORTANTE CONTESTO UTENTE]
+    // 4. Build System Prompt with financial data AND long-term user memory
+    const systemPrompt = `Sei un assistente virtuale di finanza personale avanzato integrato nell'app di tracciamento spese dell'utente (stile ChatGPT / Gemini). Il tuo stile è estremamente amichevole, empatico, professionale, diretto e privo di formalismi. Parla in italiano.
+
+[IMPORTANTE CONTESTO UTENTE GENERALE]
 L'utente di questa applicazione è un minorenne. Non percepisce entrate regolari o stipendi fissi. Le sue entrate sono saltuarie e irregolari, costituite principalmente da mance, regali o piccole ricompense per lavoretti occasionali.
 
+[MEMORIA E CONTESTO PERSONALE DELL'UTENTE (DA CONVERSAZIONI PASSATE)]
+Ricordi tutto dell'utente, i suoi obiettivi finanziari, preferenze, acquisti pianificati, abitudini e dettagli personali che ha condiviso nelle chat passate:
+${userMemoryText ? userMemoryText : 'Nessun dettaglio memorizzato al momento. Man mano che l\'utente chatta con te, ricorda i suoi fatti chiave ed esigenze!'}
+
+Argomenti affrontati nelle chat passate dell'utente:
+${pastTopicsText}
+
+[DATI FINANZIARI IN TEMPO REALE]
 Hai accesso in tempo reale ai dati finanziari dell'utente per rispondere alle sue domande. Ecco la situazione attuale dell'utente:
 - Saldo Totale (Net Worth): €${netWorth.toFixed(2)}
 - Dettaglio Portafogli:
@@ -113,7 +142,15 @@ ${formattedDebtsList ? `- Dettaglio Debiti/Crediti:\n${formattedDebtsList}` : '-
 - Transazioni recenti (ultimi 30 giorni):
 ${formattedTxList || 'Nessuna transazione recente.'}
 
-Usa queste informazioni per rispondere in modo preciso, orientato ai dati e pratico a tutte le domande dell'utente riguardanti la sua situazione economica personale. Cerca di essere conciso ed evita risposte prolisse. Se l'utente ti chiede se può permettersi una determinata spesa, fai una valutazione basata sul suo saldo e sul suo comportamento finanziario recente, tenendo conto del suo contesto da minorenne.
+Usa tutte queste informazioni (sia i dati finanziari che la memoria personale dell'utente) per rispondere in modo preciso, contestualizzato e pratico a tutte le sue domande. Ricorda il contesto delle chat passate quando rispondi.
+
+[AGGIORNAMENTO MEMORIA UTENTE]
+Se l'utente rivela nuovi dettagli personali rilevanti, obiettivi di risparmio specifici, acquisti desiderati o preferenze (es: "voglio risparmiare 200€ entro Natale per una console", "la mia passione è il gaming"), puoi includere a fine risposta un blocco invisibile speciale per aggiornare la sua memoria a lungo termine con la seguente sintassi:
+\`\`\`json:memory
+{
+  "fact": "Descrizione sintetica della nuova informazione od obiettivo dell'utente"
+}
+\`\`\`
 
 [ABILITÀ GENERAZIONE FILE]
 Se l'utente ti chiede di generare, esportare o scaricare un file (es. Excel/XLSX, CSV, PDF, TXT), DEVI rispondere includendo un blocco di codice JSON speciale con questa identica sintassi:
@@ -128,14 +165,13 @@ Se l'utente ti chiede di generare, esportare o scaricare un file (es. Excel/XLSX
   ]
 }
 \`\`\`
-- Per il formato "xlsx" o "csv", compila la tabella con i dati richiesti (es. elenco delle transazioni o riepilogo debiti). Usa come delimitatore dei campi la virgola o lascia che il client lo gestisca.
-- Per il formato "txt", puoi lasciare "headers" vuoto ed inserire le righe di testo in "rows" (es. ["Riga 1", "Riga 2"]).
-- Per il formato "html" (usato per generare i PDF da stampare), compila "rows" con codice HTML per un report tabellare o riassuntivo (es. ["<table>...</table>"]). Il client aprirà questa pagina per stamparla in PDF.
-- ATTENZIONE: Per evitare conflitti con la sintassi JSON, all'interno del codice HTML per "html" usa solo apici singoli (') per le classi o gli stili CSS (es. <table style='width: 100%'> o <td class='text-sm'>). Non inserire virgolette doppie (") all'interno di stringhe HTML o causerebbe un errore di parsing JSON.
-- Non spiegare il blocco JSON all'utente, rispondi semplicemente confermando la generazione del file (es: "Ecco il file pronto per il download:").
+- Per il formato "xlsx" o "csv", compila la tabella con i dati richiesti.
+- Per il formato "txt", inserisci le righe in "rows".
+- Per il formato "html" (usato per i PDF), compila "rows" con codice HTML senza virgolette doppie interne.
+- Non spiegare il blocco JSON all'utente, rispondi semplicemente confermando la generazione del file.
 `
 
-    // 4. Map frontend message history to Gemini API format
+    // 5. Map frontend message history to Gemini API format
     const contents = messages.map((m: any) => ({
       role: m.role === 'assistant' ? 'model' : 'user',
       parts: [
@@ -187,14 +223,83 @@ Se l'utente ti chiede di generare, esportare o scaricare un file (es. Excel/XLSX
     }
 
     const resData = await response.json()
-    const replyText = resData.candidates?.[0]?.content?.parts?.[0]?.text
+    let replyText = resData.candidates?.[0]?.content?.parts?.[0]?.text
     if (!replyText) {
       return NextResponse.json({ error: 'Nessuna risposta generata da Gemini' }, { status: 500 })
     }
 
+    // Check if memory block was emitted to auto-update user_ai_memory
+    const memoryRegex = /```json:memory\s*([\s\S]*?)\s*```/g
+    let memMatch
+    while ((memMatch = memoryRegex.exec(replyText)) !== null) {
+      try {
+        const memObj = JSON.parse(memMatch[1])
+        if (memObj && memObj.fact) {
+          const updatedMem = userMemoryText
+            ? `${userMemoryText}\n- ${memObj.fact}`
+            : `- ${memObj.fact}`
+
+          await supabase.from('user_ai_memory').upsert({
+            user_id: user.id,
+            memory_text: updatedMem,
+            updated_at: new Date().toISOString()
+          })
+        }
+      } catch (e) {
+        console.error("Failed to parse memory update JSON:", e)
+      }
+    }
+
+    // Strip memory block from replyText if present so user doesn't see raw block
+    replyText = replyText.replace(/```json:memory[\s\S]*?```/g, '').trim()
+
+    // 6. Handle session titles & update updated_at timestamp
+    let currentSessionId = sessionId
+    let sessionTitle = 'Nuova chat'
+
+    const userFirstMsg = messages.find(m => m.role === 'user')?.content || 'Nuova chat'
+    const generatedTitle = userFirstMsg.length > 35 ? `${userFirstMsg.slice(0, 35)}...` : userFirstMsg
+
+    if (currentSessionId) {
+      const { data: existingSession } = await supabase
+        .from('chat_sessions')
+        .select('*')
+        .eq('id', currentSessionId)
+        .maybeSingle()
+
+      if (existingSession) {
+        sessionTitle = existingSession.title === 'Nuova chat' ? generatedTitle : existingSession.title
+        await supabase
+          .from('chat_sessions')
+          .update({
+            title: sessionTitle,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', currentSessionId)
+      }
+    } else {
+      // Create new session
+      const { data: newSession, error: newSessErr } = await supabase
+        .from('chat_sessions')
+        .insert({
+          user_id: user.id,
+          title: generatedTitle,
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single()
+
+      if (!newSessErr && newSession) {
+        currentSessionId = newSession.id
+        sessionTitle = newSession.title
+      }
+    }
+
     return NextResponse.json({
       enabled: true,
-      reply: replyText
+      reply: replyText,
+      sessionId: currentSessionId,
+      sessionTitle
     })
 
   } catch (err: any) {

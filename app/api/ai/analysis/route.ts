@@ -51,7 +51,27 @@ export async function POST(req: Request) {
       }
     }
 
-    // 3. Gather data for prompt
+    // 3. Gather User Long-Term AI Memory & Chat History Context
+    const { data: memoryData } = await supabase
+      .from('user_ai_memory')
+      .select('memory_text')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    const userMemoryText = memoryData?.memory_text || ''
+
+    const { data: chatSessions } = await supabase
+      .from('chat_sessions')
+      .select('title')
+      .eq('user_id', user.id)
+      .order('updated_at', { ascending: false })
+      .limit(10)
+
+    const pastTopicsText = chatSessions && chatSessions.length > 0
+      ? chatSessions.map(s => `- ${s.title}`).join('\n')
+      : 'Nessuna conversazione recente.'
+
+    // 4. Gather financial data for prompt
     // Fetch wallets
     const { data: wallets, error: walletsError } = await supabase
       .from('wallets')
@@ -152,19 +172,26 @@ export async function POST(req: Request) {
       return `- ${w.name}: €${(balances[w.slug] || 0).toFixed(2)} (${w.description || 'Nessuna descrizione'})`
     }).join('\n')
 
-    // 4. Call Gemini REST API
+    // 5. Call Gemini REST API with financial data AND long-term user memory
     const systemPrompt = `Sei un consulente finanziario personale virtuale di livello avanzato integrato in un'app di tracciamento spese per adolescenti. Il tuo stile è estremamente minimalista, elegante, amichevole ma diretto, e privo di formalismi inutili. Parla in italiano.
 
 [IMPORTANTE CONTESTO UTENTE]
-L'utente di questa applicazione è un minorenne. Le sue entrate sono occasionali e irregolari (mance, regali, lavoretti). Adatta tutti i tuoi consigli a questo specifico contesto (niente investimenti complessi, mercati azionari o pianificazioni basate su stipendi fissi). Concentrati sulla gestione pratica del denaro e sull'educazione al risparmio per ragazzi.
+L'utente di questa applicazione è un minorenne. Le sue entrate sono occasionali e irregolari (mance, regali, lavoretti). Adatta tutti i tuoi consigli a questo specifico contesto. Concentrati sulla gestione pratica del denaro e sull'educazione al risparmio per ragazzi.
 
-Analizza i dati forniti (con particolare focus sugli ultimi 7 giorni) e restituisci un report strutturato esattamente in questi 5 punti (usa Markdown semplice ed elegante, senza saluti o introduzioni verbose):
+[MEMORIA E CONTESTO PERSONALE DELL'UTENTE (ACQUISITI DALLE CHAT PASSATE)]
+Usa anche la memoria e i fatti personali emersi nelle chat dell'utente per personalizzare il report (es. suoi obiettivi di risparmio, desideri d'acquisto, interessi o abitudini menzionate):
+${userMemoryText ? userMemoryText : 'Nessun dettaglio specifico registrato nelle chat.'}
+
+Temi recenti discussi in chat dall'utente:
+${pastTopicsText}
+
+Analizza i dati forniti e la memoria dell'utente e restituisci un report strutturato esattamente in questi 5 punti (usa Markdown semplice ed elegante, senza saluti o introduzioni verbose):
 
 1. **Stato di Salute e Risparmio**: Valutazione dello stato economico complessivo. Commenta il saldo totale e metti a confronto il tasso di risparmio degli ultimi 7 giorni con quello degli ultimi 30 giorni per evidenziare se il trend settimanale è in miglioramento o peggioramento.
-2. **Analisi delle Spese Settimanali**: Un esame approfondito di DOVE sono andati i soldi negli ultimi 7 giorni. Raggruppa le spese per categoria o scopo (es. snack/cibo, gaming, uscite con amici, trasporti) e indica chiaramente quali voci o acquisti specifici hanno inciso di più sul budget della settimana.
-3. **Opportunità di Risparmio e Cambiamenti**: Identifica comportamenti da correggere e suggerisci modifiche concrete. Indica in quali categorie l'utente sta spendendo in modo impulsivo o eccessivo, proponendo alternative pratiche per tagliare i costi (es. limitare i piccoli acquisti ripetitivi o gestire meglio i portafogli che si stanno svuotando).
-4. **Piano d'Azione per la Settimana**: Fornisci da 2 a 4 suggerimenti pratici, realistici e personalizzati per i prossimi giorni (es. rimandare una spesa non urgente, riscuotere un credito attivo, o porsi un limite massimo di spesa per una determinata attività).
-5. **L'Angolo del Guru (Spazio Libero & Creativo)**: In questa sezione hai totale libertà e autonomia creativa. Trova un angolo di analisi unico, profondo o inaspettato basato sui dati dell'utente, oppure inventa una rubrica originale che cambia ogni volta (es. "La sfida di risparmio segreta", "La statistica bizzarra", "L'analisi filosofica di un acquisto", "L'equazione del valore", "Il consiglio psicologico per resistere allo shopping", "Una previsione sul futuro basata sulle abitudini di oggi"). Stupisci l'utente con una riflessione acuta, intelligente o di grande ispirazione che vada oltre il semplice calcolo dei numeri. Potrai anche divagare in modo originale o dare un taglio psicologico o narrativo unico, a tua discrezione.`
+2. **Analisi delle Spese Settimanali**: Un esame approfondito di DOVE sono andati i soldi negli ultimi 7 giorni. Raggruppa le spese per categoria o scopo e indica chiaramente quali voci o acquisti specifici hanno inciso di più.
+3. **Opportunità di Risparmio e Cambiamenti**: Identifica comportamenti da correggere e suggerisci modifiche concrete (tenendo conto degli obiettivi personali dell'utente se presenti nella sua memoria).
+4. **Piano d'Azione per la Settimana**: Fornisci da 2 a 4 suggerimenti pratici, realistici e personalizzati per i prossimi giorni.
+5. **L'Angolo del Guru (Spazio Libero & Creativo)**: In questa sezione hai totale libertà e autonomia creativa. Trova un angolo di analisi unico, profondo o inaspettato basato sui dati e sulla memoria dell'utente. Stupisci l'utente con una riflessione acuta, intelligente o di grande ispirazione.`
 
     const userPrompt = `Ecco i dati finanziari correnti dell'utente:
 - Saldo Totale (Net Worth): €${netWorth.toFixed(2)}
@@ -246,7 +273,7 @@ ${formattedDebtsList ? `\nElenco dettagliato:\n${formattedDebtsList}` : '\nNessu
       return NextResponse.json({ error: 'Nessuna risposta generata da Gemini' }, { status: 500 })
     }
 
-    // 5. Save/Update analysis in database
+    // 6. Save/Update analysis in database
     let result
     if (existingAnalysis) {
       const isAuto = !forceRefresh
