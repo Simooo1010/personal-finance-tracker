@@ -28,9 +28,19 @@ CREATE POLICY "Users can update own chat sessions" ON public.chat_sessions
 CREATE POLICY "Users can delete own chat sessions" ON public.chat_sessions
   FOR DELETE USING (auth.uid() = user_id);
 
--- 2. Add session_id to chat_messages
+-- 2. Add session_id to chat_messages & add UPDATE/DELETE policies
 ALTER TABLE public.chat_messages
   ADD COLUMN IF NOT EXISTS session_id UUID REFERENCES public.chat_sessions(id) ON DELETE CASCADE;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'chat_messages' AND policyname = 'Users can update own chat messages') THEN
+    CREATE POLICY "Users can update own chat messages" ON public.chat_messages FOR UPDATE USING (auth.uid() = user_id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'chat_messages' AND policyname = 'Users can delete own chat messages') THEN
+    CREATE POLICY "Users can delete own chat messages" ON public.chat_messages FOR DELETE USING (auth.uid() = user_id);
+  END IF;
+END $$;
 
 -- 3. Create user_ai_memory table for long-term AI memory
 CREATE TABLE IF NOT EXISTS public.user_ai_memory (
@@ -55,7 +65,7 @@ CREATE POLICY "Users can update own AI memory" ON public.user_ai_memory
 CREATE POLICY "Users can delete own AI memory" ON public.user_ai_memory
   FOR DELETE USING (auth.uid() = user_id);
 
--- 4. Auto-migrate existing chat messages without session_id into a default session per user
+-- 4. Auto-migrate existing chat messages without session_id into a session per user
 DO $$
 DECLARE
   r RECORD;
@@ -63,22 +73,33 @@ DECLARE
   first_msg_text TEXT;
 BEGIN
   FOR r IN SELECT DISTINCT user_id FROM public.chat_messages WHERE session_id IS NULL LOOP
-    SELECT content INTO first_msg_text 
-    FROM public.chat_messages 
-    WHERE user_id = r.user_id AND session_id IS NULL AND role = 'user'
+    -- Try to find an existing session for this user
+    SELECT id INTO new_session_id 
+    FROM public.chat_sessions 
+    WHERE user_id = r.user_id 
     ORDER BY created_at ASC 
     LIMIT 1;
 
-    IF first_msg_text IS NULL THEN
-      first_msg_text := 'Conversazione precedente';
-    ELSIF length(first_msg_text) > 35 THEN
-      first_msg_text := substring(first_msg_text from 1 for 35) || '...';
+    -- If no session exists, create one
+    IF new_session_id IS NULL THEN
+      SELECT content INTO first_msg_text 
+      FROM public.chat_messages 
+      WHERE user_id = r.user_id AND session_id IS NULL AND role = 'user'
+      ORDER BY created_at ASC 
+      LIMIT 1;
+
+      IF first_msg_text IS NULL THEN
+        first_msg_text := 'Conversazione precedente';
+      ELSIF length(first_msg_text) > 35 THEN
+        first_msg_text := substring(first_msg_text from 1 for 35) || '...';
+      END IF;
+
+      INSERT INTO public.chat_sessions (user_id, title)
+      VALUES (r.user_id, first_msg_text)
+      RETURNING id INTO new_session_id;
     END IF;
 
-    INSERT INTO public.chat_sessions (user_id, title)
-    VALUES (r.user_id, first_msg_text)
-    RETURNING id INTO new_session_id;
-
+    -- Update legacy messages
     UPDATE public.chat_messages
     SET session_id = new_session_id
     WHERE user_id = r.user_id AND session_id IS NULL;

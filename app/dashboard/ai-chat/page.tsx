@@ -66,7 +66,16 @@ export default function AiChatPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    // 1. Auto-migrate existing messages with session_id = NULL
+    // 1. Fetch sessions
+    const { data, error } = await supabase
+      .from('chat_sessions')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('updated_at', { ascending: false })
+
+    let currentSessions = data || []
+
+    // 2. Auto-migrate existing messages with session_id = NULL if no sessions or orphan messages exist
     try {
       const { data: orphanMsgs } = await supabase
         .from('chat_messages')
@@ -76,24 +85,33 @@ export default function AiChatPage() {
         .order('created_at', { ascending: true })
 
       if (orphanMsgs && orphanMsgs.length > 0) {
-        const firstUserMsg = orphanMsgs.find(m => m.role === 'user')?.content || 'Conversazione precedente'
-        const title = firstUserMsg.length > 35 ? `${firstUserMsg.slice(0, 35)}...` : firstUserMsg
+        let targetSessionId = currentSessions.length > 0 ? currentSessions[0].id : null
 
-        const { data: newSession } = await supabase
-          .from('chat_sessions')
-          .insert({
-            user_id: user.id,
-            title: title,
-            created_at: orphanMsgs[0].created_at || new Date().toISOString(),
-            updated_at: orphanMsgs[orphanMsgs.length - 1].created_at || new Date().toISOString()
-          })
-          .select()
-          .single()
+        if (!targetSessionId) {
+          const firstUserMsg = orphanMsgs.find(m => m.role === 'user')?.content || 'Conversazione precedente'
+          const title = firstUserMsg.length > 35 ? `${firstUserMsg.slice(0, 35)}...` : firstUserMsg
 
-        if (newSession) {
+          const { data: newSession } = await supabase
+            .from('chat_sessions')
+            .insert({
+              user_id: user.id,
+              title: title,
+              created_at: orphanMsgs[0].created_at || new Date().toISOString(),
+              updated_at: orphanMsgs[orphanMsgs.length - 1].created_at || new Date().toISOString()
+            })
+            .select()
+            .single()
+
+          if (newSession) {
+            targetSessionId = newSession.id
+            currentSessions = [newSession, ...currentSessions]
+          }
+        }
+
+        if (targetSessionId) {
           await supabase
             .from('chat_messages')
-            .update({ session_id: newSession.id })
+            .update({ session_id: targetSessionId })
             .eq('user_id', user.id)
             .is('session_id', null)
         }
@@ -102,18 +120,9 @@ export default function AiChatPage() {
       console.error("Auto-migration check skipped or errored:", e)
     }
 
-    // 2. Fetch sessions
-    const { data, error } = await supabase
-      .from('chat_sessions')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('updated_at', { ascending: false })
-
-    if (!error && data) {
-      setSessions(data)
-      if (selectFirst && data.length > 0 && !activeSessionId) {
-        setActiveSessionId(data[0].id)
-      }
+    setSessions(currentSessions)
+    if (selectFirst && currentSessions.length > 0 && !activeSessionId) {
+      setActiveSessionId(currentSessions[0].id)
     }
     setLoadingSessions(false)
   }
@@ -135,6 +144,7 @@ export default function AiChatPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
+      // Fetch messages belonging to activeSessionId
       const { data, error } = await supabase
         .from('chat_messages')
         .select('*')
@@ -142,14 +152,36 @@ export default function AiChatPage() {
         .eq('session_id', activeSessionId)
         .order('created_at', { ascending: true })
 
-      if (!error && data) {
+      if (!error && data && data.length > 0) {
         setMessages(data.map(m => ({
           id: m.id,
           role: m.role,
           content: m.content
         })))
       } else {
-        setMessages([])
+        // Fallback: Check if there are legacy messages where session_id IS NULL
+        const { data: legacyMsgs } = await supabase
+          .from('chat_messages')
+          .select('*')
+          .eq('user_id', user.id)
+          .is('session_id', null)
+          .order('created_at', { ascending: true })
+
+        if (legacyMsgs && legacyMsgs.length > 0) {
+          await supabase
+            .from('chat_messages')
+            .update({ session_id: activeSessionId })
+            .eq('user_id', user.id)
+            .is('session_id', null)
+
+          setMessages(legacyMsgs.map(m => ({
+            id: m.id,
+            role: m.role,
+            content: m.content
+          })))
+        } else {
+          setMessages([])
+        }
       }
     }
 
