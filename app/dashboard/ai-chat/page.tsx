@@ -441,28 +441,28 @@ export default function AiChatPage() {
         throw new Error(data.message || data.error || 'Errore nella richiesta')
       }
 
-      // Update active session ID if new session was created
       const currentSessId = data.sessionId || activeSessionId
       if (currentSessId && currentSessId !== activeSessionId) {
         setActiveSessionId(currentSessId)
       }
 
-      // Save user & bot messages to Supabase
-      if (currentSessId) {
-        await supabase.from('chat_messages').insert([
-          { user_id: user.id, session_id: currentSessId, role: 'user', content: userText },
-          { user_id: user.id, session_id: currentSessId, role: 'assistant', content: data.reply }
-        ])
-      }
-
       const botMsg: Message = { id: (Date.now() + 1).toString(), role: 'assistant', content: data.reply }
+
+      // IMMEDIATELY turn off loading indicator so the spinner disappears instantly!
+      setLoading(false)
       setMessages(prev => [...prev, botMsg])
 
-      // Reload sessions list to refresh titles & order
-      await loadSessions(false)
+      // Asynchronously save messages and update session list in background
+      if (currentSessId) {
+        supabase.from('chat_messages').insert([
+          { user_id: user.id, session_id: currentSessId, role: 'user', content: userText },
+          { user_id: user.id, session_id: currentSessId, role: 'assistant', content: data.reply }
+        ]).then(() => {
+          loadSessions(false)
+        })
+      }
     } catch (err: any) {
       setError(err.message)
-    } finally {
       setLoading(false)
     }
   }
@@ -633,7 +633,7 @@ export default function AiChatPage() {
         {/* Messages Scroll Area */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 scrollbar-none">
           <AnimatePresence>
-            {messages.length === 0 && (
+            {messages.length === 0 && !loading && (
               <motion.div 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
