@@ -61,11 +61,48 @@ export default function AiChatPage() {
     }
   }, [isAiEnabled, router])
 
-  // Fetch user chat sessions
+  // Fetch user chat sessions & auto-migrate orphan messages from before session_id was added
   const loadSessions = async (selectFirst = true) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
+    // 1. Auto-migrate existing messages with session_id = NULL
+    try {
+      const { data: orphanMsgs } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('user_id', user.id)
+        .is('session_id', null)
+        .order('created_at', { ascending: true })
+
+      if (orphanMsgs && orphanMsgs.length > 0) {
+        const firstUserMsg = orphanMsgs.find(m => m.role === 'user')?.content || 'Conversazione precedente'
+        const title = firstUserMsg.length > 35 ? `${firstUserMsg.slice(0, 35)}...` : firstUserMsg
+
+        const { data: newSession } = await supabase
+          .from('chat_sessions')
+          .insert({
+            user_id: user.id,
+            title: title,
+            created_at: orphanMsgs[0].created_at || new Date().toISOString(),
+            updated_at: orphanMsgs[orphanMsgs.length - 1].created_at || new Date().toISOString()
+          })
+          .select()
+          .single()
+
+        if (newSession) {
+          await supabase
+            .from('chat_messages')
+            .update({ session_id: newSession.id })
+            .eq('user_id', user.id)
+            .is('session_id', null)
+        }
+      }
+    } catch (e) {
+      console.error("Auto-migration check skipped or errored:", e)
+    }
+
+    // 2. Fetch sessions
     const { data, error } = await supabase
       .from('chat_sessions')
       .select('*')

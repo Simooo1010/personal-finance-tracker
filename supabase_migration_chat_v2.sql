@@ -54,3 +54,33 @@ CREATE POLICY "Users can update own AI memory" ON public.user_ai_memory
 
 CREATE POLICY "Users can delete own AI memory" ON public.user_ai_memory
   FOR DELETE USING (auth.uid() = user_id);
+
+-- 4. Auto-migrate existing chat messages without session_id into a default session per user
+DO $$
+DECLARE
+  r RECORD;
+  new_session_id UUID;
+  first_msg_text TEXT;
+BEGIN
+  FOR r IN SELECT DISTINCT user_id FROM public.chat_messages WHERE session_id IS NULL LOOP
+    SELECT content INTO first_msg_text 
+    FROM public.chat_messages 
+    WHERE user_id = r.user_id AND session_id IS NULL AND role = 'user'
+    ORDER BY created_at ASC 
+    LIMIT 1;
+
+    IF first_msg_text IS NULL THEN
+      first_msg_text := 'Conversazione precedente';
+    ELSIF length(first_msg_text) > 35 THEN
+      first_msg_text := substring(first_msg_text from 1 for 35) || '...';
+    END IF;
+
+    INSERT INTO public.chat_sessions (user_id, title)
+    VALUES (r.user_id, first_msg_text)
+    RETURNING id INTO new_session_id;
+
+    UPDATE public.chat_messages
+    SET session_id = new_session_id
+    WHERE user_id = r.user_id AND session_id IS NULL;
+  END LOOP;
+END $$;
