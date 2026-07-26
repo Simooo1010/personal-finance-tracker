@@ -53,6 +53,7 @@ export default function AiChatPage() {
   const [error, setError] = useState<string | null>(null)
   
   const bottomRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Redirect if AI is disabled
   useEffect(() => {
@@ -60,6 +61,14 @@ export default function AiChatPage() {
       router.push('/dashboard')
     }
   }, [isAiEnabled, router])
+
+  // Auto-grow textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 160)}px`
+    }
+  }, [input])
 
   // Fetch user chat sessions & auto-migrate orphan messages from before session_id was added
   const loadSessions = async (selectFirst = true) => {
@@ -401,7 +410,7 @@ export default function AiChatPage() {
     document.body.removeChild(link)
   }
 
-  const handleSend = async (e: React.FormEvent) => {
+  const handleSend = async (e: React.FormEvent | React.KeyboardEvent) => {
     e.preventDefault()
     if (!input.trim() || loading) return
 
@@ -409,6 +418,7 @@ export default function AiChatPage() {
     const userMsg: Message = { id: Date.now().toString(), role: 'user', content: userText }
     setMessages(prev => [...prev, userMsg])
     setInput('')
+    if (textareaRef.current) textareaRef.current.style.height = 'auto'
     setLoading(true)
     setError(null)
 
@@ -457,19 +467,26 @@ export default function AiChatPage() {
     }
   }
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSend(e)
+    }
+  }
+
   if (isAiEnabled === false) return null
 
   const activeSessionObj = sessions.find(s => s.id === activeSessionId)
 
   return (
-    <div className="flex h-[calc(100vh-140px)] w-full overflow-hidden bg-bg rounded-2xl border border-border/10">
+    <div className="flex h-[calc(100vh-100px)] w-full overflow-hidden bg-bg rounded-2xl border border-border/10">
       
       {/* ── COLLAPSIBLE CHAT SESSIONS SIDEBAR ── */}
       <AnimatePresence initial={false}>
         {isSidebarOpen && (
           <motion.div
             initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 280, opacity: 1 }}
+            animate={{ width: 300, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.25, ease: 'easeInOut' }}
             className="h-full bg-surface border-r border-border/10 flex flex-col shrink-0 overflow-hidden z-20"
@@ -623,7 +640,7 @@ export default function AiChatPage() {
                 className="h-full flex flex-col items-center justify-center text-center space-y-4 text-muted/60"
               >
                 <SparkleIcon className="w-12 h-12 opacity-50" />
-                <p className="text-xs sm:text-sm font-light max-w-[280px]">
+                <p className="text-xs sm:text-sm font-light max-w-[320px]">
                   Ciao! Sono il tuo assistente virtuale personalizzato. Ricordo tutte le nostre conversazioni passate e la tua situazione finanziaria!
                 </p>
               </motion.div>
@@ -636,19 +653,19 @@ export default function AiChatPage() {
                 animate={{ opacity: 1, y: 0 }}
                 className={`flex items-start gap-3 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}
               >
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs ${
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs ${
                   m.role === 'user' ? 'bg-fg text-bg' : 'bg-elevated/80 text-fg'
                 }`}>
-                  {m.role === 'user' ? <User className="w-3.5 h-3.5" /> : <SparkleIcon className="w-3.5 h-3.5" />}
+                  {m.role === 'user' ? <User className="w-4 h-4" /> : <SparkleIcon className="w-4 h-4" />}
                 </div>
                 
-                <div className={`max-w-[85%] sm:max-w-[75%] rounded-2xl p-4 text-xs sm:text-sm font-light leading-relaxed ${
+                <div className={`max-w-[90%] sm:max-w-[85%] rounded-2xl p-4 text-xs sm:text-sm font-light leading-relaxed ${
                   m.role === 'user' 
                     ? 'bg-fg text-bg rounded-tr-none' 
                     : 'bg-surface border border-border/10 rounded-tl-none text-fg prose prose-invert prose-p:my-1 prose-strong:text-fg'
                 }`}>
                   {m.role === 'user' ? (
-                    m.content
+                    <div className="whitespace-pre-wrap">{m.content}</div>
                   ) : (() => {
                     const { cleanText, exports } = parseMessageContent(m.content)
                     return (
@@ -667,7 +684,7 @@ export default function AiChatPage() {
                                 )}
                               </div>
                               <div className="min-w-0">
-                                <p className="text-xs font-medium text-fg truncate max-w-[130px] sm:max-w-[200px]">{exp.filename}</p>
+                                <p className="text-xs font-medium text-fg truncate max-w-[150px] sm:max-w-[300px]">{exp.filename}</p>
                                 <p className="text-[9px] text-muted tracking-wider uppercase font-light">{exp.type === 'html' ? 'Documento PDF' : 'Tabella Dati'}</p>
                               </div>
                             </div>
@@ -692,8 +709,8 @@ export default function AiChatPage() {
                 animate={{ opacity: 1, y: 0 }}
                 className="flex items-start gap-3"
               >
-                <div className="w-7 h-7 rounded-full flex items-center justify-center bg-elevated/80 text-fg">
-                  <SparkleIcon className="w-3.5 h-3.5" />
+                <div className="w-8 h-8 rounded-full flex items-center justify-center bg-elevated/80 text-fg">
+                  <SparkleIcon className="w-4 h-4" />
                 </div>
                 <div className="bg-surface border border-border/10 rounded-2xl rounded-tl-none p-3.5 flex items-center gap-2">
                   <Loader2 className="w-4 h-4 animate-spin text-muted" />
@@ -717,21 +734,23 @@ export default function AiChatPage() {
           </AnimatePresence>
         </div>
 
-        {/* Input Form */}
+        {/* Multiline Prompt Input Area */}
         <div className="p-3 sm:p-4 border-t border-border/10 shrink-0">
-          <form onSubmit={handleSend} className="relative flex items-center">
-            <input
-              type="text"
+          <form onSubmit={handleSend} className="relative flex items-end">
+            <textarea
+              ref={textareaRef}
+              rows={1}
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
               disabled={loading}
-              placeholder="Scrivi un messaggio all'assistente..."
-              className="w-full bg-surface border border-border/20 rounded-full pl-5 pr-12 py-3 text-xs sm:text-sm font-light focus:outline-none focus:border-fg t disabled:opacity-50"
+              placeholder="Scrivi un messaggio... (Invio per inviare, Shift+Invio per andare a capo)"
+              className="w-full bg-surface border border-border/20 rounded-2xl pl-4 pr-12 py-3 text-xs sm:text-sm font-light focus:outline-none focus:border-fg resize-none max-h-40 overflow-y-auto scrollbar-none t disabled:opacity-50"
             />
             <button
               type="submit"
               disabled={!input.trim() || loading}
-              className="absolute right-1.5 w-9 h-9 flex items-center justify-center bg-fg text-bg rounded-full hover:opacity-90 t disabled:opacity-50 disabled:bg-elevated disabled:text-muted cursor-pointer"
+              className="absolute right-2 bottom-2 w-9 h-9 flex items-center justify-center bg-fg text-bg rounded-xl hover:opacity-90 t disabled:opacity-50 disabled:bg-elevated disabled:text-muted cursor-pointer shrink-0"
             >
               <Send className="w-3.5 h-3.5" strokeWidth={2} />
             </button>
