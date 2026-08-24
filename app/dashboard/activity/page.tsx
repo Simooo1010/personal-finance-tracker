@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Pencil, Trash2, Search, Calculator as CalcIcon, ArrowUpRight, ArrowDownRight, ArrowLeftRight, X } from 'lucide-react'
 import { Transaction } from '@/lib/supabase'
@@ -9,13 +9,14 @@ import Calculator from '@/components/Calculator'
 import { parseTransaction, getTransactionEffect, getWalletBalances } from '@/lib/transactions'
 import { createClient } from '@/lib/supabaseClient'
 import { useWallets } from '@/components/WalletContext'
+import { useTransactions } from '@/components/TransactionsContext'
 import { pushAction } from '@/lib/actionsTracker'
 import { createWallet, updateWallet, deleteWallet } from '@/lib/wallets'
 
 export default function ActivityPage() {
   const { wallets, walletMap, defaultWallet, walletSlugs, hasMultipleWallets, refetchWallets } = useWallets()
   const supabase = createClient()
-  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const { transactions, loading: txLoading, refetch: fetchTransactions } = useTransactions()
   const [loading, setLoading] = useState(true)
 
   // Wallet Form States
@@ -44,19 +45,9 @@ export default function ActivityPage() {
   const [walletFilter, setWalletFilter] = useState<string>('all')
   const [showCalc, setShowCalc] = useState(false)
 
-  const fetchTransactions = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase.from('transactions').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
-    if (data) setTransactions(data)
-    setLoading(false)
-  }, [])
-
   useEffect(() => {
-    fetchTransactions()
-    window.addEventListener('finance_db_changed', fetchTransactions)
-    return () => window.removeEventListener('finance_db_changed', fetchTransactions)
-  }, [fetchTransactions])
+    if (!txLoading) setLoading(false)
+  }, [txLoading])
 
   useEffect(() => {
     if (wallets.length > 0 && showTransferModal) {

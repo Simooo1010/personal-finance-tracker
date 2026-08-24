@@ -1,23 +1,23 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Activity, 
-  Calendar, 
-  BarChart3, 
-  Wallet, 
-  ArrowLeftRight, 
-  Percent, 
-  Flame, 
+import { Transaction } from '@/lib/supabase'
+import {
+  TrendingUp,
+  TrendingDown,
+  Activity,
+  Calendar,
+  BarChart3,
+  Wallet,
+  ArrowLeftRight,
+  Percent,
+  Flame,
   SlidersHorizontal,
   Info
 } from 'lucide-react'
-import { Transaction } from '@/lib/supabase'
-import { createClient } from '@/lib/supabaseClient'
 import { useWallets } from '@/components/WalletContext'
+import { useTransactions } from '@/components/TransactionsContext'
 import { parseTransaction, getTransactionEffect } from '@/lib/transactions'
 import { useAi } from '@/components/AiContext'
 import { AiAnalysisTab } from '@/components/AiAnalysisTab'
@@ -28,9 +28,7 @@ type CustomPeriodUnit = 'days' | 'weeks' | 'months' | 'years'
 export default function AnalyticsPage() {
   const { wallets, walletMap, defaultWallet, walletSlugs } = useWallets()
   const { isAiEnabled } = useAi()
-  const supabase = createClient()
-  const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [loading, setLoading] = useState(true)
+  const { transactions, loading } = useTransactions()
 
   // Navigation / Active View States
   const [activeTab, setActiveTab] = useState<'panoramica' | 'patrimonio' | 'cassa' | 'efficienza' | 'debiti' | 'ai'>('panoramica')
@@ -46,19 +44,6 @@ export default function AnalyticsPage() {
   // Tooltip Hover State
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
 
-  const fetchTransactions = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase.from('transactions').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
-    if (data) setTransactions(data)
-    setLoading(false)
-  }, [])
-
-  useEffect(() => {
-    fetchTransactions()
-    window.addEventListener('finance_db_changed', fetchTransactions)
-    return () => window.removeEventListener('finance_db_changed', fetchTransactions)
-  }, [fetchTransactions])
 
   // ── 1. PREVIOUS ANALYTICS MODULES COMPUTATIONS (GLOBAL SUMMARY) ──────
   const realTransactions = useMemo(() => {

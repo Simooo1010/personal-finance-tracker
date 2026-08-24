@@ -14,7 +14,7 @@ import { useWallets } from '@/components/WalletContext'
 interface TransactionFormProps {
   isOpen: boolean
   onClose: () => void
-  onSaved: () => void
+  onSaved: (saved?: Transaction) => void
   editTransaction?: Transaction | null
   defaultType?: 'income' | 'expense'
 }
@@ -115,9 +115,11 @@ export default function TransactionForm({
       user_id: user?.id
     }
     
+    let saved: Transaction | undefined
     if (editTransaction) {
       const { data } = await supabase.from('transactions').update(payload).eq('id', editTransaction.id).select()
       if (data && data[0]) {
+        saved = data[0]
         const parsed = parseTransaction(editTransaction)
         const typeKey = parsed.isDebt ? 'edit_debt' : 'edit_transaction'
         const label = parsed.isDebt
@@ -128,6 +130,7 @@ export default function TransactionForm({
     } else {
       const { data } = await supabase.from('transactions').insert(payload).select()
       if (data && data[0]) {
+        saved = data[0]
         const parsed = parseTransaction(data[0])
         const typeKey = parsed.isDebt ? 'add_debt' : 'add_transaction'
         const label = parsed.isDebt
@@ -137,7 +140,7 @@ export default function TransactionForm({
       }
     }
     setSaving(false)
-    onSaved()
+    onSaved(saved)
     onClose()
     setTitle('')
     setAmount('')

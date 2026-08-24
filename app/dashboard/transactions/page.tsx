@@ -1,47 +1,48 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Pencil, Trash2, Search, Calculator as CalcIcon, ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, Calculator as CalcIcon, ArrowUpRight, ArrowDownRight, Check } from 'lucide-react'
 import { Transaction } from '@/lib/supabase'
 import TransactionForm from '@/components/TransactionForm'
 import Calculator from '@/components/Calculator'
 import { parseTransaction, getTransactionEffect } from '@/lib/transactions'
 import { createClient } from '@/lib/supabaseClient'
 import { useWallets } from '@/components/WalletContext'
+import { useTransactions } from '@/components/TransactionsContext'
 import { pushAction } from '@/lib/actionsTracker'
 
 export default function TransactionsPage() {
   const { wallets, walletMap, defaultWallet, hasMultipleWallets } = useWallets()
   const supabase = createClient()
-  const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [loading, setLoading] = useState(true)
+  const { transactions, loading, upsertTransaction, removeTransaction } = useTransactions()
   const [showForm, setShowForm] = useState(false)
   const [editTx, setEditTx] = useState<Transaction | null>(null)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all')
   const [walletFilter, setWalletFilter] = useState<string>('all')
   const [showCalc, setShowCalc] = useState(false)
-
-  const fetchTransactions = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase.from('transactions').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
-    if (data) setTransactions(data)
-    setLoading(false)
-  }, [])
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const confirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-     
-    fetchTransactions()
-    window.addEventListener('finance_db_changed', fetchTransactions)
-    return () => window.removeEventListener('finance_db_changed', fetchTransactions)
-  }, [fetchTransactions])
+    return () => { if (confirmTimeoutRef.current) clearTimeout(confirmTimeoutRef.current) }
+  }, [])
 
   const handleDelete = async (id: string) => {
+    if (confirmDeleteId !== id) {
+      setConfirmDeleteId(id)
+      if (confirmTimeoutRef.current) clearTimeout(confirmTimeoutRef.current)
+      confirmTimeoutRef.current = setTimeout(() => setConfirmDeleteId(null), 3000)
+      return
+    }
+    if (confirmTimeoutRef.current) clearTimeout(confirmTimeoutRef.current)
+    setConfirmDeleteId(null)
+
     const txToDelete = transactions.find(t => t.id === id)
     if (!txToDelete) return
 
+    removeTransaction(id)
     const { error } = await supabase.from('transactions').delete().eq('id', id)
     if (!error) {
       const parsed = parseTransaction(txToDelete, defaultWallet)
@@ -50,7 +51,8 @@ export default function TransactionsPage() {
         : `Eliminata transazione "${parsed.cleanTitle}" (€${Number(txToDelete.amount).toFixed(2)})`
       const typeKey = parsed.isDebt ? 'delete_debt' : 'delete_transaction'
       pushAction(typeKey, label, txToDelete, { id: txToDelete.id })
-      fetchTransactions()
+    } else {
+      upsertTransaction(txToDelete)
     }
   }
 
@@ -242,9 +244,21 @@ export default function TransactionsPage() {
                     </button>
                     <button
                       onClick={() => handleDelete(t.id)}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg text-muted hover:text-expense hover:bg-expense/5 t cursor-pointer"
+                      title={confirmDeleteId === t.id ? 'Conferma eliminazione' : 'Elimina'}
+                      className={`flex items-center justify-center rounded-lg t cursor-pointer ${
+                        confirmDeleteId === t.id
+                          ? 'w-auto px-2 h-7 gap-1 bg-expense text-white text-[10px] tracking-wide uppercase font-medium'
+                          : 'w-7 h-7 text-muted hover:text-expense hover:bg-expense/5'
+                      }`}
                     >
-                      <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
+                      {confirmDeleteId === t.id ? (
+                        <>
+                          <Check className="w-3.5 h-3.5" strokeWidth={2} />
+                          Conferma
+                        </>
+                      ) : (
+                        <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -257,7 +271,7 @@ export default function TransactionsPage() {
       <TransactionForm
         isOpen={showForm}
         onClose={() => { setShowForm(false); setEditTx(null) }}
-        onSaved={fetchTransactions}
+        onSaved={(saved) => saved && upsertTransaction(saved)}
         editTransaction={editTx}
       />
       <Calculator

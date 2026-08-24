@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowLeftRight, ArrowRight, Pencil, Trash2, X, Info, Plus } from 'lucide-react'
 import { Transaction } from '@/lib/supabase'
@@ -8,12 +8,13 @@ import { getWalletBalances, parseTransaction } from '@/lib/transactions'
 import { pushAction } from '@/lib/actionsTracker'
 import { createClient } from '@/lib/supabaseClient'
 import { useWallets } from '@/components/WalletContext'
+import { useTransactions } from '@/components/TransactionsContext'
 import { createWallet, updateWallet, deleteWallet } from '@/lib/wallets'
 
 export default function WalletsPage() {
   const { wallets, walletMap, defaultWallet, walletSlugs, refetchWallets } = useWallets()
   const supabase = createClient()
-  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const { transactions, loading: txLoading, refetch: fetchTransactions } = useTransactions()
   const [loading, setLoading] = useState(true)
   const [transferAmount, setTransferAmount] = useState('')
   const [sourceWallet, setSourceWallet] = useState<string>('')
@@ -163,20 +164,9 @@ export default function WalletsPage() {
     destTx?: Transaction
   } | null>(null)
 
-  const fetchTransactions = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase.from('transactions').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
-    if (data) setTransactions(data)
-    setLoading(false)
-  }, [])
-
   useEffect(() => {
-     
-    fetchTransactions()
-    window.addEventListener('finance_db_changed', fetchTransactions)
-    return () => window.removeEventListener('finance_db_changed', fetchTransactions)
-  }, [fetchTransactions])
+    if (!txLoading) setLoading(false)
+  }, [txLoading])
 
   const balances = getWalletBalances(transactions, walletSlugs, defaultWallet)
 

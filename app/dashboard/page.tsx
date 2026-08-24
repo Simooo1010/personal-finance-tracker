@@ -1,38 +1,21 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { TrendingUp, TrendingDown, Plus, ArrowUpRight, ArrowDownRight, History } from 'lucide-react'
 import { Transaction } from '@/lib/supabase'
 import TransactionForm from '@/components/TransactionForm'
 import { getTransactionEffect, parseTransaction } from '@/lib/transactions'
-import { createClient } from '@/lib/supabaseClient'
 import { useWallets } from '@/components/WalletContext'
+import { useTransactions } from '@/components/TransactionsContext'
 
 export default function DashboardHome() {
   const router = useRouter()
   const { walletMap, defaultWallet } = useWallets()
-  const supabase = createClient()
-  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const { transactions, loading, upsertTransaction } = useTransactions()
   const [showForm, setShowForm] = useState(false)
   const [formType, setFormType] = useState<'income' | 'expense'>('income')
-  const [loading, setLoading] = useState(true)
-
-  const fetchTransactions = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase.from('transactions').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
-    if (data) setTransactions(data)
-    setLoading(false)
-  }, [])
-
-  useEffect(() => {
-     
-    fetchTransactions()
-    window.addEventListener('finance_db_changed', fetchTransactions)
-    return () => window.removeEventListener('finance_db_changed', fetchTransactions)
-  }, [fetchTransactions])
 
   const realTransactions = transactions.filter(t => !t.title.endsWith('-transfer]'))
   
@@ -232,7 +215,7 @@ export default function DashboardHome() {
       <TransactionForm
         isOpen={showForm}
         onClose={() => setShowForm(false)}
-        onSaved={fetchTransactions}
+        onSaved={(saved) => saved && upsertTransaction(saved)}
         defaultType={formType}
       />
     </div>

@@ -1,18 +1,18 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Trash2, Pencil, Check, X, ArrowUpRight, ArrowDownRight, User, FileText, Calendar, Wallet } from 'lucide-react'
-import { Transaction } from '@/lib/supabase'
 import { parseTransaction, formatDebtTitle, DebtInfo } from '@/lib/transactions'
 import { pushAction } from '@/lib/actionsTracker'
 import { createClient } from '@/lib/supabaseClient'
 import { useWallets } from '@/components/WalletContext'
+import { useTransactions } from '@/components/TransactionsContext'
 
 export default function DebtsPage() {
   const { wallets, walletMap, defaultWallet, hasMultipleWallets } = useWallets()
   const supabase = createClient()
-  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const { transactions, loading: txLoading, refetch: fetchTransactions } = useTransactions()
   const [loading, setLoading] = useState(true)
 
   // Form Modal States
@@ -34,19 +34,9 @@ export default function DebtsPage() {
   // Navigation Filter
   const [activeTab, setActiveTab] = useState<'to_me' | 'by_me' | 'completed'>('to_me')
 
-  const fetchTransactions = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase.from('transactions').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
-    if (data) setTransactions(data)
-    setLoading(false)
-  }, [])
-
   useEffect(() => {
-    fetchTransactions()
-    window.addEventListener('finance_db_changed', fetchTransactions)
-    return () => window.removeEventListener('finance_db_changed', fetchTransactions)
-  }, [fetchTransactions])
+    if (!txLoading) setLoading(false)
+  }, [txLoading])
 
   // Parse all transactions to find debts
   const debtsList = useMemo(() => {
