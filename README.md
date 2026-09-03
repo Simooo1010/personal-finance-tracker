@@ -20,6 +20,23 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Environment variables
+
+Create a `.env.local` file in the project root (it is git-ignored):
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+
+# AI features (Groq Cloud — https://console.groq.com/keys)
+GROQ_API_KEY=gsk_...
+# Optional. Defaults to openai/gpt-oss-120b.
+GROQ_MODEL=openai/gpt-oss-120b
+```
+
+The AI analysis and AI chat routes return `{ "enabled": false }` when `GROQ_API_KEY`
+is missing, so the rest of the app keeps working without it.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

@@ -1,13 +1,10 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabaseServer'
 import { parseTransaction, getTransactionEffect, getWalletBalances } from '@/lib/transactions'
-import { getGCPAuthToken } from '@/lib/gcpAuth'
+import { callGroq, GroqError, isGroqConfigured } from '@/lib/groq'
 
 export async function POST(req: Request) {
-  const gcpKeyString = process.env.GCP_SERVICE_ACCOUNT_KEY
-  const projectId = process.env.GCP_PROJECT_ID
-  
-  if (!gcpKeyString || !projectId) {
+  if (!isGroqConfigured()) {
     return NextResponse.json({ enabled: false }, { status: 200 })
   }
 
@@ -172,7 +169,7 @@ export async function POST(req: Request) {
       return `- ${w.name}: €${(balances[w.slug] || 0).toFixed(2)} (${w.description || 'Nessuna descrizione'})`
     }).join('\n')
 
-    // 5. Call Gemini REST API with financial data AND long-term user memory
+    // 5. Call Groq with financial data AND long-term user memory
     const systemPrompt = `Sei un consulente finanziario personale virtuale di livello avanzato integrato in un'app di tracciamento spese per adolescenti. Il tuo stile è estremamente minimalista, elegante, amichevole ma diretto, e privo di formalismi inutili. Parla in italiano.
 
 [IMPORTANTE CONTESTO UTENTE]
@@ -217,60 +214,23 @@ ${formattedTxList30d || 'Nessuna transazione recente negli ultimi 30 giorni.'}
   * Debiti attivi (denaro da saldare): €${totalDebts.toFixed(2)}
 ${formattedDebtsList ? `\nElenco dettagliato:\n${formattedDebtsList}` : '\nNessun debito o credito attivo.'}`
 
-    const gcpKey = JSON.parse(gcpKeyString)
-    const clientEmail = gcpKey.client_email
-    const privateKey = gcpKey.private_key
-    const token = await getGCPAuthToken(clientEmail, privateKey)
-
-    // Vertex AI REST API URL
-    const vertexUrl = `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/google/models/gemini-2.5-flash:generateContent`
-
-    const response = await fetch(vertexUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              { text: userPrompt }
-            ]
-          }
-        ],
-        systemInstruction: {
-          parts: [
-            { text: systemPrompt }
-          ]
-        },
-        generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: 8192
-        }
+    let analysisText: string
+    try {
+      analysisText = await callGroq({
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }],
+        temperature: 0.2,
+        maxTokens: 4096,
+        reasoningEffort: 'medium'
       })
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      const status = response.status
-      if (status === 429 || status === 403) {
-        return NextResponse.json({
-          error: 'QUOTA_EXCEEDED',
-          message: 'Limite di budget o quota API raggiunto. Verifica le impostazioni nella Google Cloud Console.'
-        }, { status })
+    } catch (groqErr) {
+      if (groqErr instanceof GroqError) {
+        return NextResponse.json(
+          { error: groqErr.code, message: groqErr.message },
+          { status: groqErr.status }
+        )
       }
-      return NextResponse.json({
-        error: 'GEMINI_API_ERROR',
-        message: errorData.error?.message || 'Errore nella chiamata API di Gemini'
-      }, { status })
-    }
-
-    const resData = await response.json()
-    const analysisText = resData.candidates?.[0]?.content?.parts?.[0]?.text
-    if (!analysisText) {
-      return NextResponse.json({ error: 'Nessuna risposta generata da Gemini' }, { status: 500 })
+      throw groqErr
     }
 
     // 6. Save/Update analysis in database

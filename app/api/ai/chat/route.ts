@@ -1,13 +1,16 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabaseServer'
 import { parseTransaction, getTransactionEffect, getWalletBalances } from '@/lib/transactions'
-import { getGCPAuthToken } from '@/lib/gcpAuth'
+import { callGroq, GroqError, isGroqConfigured, type GroqMessage } from '@/lib/groq'
+
+/**
+ * Groq's free tier is rate limited by tokens-per-minute, so only the tail of a
+ * long conversation is replayed to the model on each turn.
+ */
+const MAX_HISTORY_MESSAGES = 20
 
 export async function POST(req: Request) {
-  const gcpKeyString = process.env.GCP_SERVICE_ACCOUNT_KEY
-  const projectId = process.env.GCP_PROJECT_ID
-  
-  if (!gcpKeyString || !projectId) {
+  if (!isGroqConfigured()) {
     return NextResponse.json({ enabled: false }, { status: 200 })
   }
 
@@ -119,7 +122,7 @@ export async function POST(req: Request) {
       .join('\n')
 
     // 4. Build System Prompt with financial data AND long-term user memory
-    const systemPrompt = `Sei un assistente virtuale di finanza personale avanzato integrato nell'app di tracciamento spese dell'utente (stile ChatGPT / Gemini). Il tuo stile è estremamente amichevole, empatico, professionale, diretto e privo di formalismi. Parla in italiano.
+    const systemPrompt = `Sei un assistente virtuale di finanza personale avanzato integrato nell'app di tracciamento spese dell'utente (stile ChatGPT). Il tuo stile è estremamente amichevole, empatico, professionale, diretto e privo di formalismi. Parla in italiano.
 
 [IMPORTANTE CONTESTO UTENTE GENERALE]
 L'utente di questa applicazione è un minorenne. Non percepisce entrate regolari o stipendi fissi. Le sue entrate sono saltuarie e irregolari, costituite principalmente da mance, regali o piccole ricompense per lavoretti occasionali.
@@ -171,61 +174,31 @@ Se l'utente ti chiede di generare, esportare o scaricare un file (es. Excel/XLSX
 - Non spiegare il blocco JSON all'utente, rispondi semplicemente confermando la generazione del file.
 `
 
-    // 5. Map frontend message history to Gemini API format
-    const contents = messages.map((m: any) => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [
-        { text: m.content }
-      ]
-    }))
+    // 5. Map frontend message history to the Groq chat format
+    const history: GroqMessage[] = messages
+      .slice(-MAX_HISTORY_MESSAGES)
+      .map((m: any) => ({
+        role: m.role === 'assistant' ? 'assistant' : 'user',
+        content: m.content
+      }))
 
-    const gcpKey = JSON.parse(gcpKeyString)
-    const clientEmail = gcpKey.client_email
-    const privateKey = gcpKey.private_key
-    const token = await getGCPAuthToken(clientEmail, privateKey)
-
-    // Vertex AI REST API URL
-    const vertexUrl = `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/google/models/gemini-2.5-flash:generateContent`
-
-    const response = await fetch(vertexUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        contents,
-        systemInstruction: {
-          parts: [
-            { text: systemPrompt }
-          ]
-        },
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 8192
-        }
+    let replyText: string
+    try {
+      replyText = await callGroq({
+        system: systemPrompt,
+        messages: history,
+        temperature: 0.7,
+        maxTokens: 4096,
+        reasoningEffort: 'low'
       })
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      const status = response.status
-      if (status === 429 || status === 403) {
-        return NextResponse.json({
-          error: 'QUOTA_EXCEEDED',
-          message: 'Limite di budget o quota API raggiunto. Verifica le impostazioni nella Google Cloud Console.'
-        }, { status })
+    } catch (groqErr) {
+      if (groqErr instanceof GroqError) {
+        return NextResponse.json(
+          { error: groqErr.code, message: groqErr.message },
+          { status: groqErr.status }
+        )
       }
-      return NextResponse.json({
-        error: 'GEMINI_API_ERROR',
-        message: errorData.error?.message || 'Errore nella chiamata API di Gemini'
-      }, { status })
-    }
-
-    const resData = await response.json()
-    let replyText = resData.candidates?.[0]?.content?.parts?.[0]?.text
-    if (!replyText) {
-      return NextResponse.json({ error: 'Nessuna risposta generata da Gemini' }, { status: 500 })
+      throw groqErr
     }
 
     // Check if memory block was emitted to auto-update user_ai_memory
