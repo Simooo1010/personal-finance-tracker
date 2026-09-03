@@ -182,7 +182,7 @@ ${userMemoryText ? userMemoryText : 'Nessun dettaglio specifico registrato nelle
 Temi recenti discussi in chat dall'utente:
 ${pastTopicsText}
 
-Analizza i dati forniti e la memoria dell'utente e restituisci un report strutturato esattamente in questi 5 punti (usa Markdown semplice ed elegante, senza saluti o introduzioni verbose):
+Analizza i dati forniti e la memoria dell'utente e restituisci un report strutturato esattamente in questi 5 punti (usa Markdown semplice ed elegante, senza saluti o introduzioni verbose). NON usare tabelle Markdown (niente righe con | pipe |). Usa solo testo, grassetto, elenchi puntati e numerati.:
 
 1. **Stato di Salute e Risparmio**: Valutazione dello stato economico complessivo. Commenta il saldo totale e metti a confronto il tasso di risparmio degli ultimi 7 giorni con quello degli ultimi 30 giorni per evidenziare se il trend settimanale è in miglioramento o peggioramento.
 2. **Analisi delle Spese Settimanali**: Un esame approfondito di DOVE sono andati i soldi negli ultimi 7 giorni. Raggruppa le spese per categoria o scopo e indica chiaramente quali voci o acquisti specifici hanno inciso di più.

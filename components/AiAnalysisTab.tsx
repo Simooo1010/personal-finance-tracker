@@ -44,11 +44,18 @@ export function AiAnalysisTab() {
   }, [])
 
   const formatMarkdown = (text: string) => {
-    // Basic markdown parsing for bold and lists
-    let html = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    html = html.replace(/\n\n/g, '</p><p className="mt-4">')
-    html = html.replace(/\n- (.*?)(?=\n|$)/g, '<li className="ml-4 list-disc">$1</li>')
-    html = html.replace(/\n\d+\. (.*?)(?=\n|$)/g, '<li className="ml-4 list-decimal mt-2">$1</li>')
+    // Strip markdown tables (lines containing | characters)
+    let clean = text.split('\n').filter(line => !line.trim().startsWith('|') && !/^[|\s\-:]+$/.test(line.trim())).join('\n')
+    // Bold
+    let html = clean.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    // Headings (## and ###)
+    html = html.replace(/^###\s+(.*?)$/gm, '<h4 class="font-semibold mt-4 mb-1">$1</h4>')
+    html = html.replace(/^##\s+(.*?)$/gm, '<h3 class="font-semibold mt-5 mb-1">$1</h3>')
+    html = html.replace(/^#\s+(.*?)$/gm, '<h2 class="font-semibold mt-6 mb-2">$1</h2>')
+    // Paragraphs and lists
+    html = html.replace(/\n\n/g, '</p><p class="mt-4">')
+    html = html.replace(/\n- (.*?)(?=\n|$)/g, '<li class="ml-4 list-disc">$1</li>')
+    html = html.replace(/\n\d+\. (.*?)(?=\n|$)/g, '<li class="ml-4 list-decimal mt-2">$1</li>')
     return `<p>${html}</p>`
   }
 
