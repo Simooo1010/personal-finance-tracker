@@ -276,7 +276,7 @@ export default function Calculator({ isOpen, onClose, onConfirm, initialValue }:
             exit="exit"
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
             onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-md bg-surface rounded-t-[28px] sm:rounded-2xl p-6 safe-b border-t sm:border border-border/10 shadow-2xl"
+            className="relative w-full max-w-md bg-surface rounded-t-[36px] sm:rounded-3xl p-6 safe-b border-t sm:border border-border/10 shadow-2xl"
           >
             {/* Display */}
             <div className="flex flex-col justify-end min-h-[90px] mb-6 px-2">
@@ -319,7 +319,7 @@ export default function Calculator({ isOpen, onClose, onConfirm, initialValue }:
                       else if (isOperator) handleOperator(btn)
                       else handleDigit(btn)
                     }}
-                    className={`h-14 rounded-xl text-lg font-light t cursor-pointer ${
+                    className={`h-14 rounded-full text-lg font-light t cursor-pointer ${
                       isOperator
                         ? 'bg-elevated text-fg hover:bg-border/20'
                         : isEquals
@@ -342,7 +342,7 @@ export default function Calculator({ isOpen, onClose, onConfirm, initialValue }:
               <button
                 onClick={handleConfirm}
                 disabled={liveResult === null && isNaN(parseFloat(formula))}
-                className="w-full py-3 bg-income/10 hover:bg-income hover:text-white text-income text-xs tracking-wider uppercase font-medium rounded-xl t cursor-pointer flex items-center justify-center gap-2 disabled:opacity-40"
+                className="w-full py-3 bg-income/10 hover:bg-income hover:text-white text-income text-xs tracking-wider uppercase font-medium rounded-full t cursor-pointer flex items-center justify-center gap-2 disabled:opacity-40"
               >
                 <Check className="w-4 h-4" strokeWidth={2} />
                 Conferma Importo

@@ -57,7 +57,7 @@ input, textarea, select, button {
 /* Standard card */
 .card {
   background: var(--surface);
-  border-radius: 20px;
+  border-radius: 26px;
   border: 1px solid var(--border);
   box-shadow: 0 0 0 1px rgba(255,255,255,0.01), 0 10px 40px rgba(0,0,0,0.4);
 }

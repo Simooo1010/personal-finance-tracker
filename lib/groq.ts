@@ -155,3 +155,146 @@ export async function callGroq({
 
   return text
 }
+
+/**
+ * Same request as `callGroq`, but asks Groq to stream the completion back as
+ * Server-Sent Events and yields each incremental text delta as it arrives.
+ *
+ * Reasoning-model `<think>` blocks can straddle chunk boundaries, so unlike
+ * `stripReasoning` (which runs once on a complete string) this buffers the
+ * tail of the text and only yields what's provably outside an open `<think>`
+ * tag, holding back a small amount so a tag split across chunks isn't missed.
+ */
+export async function* streamGroq({
+  system,
+  messages,
+  temperature = 0.7,
+  maxTokens = 4096,
+  reasoningEffort = 'low',
+}: GroqCallOptions): AsyncGenerator<string, void, unknown> {
+  const apiKey = process.env.GROQ_API_KEY
+  if (!apiKey) {
+    throw new GroqError('NOT_CONFIGURED', 'GROQ_API_KEY non configurata', 500)
+  }
+
+  const model = getGroqModel()
+
+  const baseBody: Record<string, unknown> = {
+    model,
+    messages: [{ role: 'system', content: system }, ...messages],
+    temperature,
+    max_completion_tokens: maxTokens,
+    stream: true,
+  }
+
+  const send = (body: Record<string, unknown>) =>
+    fetch(GROQ_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
+    })
+
+  const withReasoning = supportsReasoningControls(model)
+  let response = await send(
+    withReasoning
+      ? { ...baseBody, reasoning_effort: reasoningEffort, include_reasoning: false }
+      : baseBody
+  )
+
+  if (!response.ok && response.status === 400 && withReasoning) {
+    response = await send(baseBody)
+  }
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw mapErrorStatus(response.status, errorData?.error?.message)
+  }
+
+  if (!response.body) {
+    throw new GroqError('EMPTY_RESPONSE', 'Nessuna risposta generata dal modello', 500)
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let pending = ''
+  let sawAnyDelta = false
+
+  const flushSafe = function* (finalFlush: boolean) {
+    // Hold back enough trailing text that a `<think>`/`</think>` tag split
+    // across two chunks is never partially yielded.
+    const holdBack = finalFlush ? 0 : 8
+    while (true) {
+      const openIdx = pending.indexOf('<think>')
+      const closeIdx = pending.indexOf('</think>')
+
+      if (closeIdx !== -1 && (openIdx === -1 || closeIdx < openIdx)) {
+        // Stray closing tag with no open before it — drop it defensively.
+        pending = pending.slice(closeIdx + '</think>'.length)
+        continue
+      }
+
+      if (openIdx === -1) {
+        const safeLen = Math.max(0, pending.length - holdBack)
+        if (safeLen > 0) {
+          yield pending.slice(0, safeLen)
+          pending = pending.slice(safeLen)
+        }
+        return
+      }
+
+      // Emit everything before the reasoning block, then drop the block
+      // itself once (and if) its closing tag has arrived.
+      if (openIdx > 0) yield pending.slice(0, openIdx)
+      const afterOpen = pending.slice(openIdx + '<think>'.length)
+      const closeInRest = afterOpen.indexOf('</think>')
+      if (closeInRest === -1) {
+        // Still inside the reasoning block — nothing more is safe to emit.
+        pending = '<think>' + afterOpen
+        return
+      }
+      pending = afterOpen.slice(closeInRest + '</think>'.length)
+    }
+  }
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (!trimmed.startsWith('data:')) continue
+        const payload = trimmed.slice(5).trim()
+        if (payload === '[DONE]') continue
+
+        try {
+          const json = JSON.parse(payload)
+          const delta: string = json.choices?.[0]?.delta?.content || ''
+          if (delta) {
+            sawAnyDelta = true
+            pending += delta
+            yield* flushSafe(false)
+          }
+        } catch {
+          // Ignore malformed SSE lines (e.g. keep-alive comments).
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock()
+  }
+
+  yield* flushSafe(true)
+
+  if (!sawAnyDelta) {
+    throw new GroqError('EMPTY_RESPONSE', 'Nessuna risposta generata dal modello', 500)
+  }
+}

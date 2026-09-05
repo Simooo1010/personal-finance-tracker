@@ -403,14 +403,14 @@ export default function WalletsPage() {
               <div className="flex flex-col sm:flex-row gap-4 pt-4">
                 <button
                   onClick={setupPresetWallets}
-                  className="flex-1 py-4 bg-surface border border-border/20 text-fg rounded-2xl text-xs tracking-wider uppercase font-medium hover:bg-elevated t cursor-pointer"
+                  className="flex-1 py-4 bg-surface border border-border/20 text-fg rounded-3xl text-xs tracking-wider uppercase font-medium hover:bg-elevated t cursor-pointer"
                 >
                   Configura Ora
                 </button>
                 
                 <button
                   onClick={dismissOnboarding}
-                  className="flex-1 py-4 bg-fg text-bg rounded-2xl text-xs tracking-wider uppercase font-medium hover:opacity-90 t cursor-pointer"
+                  className="flex-1 py-4 bg-fg text-bg rounded-3xl text-xs tracking-wider uppercase font-medium hover:opacity-90 t cursor-pointer"
                 >
                   Continua Senza
                 </button>
@@ -460,13 +460,13 @@ export default function WalletsPage() {
             <div className="absolute top-4 right-4 flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
               <button
                 onClick={() => handleEditWalletClick(w)}
-                className="w-7 h-7 flex items-center justify-center rounded-lg bg-surface/50 text-muted hover:text-fg t cursor-pointer"
+                className="w-7 h-7 flex items-center justify-center rounded-full bg-surface/50 text-muted hover:text-fg t cursor-pointer"
               >
                 <Pencil className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => setConfirmDeleteWallet({ id: w.id, name: w.name })}
-                className="w-7 h-7 flex items-center justify-center rounded-lg bg-surface/50 text-muted hover:text-expense t cursor-pointer"
+                className="w-7 h-7 flex items-center justify-center rounded-full bg-surface/50 text-muted hover:text-expense t cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
@@ -499,7 +499,7 @@ export default function WalletsPage() {
               <select
                 value={sourceWallet}
                 onChange={e => setSourceWallet(e.target.value)}
-                className="w-full bg-elevated border border-border/10 rounded-xl px-4 py-2.5 text-xs text-fg focus:outline-none focus:border-fg t"
+                className="w-full bg-elevated border border-border/10 rounded-full px-4 py-2.5 text-xs text-fg focus:outline-none focus:border-fg t"
               >
                 {wallets.map(w => (
                   <option key={w.slug} value={w.slug}>
@@ -517,7 +517,7 @@ export default function WalletsPage() {
               <select
                 value={destWallet}
                 onChange={e => setDestWallet(e.target.value)}
-                className="w-full bg-elevated border border-border/10 rounded-xl px-4 py-2.5 text-xs text-fg focus:outline-none focus:border-fg t"
+                className="w-full bg-elevated border border-border/10 rounded-full px-4 py-2.5 text-xs text-fg focus:outline-none focus:border-fg t"
               >
                 {wallets.map(w => (
                   <option key={w.slug} value={w.slug}>
@@ -546,7 +546,7 @@ export default function WalletsPage() {
           <button
             type="submit"
             disabled={submitting || !transferAmount || sourceWallet === destWallet}
-            className="w-full py-3 bg-fg text-bg text-xs tracking-wider uppercase font-semibold rounded-xl t cursor-pointer disabled:opacity-40 flex items-center justify-center gap-2"
+            className="w-full py-3 bg-fg text-bg text-xs tracking-wider uppercase font-semibold rounded-full t cursor-pointer disabled:opacity-40 flex items-center justify-center gap-2"
           >
             {submitting ? 'Elaborazione...' : 'Conferma Trasferimento'}
             <ArrowRight className="w-3.5 h-3.5" strokeWidth={2} />
@@ -611,13 +611,13 @@ export default function WalletsPage() {
                     <div className="flex items-center gap-0.5 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-200">
                       <button
                         onClick={() => handleEditClick(t, counterpart)}
-                        className="w-7 h-7 flex items-center justify-center rounded-lg text-muted hover:text-fg hover:bg-elevated/60 t cursor-pointer"
+                        className="w-7 h-7 flex items-center justify-center rounded-full text-muted hover:text-fg hover:bg-elevated/60 t cursor-pointer"
                       >
                         <Pencil className="w-3.5 h-3.5" strokeWidth={1.5} />
                       </button>
                       <button
                         onClick={() => handleDeleteClick(t, counterpart)}
-                        className="w-7 h-7 flex items-center justify-center rounded-lg text-muted hover:text-expense hover:bg-expense/5 t cursor-pointer"
+                        className="w-7 h-7 flex items-center justify-center rounded-full text-muted hover:text-expense hover:bg-expense/5 t cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
                       </button>
@@ -659,7 +659,7 @@ export default function WalletsPage() {
                 </div>
                 <button
                   onClick={() => setEditingTransfer(null)}
-                  className="p-1.5 hover:bg-elevated rounded-lg text-muted hover:text-fg t cursor-pointer"
+                  className="p-1.5 hover:bg-elevated rounded-full text-muted hover:text-fg t cursor-pointer"
                 >
                   <X className="w-4 h-4" strokeWidth={1.5} />
                 </button>
@@ -675,7 +675,7 @@ export default function WalletsPage() {
                     <select
                       value={editSourceWallet}
                       onChange={e => setEditSourceWallet(e.target.value)}
-                      className="w-full bg-elevated border border-border/10 rounded-xl px-4 py-2.5 text-xs text-fg focus:outline-none focus:border-fg t"
+                      className="w-full bg-elevated border border-border/10 rounded-full px-4 py-2.5 text-xs text-fg focus:outline-none focus:border-fg t"
                     >
                       {wallets.map(w => {
                         const parsedOrigSource = parseTransaction(editingTransfer.sourceTx, defaultWallet)
@@ -704,7 +704,7 @@ export default function WalletsPage() {
                     <select
                       value={editDestWallet}
                       onChange={e => setEditDestWallet(e.target.value)}
-                      className="w-full bg-elevated border border-border/10 rounded-xl px-4 py-2.5 text-xs text-fg focus:outline-none focus:border-fg t"
+                      className="w-full bg-elevated border border-border/10 rounded-full px-4 py-2.5 text-xs text-fg focus:outline-none focus:border-fg t"
                     >
                       {wallets.map(w => {
                         const parsedOrigSource = parseTransaction(editingTransfer.sourceTx, defaultWallet)
@@ -755,7 +755,7 @@ export default function WalletsPage() {
                     value={editDate}
                     onChange={e => setEditDate(e.target.value)}
                     required
-                    className="w-full bg-elevated border border-border/10 rounded-xl px-4 py-2.5 text-xs text-fg focus:outline-none focus:border-fg cursor-pointer t"
+                    className="w-full bg-elevated border border-border/10 rounded-full px-4 py-2.5 text-xs text-fg focus:outline-none focus:border-fg cursor-pointer t"
                   />
                 </div>
 
@@ -764,14 +764,14 @@ export default function WalletsPage() {
                   <button
                     type="button"
                     onClick={() => setEditingTransfer(null)}
-                    className="flex-1 py-3 border border-border/20 text-muted hover:text-fg text-xs tracking-wider uppercase font-semibold rounded-xl t cursor-pointer"
+                    className="flex-1 py-3 border border-border/20 text-muted hover:text-fg text-xs tracking-wider uppercase font-semibold rounded-full t cursor-pointer"
                   >
                     Annulla
                   </button>
                   <button
                     type="submit"
                     disabled={submitting || !editAmount || editSourceWallet === editDestWallet}
-                    className="flex-1 py-3 bg-fg text-bg text-xs tracking-wider uppercase font-semibold rounded-xl t cursor-pointer disabled:opacity-40"
+                    className="flex-1 py-3 bg-fg text-bg text-xs tracking-wider uppercase font-semibold rounded-full t cursor-pointer disabled:opacity-40"
                   >
                     {submitting ? 'Salvataggio...' : 'Salva Modifiche'}
                   </button>
@@ -817,13 +817,13 @@ export default function WalletsPage() {
               <div className="flex gap-3">
                 <button
                   onClick={() => setConfirmDeleteTransfer(null)}
-                  className="flex-1 py-2.5 border border-border/20 text-muted hover:text-fg text-xs tracking-wider uppercase font-semibold rounded-xl t cursor-pointer"
+                  className="flex-1 py-2.5 border border-border/20 text-muted hover:text-fg text-xs tracking-wider uppercase font-semibold rounded-full t cursor-pointer"
                 >
                   Annulla
                 </button>
                 <button
                   onClick={executeDeleteTransfer}
-                  className="flex-1 py-2.5 bg-expense text-white text-xs tracking-wider uppercase font-semibold rounded-xl hover:bg-expense/90 t cursor-pointer"
+                  className="flex-1 py-2.5 bg-expense text-white text-xs tracking-wider uppercase font-semibold rounded-full hover:bg-expense/90 t cursor-pointer"
                 >
                   Elimina
                 </button>
@@ -842,8 +842,8 @@ export default function WalletsPage() {
               <h3 className="text-base font-light text-fg">Elimina {confirmDeleteWallet.name}?</h3>
               <p className="text-xs text-muted font-light">Eliminando questo portafoglio, eliminerai anche tutte le transazioni associate.</p>
               <div className="flex gap-3">
-                <button onClick={() => setConfirmDeleteWallet(null)} className="flex-1 py-2.5 border border-border/20 text-muted hover:text-fg text-xs uppercase rounded-xl cursor-pointer">Annulla</button>
-                <button onClick={handleDeleteWallet} className="flex-1 py-2.5 bg-expense text-white text-xs uppercase rounded-xl hover:opacity-90 cursor-pointer">Elimina</button>
+                <button onClick={() => setConfirmDeleteWallet(null)} className="flex-1 py-2.5 border border-border/20 text-muted hover:text-fg text-xs uppercase rounded-full cursor-pointer">Annulla</button>
+                <button onClick={handleDeleteWallet} className="flex-1 py-2.5 bg-expense text-white text-xs uppercase rounded-full hover:opacity-90 cursor-pointer">Elimina</button>
               </div>
             </motion.div>
           </div>
@@ -879,7 +879,7 @@ export default function WalletsPage() {
                 </div>
                 <button
                   onClick={() => setShowAddWalletModal(false)}
-                  className="p-1.5 hover:bg-elevated rounded-lg text-muted hover:text-fg t cursor-pointer"
+                  className="p-1.5 hover:bg-elevated rounded-full text-muted hover:text-fg t cursor-pointer"
                 >
                   <X className="w-4 h-4" strokeWidth={1.5} />
                 </button>
@@ -917,14 +917,14 @@ export default function WalletsPage() {
                   <button
                     type="button"
                     onClick={() => setShowAddWalletModal(false)}
-                    className="flex-1 py-3 border border-border/20 text-muted hover:text-fg text-xs tracking-wider uppercase font-semibold rounded-xl t cursor-pointer"
+                    className="flex-1 py-3 border border-border/20 text-muted hover:text-fg text-xs tracking-wider uppercase font-semibold rounded-full t cursor-pointer"
                   >
                     Annulla
                   </button>
                   <button
                     type="submit"
                     disabled={addingWallet || !newWalletName.trim()}
-                    className="flex-1 py-3 bg-fg text-bg text-xs tracking-wider uppercase font-semibold rounded-xl t cursor-pointer disabled:opacity-40"
+                    className="flex-1 py-3 bg-fg text-bg text-xs tracking-wider uppercase font-semibold rounded-full t cursor-pointer disabled:opacity-40"
                   >
                     {addingWallet ? 'Salvataggio...' : (editingWalletId ? 'Salva' : 'Crea')}
                   </button>

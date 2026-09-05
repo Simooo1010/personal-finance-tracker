@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { SparkleIcon } from '@/components/SparkleIcon'
+import { Markdown } from '@/components/Markdown'
 import { RefreshCw } from 'lucide-react'
 
 export function AiAnalysisTab() {
@@ -43,22 +44,6 @@ export function AiAnalysisTab() {
     fetchAnalysis()
   }, [])
 
-  const formatMarkdown = (text: string) => {
-    // Strip markdown tables (lines containing | characters)
-    let clean = text.split('\n').filter(line => !line.trim().startsWith('|') && !/^[|\s\-:]+$/.test(line.trim())).join('\n')
-    // Bold
-    let html = clean.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    // Headings (## and ###)
-    html = html.replace(/^###\s+(.*?)$/gm, '<h4 class="font-semibold mt-4 mb-1">$1</h4>')
-    html = html.replace(/^##\s+(.*?)$/gm, '<h3 class="font-semibold mt-5 mb-1">$1</h3>')
-    html = html.replace(/^#\s+(.*?)$/gm, '<h2 class="font-semibold mt-6 mb-2">$1</h2>')
-    // Paragraphs and lists
-    html = html.replace(/\n\n/g, '</p><p class="mt-4">')
-    html = html.replace(/\n- (.*?)(?=\n|$)/g, '<li class="ml-4 list-disc">$1</li>')
-    html = html.replace(/\n\d+\. (.*?)(?=\n|$)/g, '<li class="ml-4 list-decimal mt-2">$1</li>')
-    return `<p>${html}</p>`
-  }
-
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-20 space-y-4">
@@ -91,10 +76,9 @@ export function AiAnalysisTab() {
         </div>
       ) : data?.analysis_text ? (
         <div className="space-y-6">
-          <div 
-            className="card p-6 sm:p-8 text-sm sm:text-base font-light leading-relaxed prose prose-invert max-w-none prose-p:text-muted prose-strong:text-fg prose-li:text-muted"
-            dangerouslySetInnerHTML={{ __html: formatMarkdown(data.analysis_text) }}
-          />
+          <div className="card p-6 sm:p-8 text-sm sm:text-base font-light leading-relaxed text-muted">
+            <Markdown>{data.analysis_text}</Markdown>
+          </div>
           <p className="text-[10px] text-muted text-right tracking-wider">
             Ultimo aggiornamento: {new Date(data.last_generation_time).toLocaleString('it-IT')}
           </p>

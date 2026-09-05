@@ -175,7 +175,7 @@ export default function TransactionForm({
             exit="exit"
             transition={{ type: 'spring', damping: 28, stiffness: 280 }}
             onClick={e => e.stopPropagation()}
-            className="relative w-full max-w-lg bg-surface rounded-t-[28px] sm:rounded-2xl p-6 sm:p-8 safe-b shadow-2xl border-t sm:border border-border/10"
+            className="relative w-full max-w-lg bg-surface rounded-t-[36px] sm:rounded-3xl p-6 sm:p-8 safe-b shadow-2xl border-t sm:border border-border/10"
           >
             {/* Drag handle (mobile only) */}
             <div className="w-8 h-1 bg-elevated rounded-full mx-auto mb-6 sm:hidden" />
@@ -194,10 +194,10 @@ export default function TransactionForm({
             </div>
 
             {/* Segmented control for Type */}
-            <div className="flex gap-1 p-1 bg-elevated rounded-xl mb-6">
+            <div className="flex gap-1 p-1 bg-elevated rounded-full mb-6">
               <button
                 onClick={() => setType('income')}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-normal t cursor-pointer ${
+                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-full text-xs font-normal t cursor-pointer ${
                   type === 'income' ? 'bg-income text-white shadow-sm' : 'text-muted hover:text-fg'
                 }`}
               >
@@ -206,7 +206,7 @@ export default function TransactionForm({
               </button>
               <button
                 onClick={() => setType('expense')}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-normal t cursor-pointer ${
+                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-full text-xs font-normal t cursor-pointer ${
                   type === 'expense' ? 'bg-expense text-white shadow-sm' : 'text-muted hover:text-fg'
                 }`}
               >
@@ -221,13 +221,13 @@ export default function TransactionForm({
                 <label className="text-[9px] tracking-[0.2em] uppercase text-muted block mb-1.5">
                   {type === 'income' ? 'Deposita in' : 'Preleva da'}
                 </label>
-                <div className="grid grid-cols-2 gap-1.5 p-1 bg-elevated rounded-xl">
+                <div className="grid grid-cols-2 gap-1.5 p-1 bg-elevated rounded-full">
                   {wallets.map(w => (
                     <button
                       key={w.slug}
                       type="button"
                       onClick={() => setWallet(w.slug)}
-                      className={`py-2 rounded-lg text-xs font-normal t cursor-pointer ${
+                      className={`py-2 rounded-full text-xs font-normal t cursor-pointer ${
                         wallet === w.slug ? 'bg-fg text-bg shadow-sm' : 'text-muted hover:text-fg'
                       }`}
                     >
@@ -271,7 +271,7 @@ export default function TransactionForm({
                   />
                   <button
                     onClick={() => setShowCalc(true)}
-                    className="absolute right-0 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg text-muted hover:text-fg hover:bg-elevated t"
+                    className="absolute right-0 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full text-muted hover:text-fg hover:bg-elevated t"
                   >
                     <CalcIcon className="w-4 h-4" strokeWidth={1.5} />
                   </button>
@@ -298,7 +298,7 @@ export default function TransactionForm({
               whileTap={{ scale: 0.98 }}
               onClick={handleSave}
               disabled={saving || !title.trim() || !amount || !createdAt}
-              className={`w-full py-3.5 rounded-xl text-xs tracking-widest uppercase font-medium t disabled:opacity-40 shadow-sm ${
+              className={`w-full py-3.5 rounded-full text-xs tracking-widest uppercase font-medium t disabled:opacity-40 shadow-sm ${
                 type === 'income' ? 'bg-income text-white' : 'bg-expense text-white'
               }`}
             >
