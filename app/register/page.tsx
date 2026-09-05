@@ -59,7 +59,7 @@ export default function RegisterPage() {
               Abbiamo inviato un&apos;email di conferma. Clicca sul link al suo interno per attivare il tuo account.
             </p>
           </div>
-          <Link href="/login" className="block w-full py-3 bg-fg text-bg rounded-xl text-xs tracking-wider uppercase font-medium hover:opacity-90 t cursor-pointer">
+          <Link href="/login" className="block w-full py-3 bg-fg text-bg rounded-full text-xs tracking-wider uppercase font-medium hover:opacity-90 t cursor-pointer">
             Vai al Login
           </Link>
         </motion.div>
@@ -121,7 +121,7 @@ export default function RegisterPage() {
             whileTap={{ scale: 0.97 }}
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-fg text-bg rounded-xl text-xs tracking-wider uppercase font-medium hover:opacity-90 t disabled:opacity-40 cursor-pointer"
+            className="w-full py-3 bg-fg text-bg rounded-full text-xs tracking-wider uppercase font-medium hover:opacity-90 t disabled:opacity-40 cursor-pointer"
           >
             {loading ? 'Registrazione...' : 'Registrati'}
           </motion.button>

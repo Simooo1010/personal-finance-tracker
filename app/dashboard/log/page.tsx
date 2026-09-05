@@ -125,7 +125,7 @@ export default function LogPage() {
                           <div className="flex items-center gap-2 md:opacity-0 md:group-hover:opacity-100 opacity-100 transition-opacity">
                             <button
                               onClick={() => handleEdit(action)}
-                              className="p-1.5 rounded-md hover:bg-elevated text-muted hover:text-fg transition-colors"
+                              className="p-1.5 rounded-full hover:bg-elevated text-muted hover:text-fg transition-colors"
                               title="Modifica Transazione Originaria"
                             >
                               <Edit2 className="w-4 h-4" strokeWidth={1.5} />
@@ -133,7 +133,7 @@ export default function LogPage() {
                             <button
                               onClick={() => handleRevert(action.id)}
                               disabled={revertingId !== null}
-                              className="p-1.5 rounded-md hover:bg-expense/10 text-muted hover:text-expense transition-colors"
+                              className="p-1.5 rounded-full hover:bg-expense/10 text-muted hover:text-expense transition-colors"
                               title="Ripristina a questo stato (Annulla azioni successive)"
                             >
                               <RotateCcw className="w-4 h-4" strokeWidth={1.5} />

@@ -950,7 +950,7 @@ export default function AnalyticsPage() {
                         {m.getValue()}
                       </h4>
                     </div>
-                    <div className={`p-2 rounded-lg ${isSel ? 'bg-fg/5 text-fg' : 'bg-transparent text-muted'}`}>
+                    <div className={`p-2 rounded-full ${isSel ? 'bg-fg/5 text-fg' : 'bg-transparent text-muted'}`}>
                       <Icon className="w-4 h-4" strokeWidth={1.5} />
                     </div>
                   </div>
@@ -1101,7 +1101,7 @@ export default function AnalyticsPage() {
 
               {/* Minimal inline time options */}
               <div className="flex flex-wrap items-center gap-2">
-                <div className="flex p-0.5 bg-elevated rounded-lg">
+                <div className="flex p-0.5 bg-elevated rounded-full">
                   {(['1w', '1m', '2m', '6m', '1y', 'custom', 'custom-period'] as TimeRange[]).map(r => {
                     let label = ''
                     if (r === '1w') label = '1S'
@@ -1116,7 +1116,7 @@ export default function AnalyticsPage() {
                       <button
                         key={r}
                         onClick={() => setTimeRange(r)}
-                        className={`px-2.5 py-1 rounded-md text-[9px] font-normal tracking-wider cursor-pointer t ${
+                        className={`px-2.5 py-1 rounded-full text-[9px] font-normal tracking-wider cursor-pointer t ${
                           timeRange === r ? 'bg-fg text-bg font-medium' : 'text-muted hover:text-fg'
                         }`}
                       >
@@ -1135,7 +1135,7 @@ export default function AnalyticsPage() {
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="flex gap-4 p-3 bg-elevated/40 rounded-xl border border-border/5"
+                  className="flex gap-4 p-3 bg-elevated/40 rounded-full border border-border/5"
                 >
                   <div className="flex-1">
                     <span className="text-[8px] text-muted tracking-wider uppercase block mb-1">Da data</span>
@@ -1163,7 +1163,7 @@ export default function AnalyticsPage() {
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="flex gap-4 p-3 bg-elevated/40 rounded-xl border border-border/5"
+                  className="flex gap-4 p-3 bg-elevated/40 rounded-full border border-border/5"
                 >
                   <div className="flex-1">
                     <span className="text-[8px] text-muted tracking-wider uppercase block mb-1">Quantità</span>
@@ -1260,7 +1260,7 @@ export default function AnalyticsPage() {
 
                     return (
                       <div key={i} className="flex-1 flex flex-col items-center justify-end h-full group relative">
-                        <div className="opacity-0 group-hover:opacity-100 absolute -top-12 bg-elevated/95 border border-border/40 text-[10px] p-2 rounded-lg shadow-xl z-20 pointer-events-none transition-all flex flex-col gap-0.5 shrink-0 whitespace-nowrap">
+                        <div className="opacity-0 group-hover:opacity-100 absolute -top-12 bg-elevated/95 border border-border/40 text-[10px] p-2 rounded-2xl shadow-xl z-20 pointer-events-none transition-all flex flex-col gap-0.5 shrink-0 whitespace-nowrap">
                           <span className="font-medium text-fg mb-0.5">{flow.label}</span>
                           <span className="text-income">Entrate: €{fmt(flow.income)}</span>
                           <span className="text-expense">Uscite: €{fmt(flow.expense)}</span>
@@ -1570,7 +1570,7 @@ export default function AnalyticsPage() {
                 </svg>
 
                 {hoveredIndex !== null && activeChartCoords.points[hoveredIndex] && (
-                  <div className="absolute top-0 right-0 bg-elevated/95 border border-border/40 p-3 rounded-xl shadow-xl space-y-1 z-20 pointer-events-none">
+                  <div className="absolute top-0 right-0 bg-elevated/95 border border-border/40 p-3 rounded-2xl shadow-xl space-y-1 z-20 pointer-events-none">
                     <span className="text-[9px] text-muted tracking-wider uppercase block">
                       {new Date(activeChartCoords.points[hoveredIndex].date).toLocaleDateString('it-IT', {
                         day: 'numeric',

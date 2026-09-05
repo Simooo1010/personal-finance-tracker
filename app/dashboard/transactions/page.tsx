@@ -238,14 +238,14 @@ export default function TransactionsPage() {
                   <div className="flex items-center gap-0.5 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-200">
                     <button
                       onClick={() => { setEditTx(t); setShowForm(true) }}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg text-muted hover:text-fg hover:bg-elevated/60 t cursor-pointer"
+                      className="w-7 h-7 flex items-center justify-center rounded-full text-muted hover:text-fg hover:bg-elevated/60 t cursor-pointer"
                     >
                       <Pencil className="w-3.5 h-3.5" strokeWidth={1.5} />
                     </button>
                     <button
                       onClick={() => handleDelete(t.id)}
                       title={confirmDeleteId === t.id ? 'Conferma eliminazione' : 'Elimina'}
-                      className={`flex items-center justify-center rounded-lg t cursor-pointer ${
+                      className={`flex items-center justify-center rounded-full t cursor-pointer ${
                         confirmDeleteId === t.id
                           ? 'w-auto px-2 h-7 gap-1 bg-expense text-white text-[10px] tracking-wide uppercase font-medium'
                           : 'w-7 h-7 text-muted hover:text-expense hover:bg-expense/5'

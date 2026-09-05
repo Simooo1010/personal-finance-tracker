@@ -98,7 +98,7 @@ export async function POST(req: Request) {
 
     // Calculate balances
     const balances = getWalletBalances(transactions, walletSlugs, defaultWallet)
-    let netWorth = Object.values(balances).reduce((sum, bal) => sum + bal, 0)
+    const netWorth = Object.values(balances).reduce((sum, bal) => sum + bal, 0)
 
     // Filter recent transactions (last 30 days and last 7 days) and format them
     const thirtyDaysAgo = new Date()
@@ -182,7 +182,7 @@ ${userMemoryText ? userMemoryText : 'Nessun dettaglio specifico registrato nelle
 Temi recenti discussi in chat dall'utente:
 ${pastTopicsText}
 
-Analizza i dati forniti e la memoria dell'utente e restituisci un report strutturato esattamente in questi 5 punti (usa Markdown semplice ed elegante, senza saluti o introduzioni verbose). NON usare tabelle Markdown (niente righe con | pipe |). Usa solo testo, grassetto, elenchi puntati e numerati.:
+Analizza i dati forniti e la memoria dell'utente e restituisci un report strutturato esattamente in questi 5 punti (usa Markdown elegante: titoli, grassetto, elenchi puntati e numerati; usa anche una tabella Markdown quando aiuta a confrontare numeri o categorie in modo più chiaro di un elenco). Nessun saluto o introduzione verbosa:
 
 1. **Stato di Salute e Risparmio**: Valutazione dello stato economico complessivo. Commenta il saldo totale e metti a confronto il tasso di risparmio degli ultimi 7 giorni con quello degli ultimi 30 giorni per evidenziare se il trend settimanale è in miglioramento o peggioramento.
 2. **Analisi delle Spese Settimanali**: Un esame approfondito di DOVE sono andati i soldi negli ultimi 7 giorni. Raggruppa le spese per categoria o scopo e indica chiaramente quali voci o acquisti specifici hanno inciso di più.

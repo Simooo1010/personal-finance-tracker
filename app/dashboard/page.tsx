@@ -99,7 +99,7 @@ export default function DashboardHome() {
           transition={{ delay: 0.1 }}
           whileTap={{ scale: 0.96 }}
           onClick={() => { setFormType('income'); setShowForm(true) }}
-          className="flex items-center justify-center gap-2 py-4 rounded-xl bg-income/10 text-income hover:bg-income hover:text-white text-xs tracking-wider uppercase font-medium t cursor-pointer"
+          className="flex items-center justify-center gap-2 py-4 rounded-full bg-income/10 text-income hover:bg-income hover:text-white text-xs tracking-wider uppercase font-medium t cursor-pointer"
         >
           <Plus className="w-4 h-4" strokeWidth={1.5} />
           Entrata
@@ -110,7 +110,7 @@ export default function DashboardHome() {
           transition={{ delay: 0.12 }}
           whileTap={{ scale: 0.96 }}
           onClick={() => { setFormType('expense'); setShowForm(true) }}
-          className="flex items-center justify-center gap-2 py-4 rounded-xl bg-expense/10 text-expense hover:bg-expense hover:text-white text-xs tracking-wider uppercase font-medium t cursor-pointer"
+          className="flex items-center justify-center gap-2 py-4 rounded-full bg-expense/10 text-expense hover:bg-expense hover:text-white text-xs tracking-wider uppercase font-medium t cursor-pointer"
         >
           <Plus className="w-4 h-4" strokeWidth={1.5} />
           Uscita

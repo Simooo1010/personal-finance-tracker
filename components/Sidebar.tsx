@@ -44,7 +44,7 @@ export default function Sidebar() {
             <button
               key={item.href}
               onClick={() => router.push(item.href)}
-              className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-light t w-full text-left ${
+              className={`relative flex items-center gap-3 px-3 py-2.5 rounded-full text-sm font-light t w-full text-left ${
                 active ? 'bg-elevated text-fg' : 'text-muted hover:text-fg hover:bg-elevated/50'
               }`}
             >
