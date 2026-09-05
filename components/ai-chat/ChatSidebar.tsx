@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Loader2, MessageSquare, PanelLeftClose, Edit3, Check, X, Trash2 } from 'lucide-react'
+import { Plus, Loader2, MessageSquare, Edit3, Check, X, Trash2 } from 'lucide-react'
 import { SparkleIcon } from '@/components/SparkleIcon'
 import { useAiChat, type ChatSession } from '@/components/ai-chat/AiChatContext'
 
@@ -75,7 +75,7 @@ export function ChatSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () 
           animate={{ width: 288, opacity: 1 }}
           exit={{ width: 0, opacity: 0 }}
           transition={{ duration: 0.22, ease: 'easeInOut' }}
-          className="h-full bg-surface flex flex-col shrink-0 overflow-hidden z-20"
+          className="h-full bg-surface flex flex-col shrink-0 overflow-hidden z-20 absolute inset-y-0 left-0 sm:relative sm:inset-auto"
         >
           <div className="w-[288px] flex flex-col h-full p-3 gap-3">
             <div className="flex items-center justify-between px-1 pt-1 pb-1">
@@ -85,13 +85,6 @@ export function ChatSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () 
                 </div>
                 <span className="text-sm font-semibold tracking-tight">Sparkle</span>
               </div>
-              <button
-                onClick={onClose}
-                className="p-2 text-muted hover:text-fg rounded-full transition-colors cursor-pointer sm:hidden"
-                title="Nascondi barra laterale"
-              >
-                <PanelLeftClose className="w-4 h-4" />
-              </button>
             </div>
 
             <button

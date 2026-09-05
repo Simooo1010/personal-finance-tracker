@@ -221,13 +221,13 @@ export default function TransactionForm({
                 <label className="text-[9px] tracking-[0.2em] uppercase text-muted block mb-1.5">
                   {type === 'income' ? 'Deposita in' : 'Preleva da'}
                 </label>
-                <div className="grid grid-cols-2 gap-1.5 p-1 bg-elevated rounded-full">
+                <div className="grid grid-cols-2 gap-1.5 p-1 bg-elevated rounded-xl">
                   {wallets.map(w => (
                     <button
                       key={w.slug}
                       type="button"
                       onClick={() => setWallet(w.slug)}
-                      className={`py-2 rounded-full text-xs font-normal t cursor-pointer ${
+                      className={`py-2 rounded-md text-xs font-normal t cursor-pointer ${
                         wallet === w.slug ? 'bg-fg text-bg shadow-sm' : 'text-muted hover:text-fg'
                       }`}
                     >

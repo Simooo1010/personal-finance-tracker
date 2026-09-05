@@ -207,7 +207,15 @@ export default function AiChatPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-100px)] w-full overflow-hidden bg-bg rounded-3xl 2xl:max-w-5xl 2xl:mx-auto">
+    <div className="relative flex h-[calc(100vh-100px)] w-full overflow-hidden bg-bg rounded-3xl 2xl:max-w-5xl 2xl:mx-auto">
+      {/* Mobile backdrop — tap outside sidebar to close it */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 z-10 bg-black/40 sm:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
       <ChatSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col h-full min-w-0">
