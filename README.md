@@ -32,10 +32,37 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 GROQ_API_KEY=gsk_...
 # Optional. Defaults to openai/gpt-oss-120b.
 GROQ_MODEL=openai/gpt-oss-120b
+
+# Required for the Claude/ChatGPT integration below. Find it in your
+# Supabase project's API settings (it's free — no paid tier needed). Never
+# expose this to the browser; it's only used server-side.
+SUPABASE_SERVICE_ROLE_KEY=...
+# Optional. Only needed if requests arrive with proxy headers your
+# deployment doesn't set (auto-detected on Vercel).
+# NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
 ```
 
 The AI analysis and AI chat routes return `{ "enabled": false }` when `GROQ_API_KEY`
 is missing, so the rest of the app keeps working without it.
+
+## Connecting Claude / ChatGPT to your data (read-only)
+
+Run `supabase_migration_oauth.sql` once in the Supabase SQL editor, then deploy
+with `SUPABASE_SERVICE_ROLE_KEY` set. This exposes wallets, transactions, and a
+financial summary to external AI clients, read-only, gated behind an OAuth
+login/consent step — no other user can ever see your data, and the AI can't
+write anything back.
+
+**Claude (Desktop or claude.ai):** Settings → Connectors → Add custom connector,
+paste `https://your-app.vercel.app/api/mcp` as the URL. Claude will register
+itself, redirect you to log in and approve access, and then be able to call
+`list_wallets`, `list_transactions`, and `get_financial_summary`.
+
+**ChatGPT (requires a Plus/Pro plan — the only paid requirement anywhere in this
+setup):** create a Custom GPT (or Apps SDK app), add an Action, and import
+`https://your-app.vercel.app/api/v1/openapi.json` as the schema. Set
+Authentication to OAuth using the same authorize/token URLs the schema
+declares; ChatGPT will walk you through the same login/consent step.
 
 ## Learn More
 
