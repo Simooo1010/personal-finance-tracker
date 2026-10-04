@@ -1,6 +1,7 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { randomToken } from '@/lib/oauth/pkce'
+import { isEmailAllowed } from '@/lib/oauth/allowlist'
 
 const CODE_TTL_MS = 5 * 60 * 1000 // 5 minutes, single use
 
@@ -45,6 +46,12 @@ export async function POST(req: Request) {
   const { data: userData, error: userError } = await anon.auth.getUser(supabaseAccessToken)
   if (userError || !userData.user) {
     return Response.json({ error: 'invalid_session' }, { status: 401 })
+  }
+  if (!isEmailAllowed(userData.user.email)) {
+    return Response.json(
+      { error: 'access_denied', error_description: "Questo account non e abilitato per l'integrazione AI" },
+      { status: 403 }
+    )
   }
 
   const code = randomToken(32)
