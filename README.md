@@ -86,6 +86,14 @@ the AI runs is additionally filtered by the authenticated user's id
 (`user_id = <you>`), so rows of other users are never returned even if a
 database policy is too permissive.
 
+**Sessions and reconnecting.** At consent time the server creates a separate
+Supabase session just for the AI connector (independent of your browser
+login), so using the app and using the connector never log each other out. The
+connector's session is refreshed and recovered automatically; if it can no
+longer be renewed (e.g. the session was revoked) its token is invalidated. If
+Claude reports that the connector "rejected credentials", disconnect and
+reconnect it from the connector settings.
+
 **ChatGPT (requires a Plus/Pro plan — the only paid requirement anywhere in this
 setup):** create a Custom GPT (or Apps SDK app), add an Action, and import
 `https://your-app.vercel.app/api/v1/openapi.json` as the schema. Set
