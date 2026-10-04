@@ -55,8 +55,24 @@ write anything back.
 
 **Claude (Desktop or claude.ai):** Settings → Connectors → Add custom connector,
 paste `https://your-app.vercel.app/api/mcp` as the URL. Claude will register
-itself, redirect you to log in and approve access, and then be able to call
-`list_wallets`, `list_transactions`, and `get_financial_summary`.
+itself, redirect you to log in and approve access, and then be able to read all
+of your data through these tools (all read-only):
+
+- Money: `list_wallets`, `get_wallet`, `list_transactions`, `search_transactions`,
+  `get_transaction`, `get_financial_summary`, `get_period_stats`,
+  `get_spending_breakdown`, `get_monthly_cashflow`, `list_debts`, `list_transfers`
+- In-app assistant: `list_chat_sessions`, `get_chat_messages`,
+  `search_chat_messages`, `get_ai_memory`, `get_ai_analysis`
+- History: `list_action_log` (undo/redo payloads only with `include_payload`)
+- Generic: `describe_data` + `query_data` (filters, sorting, pagination over the
+  tables above)
+
+Read-only is enforced in layers: Supabase RLS keeps each user to their own rows,
+AI code only ever receives a wrapper (`lib/ai-data/readonly.ts`) that exposes
+`select` on an allowlist of user tables (no insert/update/delete/rpc, and the
+`oauth_*` tables are unreachable), every tool carries `readOnlyHint`, and the
+OAuth scope is `read`. ChatGPT (REST) currently exposes only wallets,
+transactions, and the summary.
 
 **ChatGPT (requires a Plus/Pro plan — the only paid requirement anywhere in this
 setup):** create a Custom GPT (or Apps SDK app), add an Action, and import

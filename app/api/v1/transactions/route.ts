@@ -11,7 +11,7 @@ export async function GET(req: Request) {
   const since = url.searchParams.get('since') || undefined
   const limitParam = url.searchParams.get('limit')
 
-  const transactions = await listTransactions(auth.session.supabase, {
+  const transactions = await listTransactions(auth.session.db, {
     walletSlug,
     type: type === 'income' || type === 'expense' ? type : undefined,
     since,

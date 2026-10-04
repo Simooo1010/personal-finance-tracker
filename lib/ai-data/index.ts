@@ -1,7 +1,8 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { ReadOnlyDb } from './readonly'
 import { parseTransaction, getTransactionEffect, getWalletBalances } from '@/lib/transactions'
 import type { Transaction } from '@/lib/supabase'
 import type { Wallet } from '@/lib/wallets'
+import { parseSince } from './dates'
 
 /**
  * Read-only, per-user financial data for AI clients (MCP tools + REST v1).
@@ -10,23 +11,54 @@ import type { Wallet } from '@/lib/wallets'
  * from ever seeing each other's rows; nothing here filters by user_id itself.
  */
 
-export async function getWallets(supabase: SupabaseClient): Promise<Wallet[]> {
-  const { data, error } = await supabase.from('wallets').select('*').order('position')
-  if (error) throw new Error(`Errore nel caricamento dei portafogli: ${error.message}`)
-  return data || []
+// PostgREST caps every response (max-rows, 1000 on Supabase), so a plain
+// select silently drops rows past the cap. Loaders page with .range() over a
+// deterministic order until a short page.
+const PAGE_SIZE = 1000
+const MAX_PAGES = 200
+
+type PageResult<T> = PromiseLike<{ data: T[] | null; error: { message: string } | null }>
+
+async function fetchAllPages<T>(fetchPage: (from: number, to: number) => PageResult<T>, errorPrefix: string): Promise<T[]> {
+  const all: T[] = []
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const from = page * PAGE_SIZE
+    const { data, error } = await fetchPage(from, from + PAGE_SIZE - 1)
+    if (error) throw new Error(`${errorPrefix}: ${error.message}`)
+    const rows = data ?? []
+    all.push(...rows)
+    if (rows.length < PAGE_SIZE) return all
+  }
+  // Never return a silently partial dataset: totals/balances would be wrong.
+  throw new Error(`${errorPrefix}: troppe righe (oltre ${MAX_PAGES * PAGE_SIZE})`)
 }
 
-async function getRawTransactions(supabase: SupabaseClient): Promise<Transaction[]> {
-  const { data, error } = await supabase
-    .from('transactions')
-    .select('*')
-    .order('created_at', { ascending: false })
-  if (error) throw new Error(`Errore nel caricamento delle transazioni: ${error.message}`)
-  return data || []
+export async function getWallets(supabase: ReadOnlyDb): Promise<Wallet[]> {
+  return fetchAllPages<Wallet>(
+    (from, to) => supabase.from('wallets').select('*').order('position').order('id').range(from, to),
+    'Errore nel caricamento dei portafogli'
+  )
 }
 
-export async function getWalletBalancesById(supabase: SupabaseClient) {
+export async function getRawTransactions(supabase: ReadOnlyDb): Promise<Transaction[]> {
+  return fetchAllPages<Transaction>(
+    (from, to) =>
+      supabase
+        .from('transactions')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .range(from, to),
+    'Errore nel caricamento delle transazioni'
+  )
+}
+
+export async function getWalletBalancesById(supabase: ReadOnlyDb) {
   const [wallets, transactions] = await Promise.all([getWallets(supabase), getRawTransactions(supabase)])
+  return walletBalancesFrom(wallets, transactions)
+}
+
+function walletBalancesFrom(wallets: Wallet[], transactions: Transaction[]) {
   const defaultWallet = wallets.find(w => w.position === 0)?.slug || 'generale'
   const walletSlugs = wallets.map(w => w.slug)
   const balances = getWalletBalances(transactions, walletSlugs, defaultWallet)
@@ -46,7 +78,7 @@ export interface TransactionFilters {
   limit?: number
 }
 
-export async function listTransactions(supabase: SupabaseClient, filters: TransactionFilters = {}) {
+export async function listTransactions(supabase: ReadOnlyDb, filters: TransactionFilters = {}) {
   const [wallets, transactions] = await Promise.all([getWallets(supabase), getRawTransactions(supabase)])
   const defaultWallet = wallets.find(w => w.position === 0)?.slug || 'generale'
   const walletMap = new Map(wallets.map(w => [w.slug, w.name]))
@@ -73,7 +105,7 @@ export async function listTransactions(supabase: SupabaseClient, filters: Transa
   if (filters.walletSlug) items = items.filter(t => t.walletSlug === filters.walletSlug)
   if (filters.type) items = items.filter(t => t.type === filters.type)
   if (filters.since) {
-    const since = new Date(filters.since).getTime()
+    const since = parseSince(filters.since)! // date-only = start of that day in Europe/Rome
     items = items.filter(t => new Date(t.date).getTime() >= since)
   }
   if (filters.limit) items = items.slice(0, filters.limit)
@@ -81,15 +113,13 @@ export async function listTransactions(supabase: SupabaseClient, filters: Transa
   return items
 }
 
-export async function getFinancialSummary(supabase: SupabaseClient) {
-  const [walletBalances, transactions] = await Promise.all([
-    getWalletBalancesById(supabase),
-    getRawTransactions(supabase),
-  ])
+export async function getFinancialSummary(supabase: ReadOnlyDb) {
+  // Load each table once (both loaders page through the full history).
+  const [wallets, transactions] = await Promise.all([getWallets(supabase), getRawTransactions(supabase)])
+  const walletBalances = walletBalancesFrom(wallets, transactions)
 
   const netWorth = Number(walletBalances.reduce((sum, w) => sum + w.balance, 0).toFixed(2))
 
-  const wallets = await getWallets(supabase)
   const defaultWallet = wallets.find(w => w.position === 0)?.slug || 'generale'
   const debts = transactions
     .map(t => ({ amount: Number(t.amount), ...parseTransaction(t, defaultWallet) }))
