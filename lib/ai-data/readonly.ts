@@ -6,7 +6,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
  * so AI code never receives it directly. It receives a ReadOnlyDb that only
  * exposes `from(table).select(...)` for an allowlist of the user's own tables.
  * No insert/update/delete/upsert/rpc/auth/storage, and the oauth_* tables are
- * unreachable by construction. RLS still isolates users from each other.
+ * unreachable by construction. Every query is explicitly scoped to the
+ * authenticated user id, on top of RLS.
  */
 
 /** Per-table column allowlist: the only columns AI clients may select or filter on. */
@@ -42,14 +43,27 @@ export interface ReadOnlyDb {
   from(table: AllowedTable): ReadOnlyTable
 }
 
-export function createReadOnlyDb(client: SupabaseClient): ReadOnlyDb {
+/**
+ * Wraps a user-scoped Supabase client. Every `select` is additionally filtered
+ * with `.eq('user_id', userId)` (all allowlisted tables have a user_id column),
+ * so AI clients only ever see the authenticated user's rows even if a
+ * permissive RLS policy exists in the database. PostgREST ANDs every top-level
+ * filter param, so later `.eq/.in/.or(...)` calls by callers narrow further and
+ * can never widen past the user_id filter.
+ */
+export function createReadOnlyDb(client: SupabaseClient, userId: string): ReadOnlyDb {
+  if (typeof userId !== 'string' || userId.trim() === '') {
+    throw new Error('createReadOnlyDb: userId mancante')
+  }
   return {
     from(table: AllowedTable): ReadOnlyTable {
       if (!isAllowedTable(table)) {
         throw new Error(`Tabella non consentita: ${String(table)}`)
       }
       const builder = client.from(table)
-      return { select: builder.select.bind(builder) } as ReadOnlyTable
+      const select = (...args: Parameters<typeof builder.select>) =>
+        builder.select(...args).eq('user_id', userId)
+      return { select } as unknown as ReadOnlyTable
     },
   }
 }

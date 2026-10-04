@@ -1,6 +1,7 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { createReadOnlyDb, type ReadOnlyDb } from '@/lib/ai-data/readonly'
+import { isEmailAllowed } from '@/lib/oauth/allowlist'
 
 export interface VerifiedSession {
   userId: string
@@ -24,7 +25,9 @@ function anonClient(accessToken?: string) {
 /**
  * Turns an opaque access_token issued by /api/oauth/token into a user-scoped
  * Supabase client, refreshing the underlying Supabase session transparently
- * if it's close to expiring. Returns null if the token is unknown/expired.
+ * if it's close to expiring. Returns null if the token is unknown/expired, if
+ * the Supabase session doesn't belong to the token's user, or if that user's
+ * email is not in the AI-integration allowlist (lib/oauth/allowlist.ts).
  */
 export async function verifyBearerToken(token: string): Promise<VerifiedSession | null> {
   if (!token) return null
@@ -58,11 +61,49 @@ export async function verifyBearerToken(token: string): Promise<VerifiedSession 
     supabaseAccessToken = refreshed
   }
 
-  return {
-    userId: row.user_id,
-    clientId: row.client_id,
-    db: createReadOnlyDb(anonClient(supabaseAccessToken)),
+  // Resolve the real user behind the Supabase session and enforce the account
+  // allowlist. Cached per opaque access_token (short TTL, never past the token's
+  // expiry) so parallel tool calls don't each pay the getUser round trip.
+  const tokenExpiresAt = new Date(row.expires_at).getTime()
+  let userId = cachedUserId(token, row.user_id)
+  if (!userId) {
+    const { data: userData, error: userError } = await anonClient().auth.getUser(supabaseAccessToken)
+    const user = userData?.user
+    if (userError || !user || user.id !== row.user_id || !isEmailAllowed(user.email)) {
+      verifiedUsers.delete(token)
+      return null
+    }
+    userId = user.id
+    verifiedUsers.set(token, {
+      userId,
+      expiresAt: Math.min(Date.now() + VERIFIED_USER_TTL_MS, tokenExpiresAt),
+    })
   }
+
+  return {
+    userId,
+    clientId: row.client_id,
+    db: createReadOnlyDb(anonClient(supabaseAccessToken), userId),
+  }
+}
+
+const VERIFIED_USER_TTL_MS = 5 * 60 * 1000
+const verifiedUsers = new Map<string, { userId: string; expiresAt: number }>()
+
+/** Returns the cached, already-verified user id for this access_token, if still fresh and consistent. */
+function cachedUserId(token: string, rowUserId: string): string | null {
+  const now = Date.now()
+  // Opportunistic cleanup so the map can't grow without bound.
+  if (verifiedUsers.size > 100) {
+    for (const [key, entry] of verifiedUsers) if (entry.expiresAt <= now) verifiedUsers.delete(key)
+  }
+  const entry = verifiedUsers.get(token)
+  if (!entry) return null
+  if (entry.expiresAt <= now || entry.userId !== rowUserId) {
+    verifiedUsers.delete(token)
+    return null
+  }
+  return entry.userId
 }
 
 const refreshesInFlight = new Map<string, Promise<string | null>>()

@@ -40,6 +40,9 @@ SUPABASE_SERVICE_ROLE_KEY=...
 # Optional. Only needed if requests arrive with proxy headers your
 # deployment doesn't set (auto-detected on Vercel).
 # NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
+# Optional. Accounts allowed to use the Claude/ChatGPT integration
+# (comma-separated). Defaults to smndiraimondo@gmail.com.
+# MCP_ALLOWED_EMAILS=smndiraimondo@gmail.com
 ```
 
 The AI analysis and AI chat routes return `{ "enabled": false }` when `GROQ_API_KEY`
@@ -73,6 +76,15 @@ AI code only ever receives a wrapper (`lib/ai-data/readonly.ts`) that exposes
 `oauth_*` tables are unreachable), every tool carries `readOnlyHint`, and the
 OAuth scope is `read`. ChatGPT (REST) currently exposes only wallets,
 transactions, and the summary.
+
+**Only allowlisted accounts can connect.** The integration serves only the
+account(s) listed in `MCP_ALLOWED_EMAILS` (comma-separated, case-insensitive
+exact match; defaults to `smndiraimondo@gmail.com` when unset). Any other
+account is refused at the consent step (403) and any existing token whose
+Supabase user is not allowlisted is rejected (401). On top of RLS, every query
+the AI runs is additionally filtered by the authenticated user's id
+(`user_id = <you>`), so rows of other users are never returned even if a
+database policy is too permissive.
 
 **ChatGPT (requires a Plus/Pro plan — the only paid requirement anywhere in this
 setup):** create a Custom GPT (or Apps SDK app), add an Action, and import

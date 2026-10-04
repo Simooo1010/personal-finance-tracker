@@ -201,7 +201,9 @@ const handler = createMcpHandler((server) => {
   tool(
     'list_debts',
     'List debts and credits',
-    'Debts/credits with person, amount, status. direction: to_me = someone owes the user, by_me = the user owes.',
+    'Debts/credits with person, amount, status. direction: to_me = someone owes the user, by_me = the user owes. ' +
+      'Returns items plus totals split by status: totals.active and totals.completed, each with { toMe, byMe }. ' +
+      "Only the 'active' totals reflect what is currently owed; 'completed' debts are settled history and must not be added to current balances.",
     {
       status: z.enum(['active', 'completed']).optional(),
       direction: z.enum(['to_me', 'by_me']).optional(),

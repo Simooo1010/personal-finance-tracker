@@ -359,10 +359,14 @@ export async function listDebts(db: ReadOnlyDb, f: DebtFilters = {}) {
       return true
     })
 
-  const toMe = items.filter(d => d.direction === 'to_me').reduce((s, d) => s + d.amount, 0)
-  const byMe = items.filter(d => d.direction === 'by_me').reduce((s, d) => s + d.amount, 0)
+  const sumFor = (status: 'active' | 'completed') => {
+    const sel = items.filter(d => d.status === status)
+    const sum = (dir: 'to_me' | 'by_me') =>
+      round2(sel.filter(d => d.direction === dir).reduce((s, d) => s + d.amount, 0))
+    return { toMe: sum('to_me'), byMe: sum('by_me') }
+  }
 
-  return { items, totals: { toMe: round2(toMe), byMe: round2(byMe) } }
+  return { items, totals: { active: sumFor('active'), completed: sumFor('completed') } }
 }
 
 // ---------- 7. listTransfers ----------
