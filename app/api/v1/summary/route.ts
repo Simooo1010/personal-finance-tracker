@@ -5,6 +5,6 @@ export async function GET(req: Request) {
   const auth = await requireAuth(req)
   if ('response' in auth) return auth.response
 
-  const summary = await getFinancialSummary(auth.session.supabase)
+  const summary = await getFinancialSummary(auth.session.db)
   return Response.json(summary)
 }

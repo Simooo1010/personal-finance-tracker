@@ -1,11 +1,15 @@
-import { createClient as createSupabaseClient, SupabaseClient } from '@supabase/supabase-js'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabaseAdmin'
+import { createReadOnlyDb, type ReadOnlyDb } from '@/lib/ai-data/readonly'
 
 export interface VerifiedSession {
   userId: string
   clientId: string
-  /** User-scoped Supabase client — every query through it is subject to RLS. */
-  supabase: SupabaseClient
+  /**
+   * Read-only view of the user-scoped (RLS) Supabase client. The full client is
+   * deliberately not exposed: nothing downstream needs write access.
+   */
+  db: ReadOnlyDb
 }
 
 function anonClient(accessToken?: string) {
@@ -39,27 +43,48 @@ export async function verifyBearerToken(token: string): Promise<VerifiedSession 
   const supabaseExpiresAt = new Date(row.supabase_expires_at).getTime()
 
   if (Date.now() > supabaseExpiresAt - 60_000) {
-    const { data, error } = await anonClient().auth.refreshSession({
-      refresh_token: row.supabase_refresh_token,
-    })
-    if (error || !data.session) return null
-
-    supabaseAccessToken = data.session.access_token
-    await admin
-      .from('oauth_tokens')
-      .update({
-        supabase_access_token: data.session.access_token,
-        supabase_refresh_token: data.session.refresh_token,
-        supabase_expires_at: new Date((data.session.expires_at ?? 0) * 1000).toISOString(),
-      })
-      .eq('access_token', token)
+    // Concurrent requests with the same token share one refresh: Supabase rotates
+    // refresh tokens, so parallel refreshes with the same one would race.
+    // (Per server instance only; separate instances can still overlap.)
+    let pending = refreshesInFlight.get(token)
+    if (!pending) {
+      pending = refreshSupabaseSession(admin, token, row.supabase_refresh_token).finally(() =>
+        refreshesInFlight.delete(token)
+      )
+      refreshesInFlight.set(token, pending)
+    }
+    const refreshed = await pending
+    if (!refreshed) return null
+    supabaseAccessToken = refreshed
   }
 
   return {
     userId: row.user_id,
     clientId: row.client_id,
-    supabase: anonClient(supabaseAccessToken),
+    db: createReadOnlyDb(anonClient(supabaseAccessToken)),
   }
+}
+
+const refreshesInFlight = new Map<string, Promise<string | null>>()
+
+/** Refreshes the Supabase session behind an access_token; returns the new Supabase access token or null. */
+async function refreshSupabaseSession(
+  admin: ReturnType<typeof createAdminClient>,
+  token: string,
+  refreshToken: string
+): Promise<string | null> {
+  const { data, error } = await anonClient().auth.refreshSession({ refresh_token: refreshToken })
+  if (error || !data.session) return null
+
+  await admin
+    .from('oauth_tokens')
+    .update({
+      supabase_access_token: data.session.access_token,
+      supabase_refresh_token: data.session.refresh_token,
+      supabase_expires_at: new Date((data.session.expires_at ?? 0) * 1000).toISOString(),
+    })
+    .eq('access_token', token)
+  return data.session.access_token
 }
 
 export function extractBearerToken(req: Request): string | null {
