@@ -1,5 +1,6 @@
 'use client'
 
+import Money from '@/components/Money'
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Pencil, Trash2, Search, Calculator as CalcIcon, ArrowUpRight, ArrowDownRight, Check } from 'lucide-react'
@@ -77,7 +78,7 @@ export default function TransactionsPage() {
 
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-[10px] tracking-[0.3em] uppercase text-muted font-normal">
+        <h2 className="text-[10px] tracking-[0.3em] uppercase text-muted font-semibold">
           Il Ledger
         </h2>
         <div className="flex items-center gap-2">
@@ -107,8 +108,8 @@ export default function TransactionsPage() {
         <span className="text-[9px] tracking-[0.25em] uppercase text-muted font-normal block mb-1">
           Bilancio Selezione
         </span>
-        <h1 className={`text-4xl font-thin tracking-tight ${net >= 0 ? 'text-fg' : 'text-expense'}`}>
-          {net >= 0 ? '+' : '-'}€{fmt(Math.abs(net))}
+        <h1 className={`text-3xl tracking-tight ${net >= 0 ? 'text-fg' : 'text-expense'}`}>
+          <Money sign={net >= 0 ? '+' : '-'} amount={Math.abs(net)} intWeight={700} centsWeight={200} />
         </h1>
       </motion.div>
 

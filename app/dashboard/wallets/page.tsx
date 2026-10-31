@@ -1,5 +1,6 @@
 'use client'
 
+import Money from '@/components/Money'
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowLeftRight, ArrowRight, Pencil, Trash2, X, Info, Plus } from 'lucide-react'
@@ -371,7 +372,7 @@ export default function WalletsPage() {
               className="w-full max-w-lg space-y-12"
             >
               <div className="text-center space-y-3">
-                <h1 className="text-3xl font-thin tracking-tight">I tuoi Portafogli</h1>
+                <h1 className="text-3xl font-extrabold tracking-tight">I tuoi Portafogli</h1>
                 <p className="text-muted font-light">
                   Gestisci i tuoi soldi separandoli in diversi contenitori.
                 </p>
@@ -422,7 +423,7 @@ export default function WalletsPage() {
 
       {/* Header */}
       <div className="flex items-center justify-between pb-3 border-b border-border/10">
-        <h2 className="text-[10px] tracking-[0.3em] uppercase text-muted font-normal">
+        <h2 className="text-[10px] tracking-[0.3em] uppercase text-muted font-semibold">
           Gestione Portafogli
         </h2>
         <button
@@ -446,9 +447,7 @@ export default function WalletsPage() {
               <span className="text-[9px] tracking-[0.25em] uppercase text-muted font-normal block mb-2">
                 {w.name}
               </span>
-              <h3 className="text-3xl font-thin tracking-tight text-fg">
-                €{fmt(balances[w.slug] || 0)}
-              </h3>
+              <h3 className="text-2xl tracking-tight text-fg"><Money amount={balances[w.slug] || 0} intWeight={700} centsWeight={200} /></h3>
             </div>
             {w.description && (
               <p className="text-[10px] text-muted tracking-wider mt-4 truncate">
@@ -562,7 +561,7 @@ export default function WalletsPage() {
         className="space-y-6"
       >
         <div className="pb-2 border-b border-border/10">
-          <span className="text-[10px] tracking-[0.3em] uppercase text-muted font-normal">
+          <span className="text-[10px] tracking-[0.3em] uppercase text-muted font-semibold">
             Storico Spostamenti
           </span>
         </div>
