@@ -1,4 +1,4 @@
-import { createClient } from './supabaseClient'
+import { createClient, getLocalUser } from './supabaseClient'
 
 export interface TrackedAction {
   id: string
@@ -14,7 +14,7 @@ export interface TrackedAction {
 export async function getHistory(): Promise<TrackedAction[]> {
   if (typeof window === 'undefined') return []
   const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getLocalUser(supabase)
   if (!user) return []
 
   const { data, error } = await supabase
@@ -39,7 +39,7 @@ export async function pushAction(
 ) {
   if (typeof window === 'undefined') return
   const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getLocalUser(supabase)
   if (!user) return
 
   // In a strict undo/redo tree, pushing a new action would invalidate redo-able future actions.
@@ -233,7 +233,7 @@ export async function performRedo(): Promise<boolean> {
 // Clear history
 export async function clearHistory() {
   const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getLocalUser(supabase)
   if (!user) return
   await supabase.from('action_logs').delete().eq('user_id', user.id)
   window.dispatchEvent(new Event('finance_history_change'))

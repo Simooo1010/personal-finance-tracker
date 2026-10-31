@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
-import { createClient } from '@/lib/supabaseClient'
+import { createClient, getLocalUser } from '@/lib/supabaseClient'
 import { type Wallet, getUserWallets } from '@/lib/wallets'
 
 interface WalletContextType {
@@ -31,7 +31,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    getLocalUser(supabase).then((user) => {
       if (user) setUserId(user.id)
     })
   }, [])

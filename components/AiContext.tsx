@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
-import { createClient } from '@/lib/supabaseClient'
+import { createClient, getLocalUser } from '@/lib/supabaseClient'
 
 interface AiContextType {
   isAiEnabled: boolean
@@ -19,7 +19,7 @@ export function AiProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    getLocalUser(supabase).then((user) => {
       if (user && user.email === 'smndiraimondo@gmail.com') {
         setIsAiEnabled(true)
       }

@@ -7,7 +7,7 @@ import { ArrowLeftRight, ArrowRight, Pencil, Trash2, X, Info, Plus } from 'lucid
 import { Transaction } from '@/lib/supabase'
 import { getWalletBalances, parseTransaction } from '@/lib/transactions'
 import { pushAction } from '@/lib/actionsTracker'
-import { createClient } from '@/lib/supabaseClient'
+import { createClient, getLocalUser } from '@/lib/supabaseClient'
 import { useWallets } from '@/components/WalletContext'
 import { useTransactions } from '@/components/TransactionsContext'
 import { createWallet, updateWallet, deleteWallet } from '@/lib/wallets'
@@ -52,7 +52,7 @@ export default function WalletsPage() {
   const setupPresetWallets = async () => {
     setLoading(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const user = await getLocalUser(supabase)
       if (user) {
         await createWallet(user.id, { slug: 'busta', name: '✉️ Busta', description: 'Denaro liquido protetto e archiviato', position: 1 })
         await createWallet(user.id, { slug: 'fuori', name: '✈️ Fuori', description: 'Denaro in tasca o portafoglio fisico', position: 2 })
@@ -79,7 +79,7 @@ export default function WalletsPage() {
           description: newWalletDesc.trim() || null
         })
       } else {
-        const { data: { user } } = await supabase.auth.getUser()
+        const user = await getLocalUser(supabase)
         if (user) {
           const slug = newWalletName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')
           if (!slug) {
@@ -189,7 +189,7 @@ export default function WalletsPage() {
     setSubmitting(true)
     const nowStr = new Date().toISOString()
 
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getLocalUser(supabase)
     const sourceTx = {
       user_id: user?.id,
       title: `Spostamento ${walletMap[sourceWallet] || sourceWallet} ➔ ${walletMap[destWallet] || destWallet} [${sourceWallet}-transfer]`,
@@ -303,7 +303,7 @@ export default function WalletsPage() {
     setSubmitting(true)
     const isoDate = new Date(editDate).toISOString()
 
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getLocalUser(supabase)
     const updatedSource = {
       user_id: user?.id,
       title: `Spostamento ${walletMap[editSourceWallet] || editSourceWallet} ➔ ${walletMap[editDestWallet] || editDestWallet} [${editSourceWallet}-transfer]`,
@@ -366,7 +366,7 @@ export default function WalletsPage() {
         {showOnboarding && (
           <div className="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-bg text-fg">
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
               className="w-full max-w-lg space-y-12"
@@ -438,9 +438,9 @@ export default function WalletsPage() {
         {wallets.map((w, index) => (
           <motion.div
             key={w.slug}
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.05 }}
+            transition={{ duration: 0.06, ease: 'easeOut', delay: Math.min(index, 5) * 0.006 }}
             className="card p-6 flex flex-col justify-between min-h-[140px] relative group"
           >
             <div>
@@ -476,9 +476,9 @@ export default function WalletsPage() {
 
       {/* Transfer Form Section */}
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
+        initial={{ y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
+        transition={{ duration: 0.06, ease: 'easeOut', delay: 0.01 }}
         className="card p-6 space-y-6"
       >
         <div className="flex items-center gap-2 text-muted">
@@ -555,9 +555,9 @@ export default function WalletsPage() {
 
       {/* Transfer History Ledger */}
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
+        initial={{ y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.25 }}
+        transition={{ duration: 0.06, ease: 'easeOut', delay: 0.01 }}
         className="space-y-6"
       >
         <div className="pb-2 border-b border-border/10">

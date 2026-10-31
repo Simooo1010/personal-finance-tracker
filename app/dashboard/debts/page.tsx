@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Trash2, Pencil, Check, X, ArrowUpRight, ArrowDownRight, User, FileText, Calendar, Wallet } from 'lucide-react'
 import { parseTransaction, formatDebtTitle, DebtInfo } from '@/lib/transactions'
 import { pushAction } from '@/lib/actionsTracker'
-import { createClient } from '@/lib/supabaseClient'
+import { createClient, getLocalUser } from '@/lib/supabaseClient'
 import { useWallets } from '@/components/WalletContext'
 import { useTransactions } from '@/components/TransactionsContext'
 
@@ -106,7 +106,7 @@ export default function DebtsPage() {
     if (!person.trim() || !amount || parseFloat(amount) <= 0 || !createdAt) return
     
     setSaving(true)
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getLocalUser(supabase)
     const formattedTitle = formatDebtTitle({
       type: debtType,
       person: person.trim(),
@@ -247,7 +247,7 @@ export default function DebtsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         {/* Credits Metric Card */}
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
+          initial={{ y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           className="card p-6 flex flex-col justify-between min-h-[140px] border-l-2 border-l-income"
         >
@@ -266,9 +266,9 @@ export default function DebtsPage() {
 
         {/* Debts Metric Card */}
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
+          initial={{ y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
+          transition={{ duration: 0.06, ease: 'easeOut', delay: 0.01 }}
           className="card p-6 flex flex-col justify-between min-h-[140px] border-l-2 border-l-expense"
         >
           <div>
@@ -330,10 +330,10 @@ export default function DebtsPage() {
                 <motion.div
                   key={debt.id}
                   layout
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={{ y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, x: -30 }}
-                  transition={{ delay: index * 0.02 }}
+                  transition={{ duration: 0.06, ease: 'easeOut', delay: Math.min(index, 5) * 0.006 }}
                   className="card p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface hover:border-border/20 t"
                 >
                   <div className="space-y-2 min-w-0">

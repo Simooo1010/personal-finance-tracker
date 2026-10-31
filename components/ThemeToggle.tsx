@@ -1,68 +1,40 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useSyncExternalStore } from 'react'
 import { Sun, Moon } from 'lucide-react'
-import { motion } from 'framer-motion'
 
-export default function ThemeToggle() {
-  const [dark, setDark] = useState(true)
+type Theme = 'dark' | 'light'
 
-  useEffect(() => {
-    // Check local storage or system preference
-    const stored = localStorage.getItem('theme')
-    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+const subscribe = (cb: () => void) => {
+  window.addEventListener('themechange', cb)
+  return () => window.removeEventListener('themechange', cb)
+}
+const getSnapshot = (): Theme => (document.documentElement.classList.contains('light') ? 'light' : 'dark')
+const getServerSnapshot = (): Theme => 'dark'
 
-    const isDark = stored === 'dark' || (!stored && systemPrefersDark)
-    
-     
-    setDark(isDark)
-    if (isDark) {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-    }
+function applyTheme(theme: Theme) {
+  const root = document.documentElement
+  root.classList.toggle('dark', theme === 'dark')
+  root.classList.toggle('light', theme === 'light')
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#f5f5f7' : '#000000')
+  try { localStorage.setItem('theme', theme) } catch {}
+  window.dispatchEvent(new Event('themechange'))
+}
 
-    // Listen to system changes if no manual override
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    const handleChange = (e: MediaQueryListEvent) => {
-      if (!localStorage.getItem('theme')) {
-        setDark(e.matches)
-        if (e.matches) {
-          document.documentElement.classList.add('dark')
-        } else {
-          document.documentElement.classList.remove('dark')
-        }
-      }
-    }
-
-    mediaQuery.addEventListener('change', handleChange)
-    return () => mediaQuery.removeEventListener('change', handleChange)
-  }, [])
-
-  const toggle = () => {
-    const next = !dark
-    setDark(next)
-    if (next) {
-      document.documentElement.classList.add('dark')
-      localStorage.setItem('theme', 'dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-      localStorage.setItem('theme', 'light')
-    }
-  }
+/** Dark is the default; the choice is stored in localStorage and applied before first paint. */
+export default function ThemeToggle({ className = '' }: { className?: string }) {
+  const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
+  const next: Theme = theme === 'dark' ? 'light' : 'dark'
 
   return (
-    <motion.button
-      whileTap={{ scale: 0.9 }}
-      onClick={toggle}
-      className="p-2 text-muted hover:text-foreground transition-smooth"
-      aria-label="Toggle theme"
+    <button
+      type="button"
+      onClick={() => applyTheme(next)}
+      className={`p-3 rounded-full bg-surface border border-border/10 text-fg hover:bg-elevated transition-colors cursor-pointer ${className}`}
+      aria-label={next === 'light' ? 'Passa al tema chiaro' : 'Passa al tema scuro'}
+      title={next === 'light' ? 'Tema chiaro' : 'Tema scuro'}
     >
-      {dark ? (
-        <Sun className="w-5 h-5" strokeWidth={1} />
-      ) : (
-        <Moon className="w-5 h-5" strokeWidth={1} />
-      )}
-    </motion.button>
+      {theme === 'dark' ? <Sun className="w-5 h-5" strokeWidth={1.5} /> : <Moon className="w-5 h-5" strokeWidth={1.5} />}
+    </button>
   )
 }

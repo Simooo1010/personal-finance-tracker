@@ -27,9 +27,14 @@ export async function proxy(request: NextRequest) {
     }
   )
 
+  // Gate navigation on the session cookie (no network round trip). getSession() still
+  // refreshes an expired token and rewrites the cookies above. This redirect is a
+  // convenience only: data access is enforced by Supabase RLS and the API routes
+  // re-validate the user with getUser().
   const {
-    data: { user },
-  } = await supabase.auth.getUser()
+    data: { session },
+  } = await supabase.auth.getSession()
+  const user = session ? true : null
 
   // If user is not signed in and trying to access dashboard, redirect to login
   if (

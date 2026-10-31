@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { TrendingUp, TrendingDown, Plus, ArrowUpRight, ArrowDownRight, History } from 'lucide-react'
 import { Transaction } from '@/lib/supabase'
 import TransactionForm from '@/components/TransactionForm'
 import Money from '@/components/Money'
+import ThemeToggle from '@/components/ThemeToggle'
 import { getTransactionEffect, parseTransaction } from '@/lib/transactions'
 import { useWallets } from '@/components/WalletContext'
 import { useTransactions } from '@/components/TransactionsContext'
@@ -18,30 +19,32 @@ export default function DashboardHome() {
   const [showForm, setShowForm] = useState(false)
   const [formType, setFormType] = useState<'income' | 'expense'>('income')
 
-  const realTransactions = transactions.filter(t => !t.title.endsWith('-transfer]'))
-  
-  let totalIncome = 0
-  let totalExpense = 0
-  realTransactions.forEach(t => {
-    const effect = getTransactionEffect(t, defaultWallet)
-    totalIncome += effect.income
-    totalExpense += effect.expense
-  })
-  
+  // Derived once per data change, not on every render (keeps section switches instant).
+  const { realTransactions, totalIncome, totalExpense, totalToRedeem, totalToPay } = useMemo(() => {
+    const real = transactions.filter(t => !t.title.endsWith('-transfer]'))
+    let income = 0
+    let expense = 0
+    real.forEach(t => {
+      const effect = getTransactionEffect(t, defaultWallet)
+      income += effect.income
+      expense += effect.expense
+    })
+
+    let toRedeem = 0
+    let toPay = 0
+    transactions.forEach(t => {
+      const parsed = parseTransaction(t, defaultWallet)
+      if (!parsed.isDebt || parsed.debtInfo === null || parsed.debtInfo.status !== 'active') return
+      const amount = Number(t.amount)
+      if (parsed.debtInfo.type === 'to_me') toRedeem += amount
+      else if (parsed.debtInfo.type === 'by_me') toPay += amount
+    })
+
+    return { realTransactions: real, totalIncome: income, totalExpense: expense, totalToRedeem: toRedeem, totalToPay: toPay }
+  }, [transactions, defaultWallet])
+
   const balance = totalIncome - totalExpense
-  const recent = realTransactions.slice(0, 6)
-
-  const debtsList = transactions
-    .map(t => ({ id: t.id, amount: Number(t.amount), ...parseTransaction(t, defaultWallet) }))
-    .filter(item => item.isDebt && item.debtInfo !== null)
-
-  const totalToRedeem = debtsList
-    .filter(d => d.debtInfo?.type === 'to_me' && d.debtInfo.status === 'active')
-    .reduce((sum, d) => sum + d.amount, 0)
-
-  const totalToPay = debtsList
-    .filter(d => d.debtInfo?.type === 'by_me' && d.debtInfo.status === 'active')
-    .reduce((sum, d) => sum + d.amount, 0)
+  const recent = useMemo(() => realTransactions.slice(0, 6), [realTransactions])
 
   const fmt = (n: number) => n.toLocaleString('it-IT', { minimumFractionDigits: 2 })
 
@@ -50,9 +53,9 @@ export default function DashboardHome() {
 
       {/* Hero Balance Section */}
       <motion.div
-        initial={{ opacity: 0, y: 15 }}
+        initial={{ y: 15 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
+        transition={{ duration: 0.06 }}
         className="space-y-6"
       >
         <div className="flex justify-between items-start">
@@ -64,13 +67,16 @@ export default function DashboardHome() {
               <Money amount={balance} intWeight={700} centsWeight={200} />
             </h1>
           </div>
-          <button 
-            onClick={() => router.push('/dashboard/log')}
-            className="p-3 rounded-full bg-surface border border-border/10 text-fg hover:bg-elevated transition-colors"
-            title="Registro Attività"
-          >
-            <History className="w-5 h-5" strokeWidth={1.5} />
-          </button>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <button 
+              onClick={() => router.push('/dashboard/log')}
+              className="p-3 rounded-full bg-surface border border-border/10 text-fg hover:bg-elevated transition-colors"
+              title="Registro Attività"
+            >
+              <History className="w-5 h-5" strokeWidth={1.5} />
+            </button>
+          </div>
         </div>
 
         {/* Quick Stats Grid */}
@@ -95,9 +101,9 @@ export default function DashboardHome() {
       {/* Quick Actions Buttons */}
       <div className="grid grid-cols-2 gap-4">
         <motion.button
-          initial={{ opacity: 0, y: 10 }}
+          initial={{ y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
+          transition={{ duration: 0.06, ease: 'easeOut', delay: 0.01 }}
           whileTap={{ scale: 0.96 }}
           onClick={() => { setFormType('income'); setShowForm(true) }}
           className="flex items-center justify-center gap-2 py-4 rounded-full bg-income/10 text-income hover:bg-income hover:text-bg text-xs tracking-wider uppercase font-bold t cursor-pointer"
@@ -106,9 +112,9 @@ export default function DashboardHome() {
           Entrata
         </motion.button>
         <motion.button
-          initial={{ opacity: 0, y: 10 }}
+          initial={{ y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.12 }}
+          transition={{ duration: 0.06, ease: 'easeOut', delay: 0.01 }}
           whileTap={{ scale: 0.96 }}
           onClick={() => { setFormType('expense'); setShowForm(true) }}
           className="flex items-center justify-center gap-2 py-4 rounded-full bg-expense/10 text-expense hover:bg-expense hover:text-bg text-xs tracking-wider uppercase font-bold t cursor-pointer"
@@ -120,9 +126,9 @@ export default function DashboardHome() {
 
       {/* Debts Summary Card */}
       <motion.div
-        initial={{ opacity: 0, y: 10 }}
+        initial={{ y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.15 }}
+        transition={{ duration: 0.06, ease: 'easeOut', delay: 0.01 }}
         onClick={() => router.push('/dashboard/debts')}
         className="card p-5 cursor-pointer hover:border-border/20 t flex flex-col justify-between"
       >
@@ -143,9 +149,9 @@ export default function DashboardHome() {
 
       {/* Recent Ledger List */}
       <motion.div
-        initial={{ opacity: 0, y: 15 }}
+        initial={{ y: 15 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2, duration: 0.5 }}
+        transition={{ duration: 0.06, ease: 'easeOut', delay: 0.01 }}
         className="space-y-6"
       >
         <div className="flex items-center justify-between pb-3 border-b border-border/10">
@@ -171,9 +177,9 @@ export default function DashboardHome() {
               return (
                 <motion.div
                   key={t.id}
-                  initial={{ opacity: 0, y: 8 }}
+                  initial={{ y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.25 + i * 0.03 }}
+                  transition={{ duration: 0.06, ease: 'easeOut', delay: Math.min(i, 5) * 0.006 }}
                   className="flex items-center justify-between py-4 group"
                 >
                   <div className="flex items-center gap-3.5 min-w-0">
@@ -190,7 +196,7 @@ export default function DashboardHome() {
                       <div className="flex flex-wrap items-center gap-1.5">
                         <p className="text-sm font-light text-fg truncate">{parsed.cleanTitle}</p>
                         {parsed.isDebt && (
-                          <span className="px-1.5 py-0.5 rounded text-[8px] tracking-wide uppercase font-semibold bg-purple-500/10 text-purple-400">
+                          <span className="px-1.5 py-0.5 rounded text-[8px] tracking-wide uppercase font-semibold bg-debt/10 text-debt">
                             {parsed.debtInfo?.type === 'to_me' ? 'Credito' : 'Debito'}
                           </span>
                         )}

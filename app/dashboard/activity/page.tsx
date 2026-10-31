@@ -1,18 +1,19 @@
 'use client'
 
 import Money from '@/components/Money'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Pencil, Trash2, Search, Calculator as CalcIcon, ArrowUpRight, ArrowDownRight, ArrowLeftRight, X } from 'lucide-react'
 import { Transaction } from '@/lib/supabase'
 import TransactionForm from '@/components/TransactionForm'
 import Calculator from '@/components/Calculator'
 import { parseTransaction, getTransactionEffect, getWalletBalances } from '@/lib/transactions'
-import { createClient } from '@/lib/supabaseClient'
+import { createClient, getLocalUser } from '@/lib/supabaseClient'
 import { useWallets } from '@/components/WalletContext'
 import { useTransactions } from '@/components/TransactionsContext'
 import { pushAction } from '@/lib/actionsTracker'
 import { createWallet, updateWallet, deleteWallet } from '@/lib/wallets'
+import { useIncrementalList } from '@/lib/useIncrementalList'
 
 export default function ActivityPage() {
   const { wallets, walletMap, defaultWallet, walletSlugs, hasMultipleWallets, refetchWallets } = useWallets()
@@ -57,7 +58,7 @@ export default function ActivityPage() {
     }
   }, [wallets, showTransferModal, sourceWallet, destWallet])
 
-  const balances = getWalletBalances(transactions, walletSlugs, defaultWallet)
+  const balances = useMemo(() => getWalletBalances(transactions, walletSlugs, defaultWallet), [transactions, walletSlugs, defaultWallet])
   const fmt = (n: number) => n.toLocaleString('it-IT', { minimumFractionDigits: 2 })
 
   // --- Wallet Logic ---
@@ -73,7 +74,7 @@ export default function ActivityPage() {
           description: walletDesc.trim() || null
         })
       } else {
-        const { data: { user } } = await supabase.auth.getUser()
+        const user = await getLocalUser(supabase)
         if (user) {
           const slug = walletName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')
           if (!slug || wallets.some(w => w.slug === slug)) {
@@ -152,7 +153,7 @@ export default function ActivityPage() {
     }
 
     setSubmittingTransfer(true)
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getLocalUser(supabase)
 
     if (editingTransfer) {
       const origSource = editingTransfer.sourceTx
@@ -276,7 +277,7 @@ export default function ActivityPage() {
     }
   }
 
-  const filteredTx = transactions
+  const filteredTx = useMemo(() => transactions
     .filter(t => !t.title.endsWith('-transfer]'))
     .filter(t => {
       const parsed = parseTransaction(t, defaultWallet)
@@ -284,7 +285,17 @@ export default function ActivityPage() {
       const matchFilter = filter === 'all' || t.type === filter
       const matchWallet = walletFilter === 'all' || parsed.wallet === walletFilter
       return matchSearch && matchFilter && matchWallet
-    })
+    }), [transactions, defaultWallet, search, filter, walletFilter])
+
+  // The transfer history sits far below the fold: mount it right after first paint so the
+  // section itself appears immediately.
+  const [showHistory, setShowHistory] = useState(false)
+  useEffect(() => {
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => setShowHistory(true)))
+    return () => cancelAnimationFrame(id)
+  }, [])
+
+  const { visible: visibleTx, hasMore: hasMoreVisibleTx, sentinelRef: sentinelRefVisibleTx } = useIncrementalList(filteredTx, `${search}|${filter}|${walletFilter}`)
 
   return (
     <div className="space-y-12 py-4">
@@ -316,9 +327,9 @@ export default function ActivityPage() {
           {wallets.map((w, index) => (
             <motion.div
               key={w.slug}
-              initial={{ opacity: 0, x: 20 }}
+              initial={{ x: 20 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.05 }}
+              transition={{ duration: 0.06, ease: 'easeOut', delay: Math.min(index, 5) * 0.006 }}
               className="card min-w-[260px] max-w-[300px] flex-shrink-0 snap-center p-6 flex flex-col justify-between min-h-[140px] group relative"
             >
               <div>
@@ -441,14 +452,13 @@ export default function ActivityPage() {
         ) : (
           <div className="divide-y divide-border/5">
             <AnimatePresence mode="popLayout">
-              {filteredTx.map((t, i) => {
+              {visibleTx.map((t, i) => {
                 const parsed = parseTransaction(t, defaultWallet)
                 const walletLabel = walletMap[parsed.wallet] || parsed.wallet
                 return (
                   <motion.div
                     key={t.id}
-                    layout
-                    initial={{ opacity: 0, y: 10 }}
+                    initial={false}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, x: -30 }}
                     className="flex items-center justify-between py-4 group"
@@ -496,6 +506,7 @@ export default function ActivityPage() {
                 )
               })}
             </AnimatePresence>
+          {hasMoreVisibleTx && <div ref={sentinelRefVisibleTx} className="h-px" aria-hidden="true" />}
           </div>
         )}
       </section>
@@ -508,7 +519,7 @@ export default function ActivityPage() {
           </h2>
         </div>
 
-        {(() => {
+        {showHistory && (() => {
           const transferHistory = transactions.filter(t => t.title.endsWith('-transfer]') && t.type === 'expense')
           
           if (transferHistory.length === 0) {

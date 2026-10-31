@@ -59,7 +59,7 @@ export function Composer({
             disabled={!streaming && !value.trim()}
             title={streaming ? 'Interrompi generazione' : 'Invia'}
             className={`w-9 h-9 flex items-center justify-center rounded-full t disabled:opacity-40 cursor-pointer shrink-0 ${
-              streaming ? 'bg-fg/10 text-fg hover:bg-fg/15' : 'bg-income text-black hover:opacity-90 disabled:bg-elevated disabled:text-muted'
+              streaming ? 'bg-fg/10 text-fg hover:bg-fg/15' : 'bg-income text-bg hover:opacity-90 disabled:bg-elevated disabled:text-muted'
             }`}
           >
             {streaming ? <Square className="w-3.5 h-3.5" fill="currentColor" /> : <Send className="w-3.5 h-3.5" strokeWidth={2} />}

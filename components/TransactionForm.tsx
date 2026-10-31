@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, Calculator as CalcIcon, TrendingUp, TrendingDown } from 'lucide-react'
 import Calculator from './Calculator'
 import { Transaction } from '@/lib/supabase'
-import { createClient } from '@/lib/supabaseClient'
+import { createClient, getLocalUser } from '@/lib/supabaseClient'
 import { parseTransaction, formatDebtTitle } from '@/lib/transactions'
 import { pushAction } from '@/lib/actionsTracker'
 import { useWallets } from '@/components/WalletContext'
@@ -106,7 +106,7 @@ export default function TransactionForm({
       finalTitle = title.trim() + ` [${wallet}]`
     }
 
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getLocalUser(supabase)
     const payload = { 
       title: finalTitle, 
       amount: parseFloat(amount), 

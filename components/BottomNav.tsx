@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Home, ArrowLeftRight, BarChart3, Wallet, HandCoins, History } from 'lucide-react'
@@ -24,6 +25,12 @@ export default function BottomNav() {
     { href: '/dashboard/analytics',    icon: BarChart3,      label: 'Analisi' },
     { href: '/dashboard/ai-chat',      icon: SparkleIcon,    label: 'AI Chat' },
   ] : originalNavItems
+
+  // Warm every section up front so a tap swaps pages without a network round trip.
+  const hrefsKey = navItems.map(i => i.href).join(',')
+  useEffect(() => {
+    [...hrefsKey.split(','), '/dashboard/log'].forEach(h => router.prefetch(h))
+  }, [router, hrefsKey])
 
   if (loading) return null // Wait for AI context to load to avoid flickering
 
