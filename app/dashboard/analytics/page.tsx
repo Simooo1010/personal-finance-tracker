@@ -644,7 +644,7 @@ export default function AnalyticsPage() {
                 <TrendingUp className="w-3.5 h-3.5 text-income" strokeWidth={1.5} />
                 <span className="text-[9px] tracking-[0.25em] uppercase font-light">Entrate Totali</span>
               </div>
-              <h3 className="text-3xl font-thin tracking-tight text-fg">€{fmt(totalIncome)}</h3>
+              <h3 className="font-display text-xl font-semibold tracking-tight text-fg">€{fmt(totalIncome)}</h3>
               <p className="text-[10px] text-muted tracking-wider">
                 {realTransactions.filter(t => t.type === 'income').length} operazioni
               </p>
@@ -660,7 +660,7 @@ export default function AnalyticsPage() {
                 <TrendingDown className="w-3.5 h-3.5 text-expense" strokeWidth={1.5} />
                 <span className="text-[9px] tracking-[0.25em] uppercase font-light">Uscite Totali</span>
               </div>
-              <h3 className="text-3xl font-thin tracking-tight text-fg">€{fmt(totalExpense)}</h3>
+              <h3 className="font-display text-xl font-semibold tracking-tight text-fg">€{fmt(totalExpense)}</h3>
               <p className="text-[10px] text-muted tracking-wider">
                 {realTransactions.filter(t => t.type === 'expense').length} operazioni
               </p>
@@ -796,7 +796,7 @@ export default function AnalyticsPage() {
               className="space-y-2 card p-4 bg-surface"
             >
               <span className="text-[9px] tracking-[0.25em] uppercase text-muted font-normal block">Crediti Attivi</span>
-              <h3 className="text-2xl font-thin tracking-tight text-income">€{fmt(debtStats.totalCredits)}</h3>
+              <h3 className="font-display text-lg font-semibold tracking-tight text-income">€{fmt(debtStats.totalCredits)}</h3>
               <p className="text-[10px] text-muted tracking-wider">{debtStats.activeCreditsCount} persone ti devono</p>
             </motion.div>
 
@@ -807,7 +807,7 @@ export default function AnalyticsPage() {
               className="space-y-2 card p-4 bg-surface"
             >
               <span className="text-[9px] tracking-[0.25em] uppercase text-muted font-normal block">Debiti Attivi</span>
-              <h3 className="text-2xl font-thin tracking-tight text-expense">€{fmt(debtStats.totalDebts)}</h3>
+              <h3 className="font-display text-lg font-semibold tracking-tight text-expense">€{fmt(debtStats.totalDebts)}</h3>
               <p className="text-[10px] text-muted tracking-wider">Devi a {debtStats.activeDebtsCount} persone</p>
             </motion.div>
 
@@ -818,7 +818,7 @@ export default function AnalyticsPage() {
               className="space-y-2 card p-4 bg-surface"
             >
               <span className="text-[9px] tracking-[0.25em] uppercase text-muted font-normal block">Bilancio Netto</span>
-              <h3 className={`text-2xl font-thin tracking-tight ${debtStats.netDebts >= 0 ? 'text-income' : 'text-expense'}`}>
+              <h3 className={`font-display text-lg font-semibold tracking-tight ${debtStats.netDebts >= 0 ? 'text-income' : 'text-expense'}`}>
                 {debtStats.netDebts >= 0 ? '+' : ''}€{fmt(debtStats.netDebts)}
               </h3>
               <p className="text-[10px] text-muted tracking-wider">Saldo crediti/debiti</p>
@@ -1226,7 +1226,7 @@ export default function AnalyticsPage() {
                     />
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center space-y-0.5 text-center">
-                    <span className={`text-4xl font-thin tracking-tight ${
+                    <span className={`font-display text-2xl font-bold tracking-tight ${
                       analyticsData.totals.savingsRate >= 0 ? 'text-income' : 'text-expense'
                     }`}>
                       {analyticsData.totals.savingsRate >= 0 ? '+' : ''}
@@ -1643,7 +1643,7 @@ export default function AnalyticsPage() {
               <>
                 <div className="card p-5 space-y-2">
                   <span className="text-[9px] tracking-wider text-muted uppercase">Importo Medio Spostamento</span>
-                  <h4 className="text-2xl font-thin tracking-tight text-fg">
+                  <h4 className="font-display text-lg font-semibold tracking-tight text-fg">
                     €{fmt(
                       analyticsData.withdrawals.length > 0 
                         ? analyticsData.withdrawals.reduce((s,t) => s + Number(t.amount), 0) / analyticsData.withdrawals.length
@@ -1656,7 +1656,7 @@ export default function AnalyticsPage() {
                 </div>
                 <div className="card p-5 space-y-2">
                   <span className="text-[9px] tracking-wider text-muted uppercase">Spostamento Massimo</span>
-                  <h4 className="text-2xl font-thin tracking-tight text-fg text-expense">
+                  <h4 className="font-display text-lg font-semibold tracking-tight text-fg text-expense">
                     €{fmt(
                       analyticsData.withdrawals.length > 0 
                         ? Math.max(...analyticsData.withdrawals.map(t => Number(t.amount)))
@@ -1674,7 +1674,7 @@ export default function AnalyticsPage() {
               <>
                 <div className="card p-5 space-y-2">
                   <span className="text-[9px] tracking-wider text-muted uppercase">Spesa Fuori Totale</span>
-                  <h4 className="text-2xl font-thin tracking-tight text-fg">
+                  <h4 className="font-display text-lg font-semibold tracking-tight text-fg">
                     €{fmt(analyticsData.totals.totalOutsideExpense || 0)}
                   </h4>
                   <p className="text-[10px] text-muted tracking-wide">
@@ -1683,7 +1683,7 @@ export default function AnalyticsPage() {
                 </div>
                 <div className="card p-5 space-y-2">
                   <span className="text-[9px] tracking-wider text-muted uppercase">Copertura Residua Stima</span>
-                  <h4 className="text-2xl font-thin tracking-tight text-fg text-income">
+                  <h4 className="font-display text-lg font-semibold tracking-tight text-fg text-income">
                     {analyticsData.totals.avgDailyOutsideExpense > 0 
                       ? `${Math.floor((wallets.filter(w => w.slug !== defaultWallet).reduce((s, w) => s + (analyticsData.totals.currentBalances[w.slug] || 0), 0) || 0) / analyticsData.totals.avgDailyOutsideExpense)} giorni`
                       : 'N/A'

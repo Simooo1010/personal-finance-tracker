@@ -27,8 +27,12 @@
   --color-background: var(--bg);
   --color-foreground: var(--fg);
 
-  /* --font-barlow is injected by next/font in app/layout.tsx (Barlow + pinned fallbacks) */
-  --font-sans: var(--font-barlow);
+  /* --font-bricolage / --font-unbounded are injected by next/font in app/layout.tsx */
+  --font-sans:    var(--font-bricolage);
+  --font-display: var(--font-unbounded);   /* utility: font-display (money amounts) */
+
+  /* Neither font goes below 200, so `font-thin` maps to the lightest real weight */
+  --font-weight-thin: 200;
 }
 
 /* ── Base ──────────────────────────────────────────────────── */
@@ -40,14 +44,14 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--fg);
-  font-family: var(--font-barlow);
+  font-family: var(--font-bricolage);
   font-weight: 300;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior: none;
 }
 
 input, textarea, select, button {
-  font-family: var(--font-barlow);
+  font-family: var(--font-bricolage);
 }
 
 ::-webkit-scrollbar { display: none; }

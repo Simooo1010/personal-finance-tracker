@@ -73,7 +73,7 @@ export default function LogPage() {
   return (
     <div className="space-y-8 py-4">
       <div className="space-y-2">
-        <h1 className="text-3xl font-thin tracking-tight text-fg">Registro Attività</h1>
+        <h1 className="text-3xl font-extrabold tracking-tight text-fg">Registro Attività</h1>
         <p className="text-sm font-light text-muted">Visualizza, modifica o ripristina le tue interazioni recenti.</p>
       </div>
 

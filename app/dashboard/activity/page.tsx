@@ -1,5 +1,6 @@
 'use client'
 
+import Money from '@/components/Money'
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Pencil, Trash2, Search, Calculator as CalcIcon, ArrowUpRight, ArrowDownRight, ArrowLeftRight, X } from 'lucide-react'
@@ -290,7 +291,7 @@ export default function ActivityPage() {
       {/* Wallet Carousel Section */}
       <section className="space-y-4">
         <div className="flex items-center justify-between pb-2">
-          <h2 className="text-[10px] tracking-[0.3em] uppercase text-muted font-normal">
+          <h2 className="text-[10px] tracking-[0.3em] uppercase text-muted font-semibold">
             Portafogli
           </h2>
           <div className="flex gap-3">
@@ -324,9 +325,7 @@ export default function ActivityPage() {
                 <span className="text-[9px] tracking-[0.25em] uppercase text-muted font-normal block mb-2">
                   {w.name}
                 </span>
-                <h3 className="text-3xl font-thin tracking-tight text-fg">
-                  €{fmt(balances[w.slug] || 0)}
-                </h3>
+                <h3 className="text-2xl tracking-tight text-fg"><Money amount={balances[w.slug] || 0} intWeight={700} centsWeight={200} /></h3>
               </div>
               <p className="text-[10px] text-muted tracking-wider mt-4 truncate">
                 {w.description || 'Nessuna descrizione'}
@@ -355,7 +354,7 @@ export default function ActivityPage() {
       {/* Transaction Ledger Section */}
       <section className="space-y-6">
         <div className="flex items-center justify-between pb-3 border-b border-border/10">
-          <h2 className="text-[10px] tracking-[0.3em] uppercase text-muted font-normal">
+          <h2 className="text-[10px] tracking-[0.3em] uppercase text-muted font-semibold">
             Il Ledger
           </h2>
           <div className="flex items-center gap-2">
@@ -504,7 +503,7 @@ export default function ActivityPage() {
       {/* Storico Spostamenti Section */}
       <section className="space-y-6">
         <div className="pb-3 border-b border-border/10">
-          <h2 className="text-[10px] tracking-[0.3em] uppercase text-muted font-normal">
+          <h2 className="text-[10px] tracking-[0.3em] uppercase text-muted font-semibold">
             Storico Spostamenti
           </h2>
         </div>

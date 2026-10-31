@@ -230,7 +230,7 @@ export default function DebtsPage() {
     <div className="space-y-12 py-4">
       {/* Header */}
       <div className="flex items-center justify-between pb-3 border-b border-border/10">
-        <h2 className="text-[10px] tracking-[0.3em] uppercase text-muted font-normal">
+        <h2 className="text-[10px] tracking-[0.3em] uppercase text-muted font-semibold">
           Gestione Debiti
         </h2>
         <motion.button
@@ -255,7 +255,7 @@ export default function DebtsPage() {
             <span className="text-[9px] tracking-[0.25em] uppercase text-muted font-normal block mb-2">
               Crediti (Mi Devono)
             </span>
-            <h3 className="text-3xl font-thin tracking-tight text-income">
+            <h3 className="font-display text-xl font-semibold tracking-tight text-income">
               €{fmt(totalToRedeem)}
             </h3>
           </div>
@@ -275,7 +275,7 @@ export default function DebtsPage() {
             <span className="text-[9px] tracking-[0.25em] uppercase text-muted font-normal block mb-2">
               Debiti (Devo Pagare)
             </span>
-            <h3 className="text-3xl font-thin tracking-tight text-expense">
+            <h3 className="font-display text-xl font-semibold tracking-tight text-expense">
               €{fmt(totalToPay)}
             </h3>
           </div>

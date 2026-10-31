@@ -6,6 +6,7 @@ import { motion } from 'framer-motion'
 import { TrendingUp, TrendingDown, Plus, ArrowUpRight, ArrowDownRight, History } from 'lucide-react'
 import { Transaction } from '@/lib/supabase'
 import TransactionForm from '@/components/TransactionForm'
+import Money from '@/components/Money'
 import { getTransactionEffect, parseTransaction } from '@/lib/transactions'
 import { useWallets } from '@/components/WalletContext'
 import { useTransactions } from '@/components/TransactionsContext'
@@ -56,11 +57,11 @@ export default function DashboardHome() {
       >
         <div className="flex justify-between items-start">
           <div>
-            <span className="text-[10px] tracking-[0.3em] uppercase text-muted font-normal block mb-2">
+            <span className="text-[10px] tracking-[0.3em] uppercase text-muted font-semibold block mb-2">
               Disponibilità Attuale
             </span>
-            <h1 className={`text-6xl sm:text-7xl font-thin tracking-tight text-fg ${balance < 0 ? 'text-expense' : ''}`}>
-              €{fmt(balance)}
+            <h1 className={`text-4xl sm:text-6xl tracking-tight text-fg ${balance < 0 ? 'text-expense' : ''}`}>
+              <Money amount={balance} intWeight={700} centsWeight={200} />
             </h1>
           </div>
           <button 
@@ -79,14 +80,14 @@ export default function DashboardHome() {
               <TrendingUp className="w-3.5 h-3.5 text-income" strokeWidth={1.5} />
               <span className="text-[9px] tracking-[0.25em] uppercase font-light">Entrate</span>
             </div>
-            <p className="text-xl font-light text-income">€{fmt(totalIncome)}</p>
+            <p className="text-lg text-income"><Money amount={totalIncome} intWeight={600} centsWeight={200} /></p>
           </div>
           <div className="space-y-1">
             <div className="flex items-center gap-1.5 text-muted">
               <TrendingDown className="w-3.5 h-3.5 text-expense" strokeWidth={1.5} />
               <span className="text-[9px] tracking-[0.25em] uppercase font-light">Uscite</span>
             </div>
-            <p className="text-xl font-light text-expense">€{fmt(totalExpense)}</p>
+            <p className="text-lg text-expense"><Money amount={totalExpense} intWeight={600} centsWeight={200} /></p>
           </div>
         </div>
       </motion.div>
@@ -99,7 +100,7 @@ export default function DashboardHome() {
           transition={{ delay: 0.1 }}
           whileTap={{ scale: 0.96 }}
           onClick={() => { setFormType('income'); setShowForm(true) }}
-          className="flex items-center justify-center gap-2 py-4 rounded-full bg-income/10 text-income hover:bg-income hover:text-white text-xs tracking-wider uppercase font-medium t cursor-pointer"
+          className="flex items-center justify-center gap-2 py-4 rounded-full bg-income/10 text-income hover:bg-income hover:text-white text-xs tracking-wider uppercase font-bold t cursor-pointer"
         >
           <Plus className="w-4 h-4" strokeWidth={1.5} />
           Entrata
@@ -110,7 +111,7 @@ export default function DashboardHome() {
           transition={{ delay: 0.12 }}
           whileTap={{ scale: 0.96 }}
           onClick={() => { setFormType('expense'); setShowForm(true) }}
-          className="flex items-center justify-center gap-2 py-4 rounded-full bg-expense/10 text-expense hover:bg-expense hover:text-white text-xs tracking-wider uppercase font-medium t cursor-pointer"
+          className="flex items-center justify-center gap-2 py-4 rounded-full bg-expense/10 text-expense hover:bg-expense hover:text-white text-xs tracking-wider uppercase font-bold t cursor-pointer"
         >
           <Plus className="w-4 h-4" strokeWidth={1.5} />
           Uscita
@@ -125,17 +126,17 @@ export default function DashboardHome() {
         onClick={() => router.push('/dashboard/debts')}
         className="card p-5 cursor-pointer hover:border-border/20 t flex flex-col justify-between"
       >
-        <span className="text-[10px] tracking-[0.3em] uppercase text-muted font-normal block mb-4">
+        <span className="text-[10px] tracking-[0.3em] uppercase text-muted font-semibold block mb-4">
           Situazione Debiti
         </span>
         <div className="grid grid-cols-2 gap-4 divide-x divide-border/5">
           <div>
             <span className="text-[9px] tracking-[0.25em] uppercase text-muted block mb-1">Da ricevere</span>
-            <p className="text-xl font-light text-income">€{fmt(totalToRedeem)}</p>
+            <p className="text-lg text-income"><Money amount={totalToRedeem} intWeight={600} centsWeight={200} /></p>
           </div>
           <div className="pl-4">
             <span className="text-[9px] tracking-[0.25em] uppercase text-muted block mb-1">Da pagare</span>
-            <p className="text-xl font-light text-expense">€{fmt(totalToPay)}</p>
+            <p className="text-lg text-expense"><Money amount={totalToPay} intWeight={600} centsWeight={200} /></p>
           </div>
         </div>
       </motion.div>
@@ -148,7 +149,7 @@ export default function DashboardHome() {
         className="space-y-6"
       >
         <div className="flex items-center justify-between pb-3 border-b border-border/10">
-          <span className="text-[10px] tracking-[0.3em] uppercase text-muted font-normal">
+          <span className="text-[10px] tracking-[0.3em] uppercase text-muted font-semibold">
             Ledger Recente
           </span>
         </div>
@@ -202,7 +203,7 @@ export default function DashboardHome() {
                       </p>
                     </div>
                   </div>
-                  <span className={`text-sm font-light ${t.type === 'income' ? 'text-income' : 'text-expense'}`}>
+                  <span className={`font-display text-xs font-medium whitespace-nowrap ${t.type === 'income' ? 'text-income' : 'text-expense'}`}>
                     {t.type === 'income' ? '+' : '-'}€{fmt(Number(t.amount))}
                   </span>
                 </motion.div>

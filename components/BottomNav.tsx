@@ -55,7 +55,7 @@ export default function BottomNav() {
                 <motion.span
                   initial={{ opacity: 0, width: 0 }}
                   animate={{ opacity: 1, width: 'auto' }}
-                  className="text-xs font-normal relative z-10 whitespace-nowrap"
+                  className="text-xs font-bold relative z-10 whitespace-nowrap"
                 >
                   {item.label}
                 </motion.span>
