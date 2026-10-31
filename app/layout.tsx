@@ -1,5 +1,17 @@
 import type { Metadata, Viewport } from "next";
+import { Barlow } from "next/font/google";
 import "./globals.css";
+
+// Brand font, self-hosted by next/font (no request to Google at runtime).
+// The fallback stack is pinned so a browser's default font is never used.
+const barlow = Barlow({
+  subsets: ["latin", "latin-ext"],
+  weight: ["100", "200", "300", "400", "500", "600", "700"],
+  style: ["normal", "italic"],
+  display: "swap",
+  variable: "--font-barlow",
+  fallback: ["system-ui", "Arial", "sans-serif"],
+});
 
 export const metadata: Metadata = {
   title: "Finance Tracker",
@@ -29,7 +41,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="it" className="dark">
+    <html lang="it" className={`dark ${barlow.variable}`}>
       <body className="min-h-dvh flex flex-col font-sans">{children}</body>
     </html>
   );
