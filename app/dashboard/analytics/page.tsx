@@ -636,7 +636,7 @@ export default function AnalyticsPage() {
           {/* Summary Row */}
           <div className="grid grid-cols-2 gap-8 border-b border-border/10 pb-8">
             <motion.div
-              initial={{ y: 10 }}
+             
               animate={{ opacity: 1, y: 0 }}
               className="space-y-2"
             >
@@ -651,7 +651,7 @@ export default function AnalyticsPage() {
             </motion.div>
 
             <motion.div
-              initial={{ y: 10 }}
+             
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.06, ease: 'easeOut', delay: 0.01 }}
               className="space-y-2"
@@ -669,7 +669,7 @@ export default function AnalyticsPage() {
 
           {/* Ratio bar Section */}
           <motion.div
-            initial={{ y: 12 }}
+           
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.06, ease: 'easeOut', delay: 0.01 }}
             className="space-y-4"
@@ -705,7 +705,7 @@ export default function AnalyticsPage() {
           {/* Monthly Stats Section */}
           {Object.keys(monthlyGroup).length > 0 && (
             <motion.div
-              initial={{ y: 12 }}
+             
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.06, ease: 'easeOut', delay: 0.01 }}
               className="space-y-6"
@@ -743,7 +743,7 @@ export default function AnalyticsPage() {
           {/* Top expenses Section */}
           {topExpenses.length > 0 && (
             <motion.div
-              initial={{ y: 12 }}
+             
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.06, ease: 'easeOut', delay: 0.01 }}
               className="space-y-6"
@@ -791,7 +791,7 @@ export default function AnalyticsPage() {
           {/* Summary Row */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 border-b border-border/10 pb-8">
             <motion.div
-              initial={{ y: 10 }}
+             
               animate={{ opacity: 1, y: 0 }}
               className="space-y-2 card p-4 bg-surface"
             >
@@ -801,7 +801,7 @@ export default function AnalyticsPage() {
             </motion.div>
 
             <motion.div
-              initial={{ y: 10 }}
+             
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.06, ease: 'easeOut', delay: 0.01 }}
               className="space-y-2 card p-4 bg-surface"
@@ -812,7 +812,7 @@ export default function AnalyticsPage() {
             </motion.div>
 
             <motion.div
-              initial={{ y: 10 }}
+             
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.06, ease: 'easeOut', delay: 0.01 }}
               className="space-y-2 card p-4 bg-surface"
@@ -1195,7 +1195,7 @@ export default function AnalyticsPage() {
             {/* Chart renders */}
             {analyticsData.daily.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-muted space-y-2">
-                <Info className="w-5 h-5 text-muted/70" />
+                <Info className="w-5 h-5 text-muted/80" />
                 <p className="text-xs font-light">Nessuna transazione registrata nel periodo selezionato</p>
               </div>
             ) : activeMetric === 'savings-rate' ? (

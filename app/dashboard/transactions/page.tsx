@@ -1,7 +1,7 @@
 'use client'
 
 import Money from '@/components/Money'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Pencil, Trash2, Search, Calculator as CalcIcon, ArrowUpRight, ArrowDownRight, Check } from 'lucide-react'
 import { Transaction } from '@/lib/supabase'
@@ -58,7 +58,7 @@ export default function TransactionsPage() {
     }
   }
 
-  const filtered = transactions
+  const filtered = useMemo(() => transactions
     .filter(t => !t.title.endsWith('-transfer]'))
     .filter(t => {
       const parsed = parseTransaction(t, defaultWallet)
@@ -66,12 +66,12 @@ export default function TransactionsPage() {
       const matchFilter = filter === 'all' || t.type === filter
       const matchWallet = walletFilter === 'all' || parsed.wallet === walletFilter
       return matchSearch && matchFilter && matchWallet
-    })
+    }), [transactions, defaultWallet, search, filter, walletFilter])
 
-  const net = filtered.reduce((s, t) => {
+  const net = useMemo(() => filtered.reduce((s, t) => {
     const effect = getTransactionEffect(t, defaultWallet)
     return s + (effect.income - effect.expense)
-  }, 0)
+  }, 0), [filtered, defaultWallet])
   const fmt = (n: number) => n.toLocaleString('it-IT', { minimumFractionDigits: 2 })
 
   const { visible: visibleTx, hasMore: hasMoreTx, sentinelRef: sentinelRefTx } = useIncrementalList(filtered, `${search}|${filter}|${walletFilter}`)
@@ -104,7 +104,7 @@ export default function TransactionsPage() {
 
       {/* Selection Stats */}
       <motion.div
-        initial={{ y: 10 }}
+       
         animate={{ opacity: 1, y: 0 }}
         className="pb-4"
       >
@@ -118,7 +118,7 @@ export default function TransactionsPage() {
 
       {/* Search Input (Ghost Style) */}
       <div className="relative">
-        <Search className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-muted/70" strokeWidth={1.5} />
+        <Search className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-muted/80" strokeWidth={1.5} />
         <input
           type="text"
           value={search}

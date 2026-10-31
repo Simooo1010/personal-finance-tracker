@@ -366,7 +366,7 @@ export default function WalletsPage() {
         {showOnboarding && (
           <div className="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-bg text-fg">
             <motion.div
-              initial={{ y: 20 }}
+             
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
               className="w-full max-w-lg space-y-12"
@@ -438,7 +438,7 @@ export default function WalletsPage() {
         {wallets.map((w, index) => (
           <motion.div
             key={w.slug}
-            initial={{ y: 10 }}
+           
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.06, ease: 'easeOut', delay: Math.min(index, 5) * 0.006 }}
             className="card p-6 flex flex-col justify-between min-h-[140px] relative group"
@@ -476,7 +476,7 @@ export default function WalletsPage() {
 
       {/* Transfer Form Section */}
       <motion.div
-        initial={{ y: 12 }}
+       
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.06, ease: 'easeOut', delay: 0.01 }}
         className="card p-6 space-y-6"
@@ -555,7 +555,7 @@ export default function WalletsPage() {
 
       {/* Transfer History Ledger */}
       <motion.div
-        initial={{ y: 12 }}
+       
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.06, ease: 'easeOut', delay: 0.01 }}
         className="space-y-6"

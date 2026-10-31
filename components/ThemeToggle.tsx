@@ -5,18 +5,33 @@ import { Sun, Moon } from 'lucide-react'
 
 type Theme = 'dark' | 'light'
 
+function paint(theme: Theme) {
+  const root = document.documentElement
+  root.classList.toggle('dark', theme === 'dark')
+  root.classList.toggle('light', theme === 'light')
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#f5f5f7' : '#000000')
+}
+
 const subscribe = (cb: () => void) => {
+  // Same tab: our own event. Other tabs: the storage event, so every open tab follows.
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === 'theme') {
+      paint(e.newValue === 'light' ? 'light' : 'dark')
+      cb()
+    }
+  }
   window.addEventListener('themechange', cb)
-  return () => window.removeEventListener('themechange', cb)
+  window.addEventListener('storage', onStorage)
+  return () => {
+    window.removeEventListener('themechange', cb)
+    window.removeEventListener('storage', onStorage)
+  }
 }
 const getSnapshot = (): Theme => (document.documentElement.classList.contains('light') ? 'light' : 'dark')
 const getServerSnapshot = (): Theme => 'dark'
 
 function applyTheme(theme: Theme) {
-  const root = document.documentElement
-  root.classList.toggle('dark', theme === 'dark')
-  root.classList.toggle('light', theme === 'light')
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#f5f5f7' : '#000000')
+  paint(theme)
   try { localStorage.setItem('theme', theme) } catch {}
   window.dispatchEvent(new Event('themechange'))
 }

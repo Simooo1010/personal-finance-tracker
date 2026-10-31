@@ -247,7 +247,7 @@ export default function DebtsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         {/* Credits Metric Card */}
         <motion.div
-          initial={{ y: 10 }}
+         
           animate={{ opacity: 1, y: 0 }}
           className="card p-6 flex flex-col justify-between min-h-[140px] border-l-2 border-l-income"
         >
@@ -266,7 +266,7 @@ export default function DebtsPage() {
 
         {/* Debts Metric Card */}
         <motion.div
-          initial={{ y: 10 }}
+         
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.06, ease: 'easeOut', delay: 0.01 }}
           className="card p-6 flex flex-col justify-between min-h-[140px] border-l-2 border-l-expense"
@@ -330,7 +330,7 @@ export default function DebtsPage() {
                 <motion.div
                   key={debt.id}
                   layout
-                  initial={{ y: 10 }}
+                 
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, x: -30 }}
                   transition={{ duration: 0.06, ease: 'easeOut', delay: Math.min(index, 5) * 0.006 }}
@@ -474,7 +474,7 @@ export default function DebtsPage() {
                       Chi
                     </label>
                     <div className="relative">
-                      <User className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-muted/70" />
+                      <User className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-muted/80" />
                       <input
                         type="text"
                         value={person}
@@ -492,7 +492,7 @@ export default function DebtsPage() {
                       Descrizione
                     </label>
                     <div className="relative">
-                      <FileText className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-muted/70" />
+                      <FileText className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-muted/80" />
                       <input
                         type="text"
                         value={desc}

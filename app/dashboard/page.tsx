@@ -53,7 +53,7 @@ export default function DashboardHome() {
 
       {/* Hero Balance Section */}
       <motion.div
-        initial={{ y: 15 }}
+       
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.06 }}
         className="space-y-6"
@@ -101,7 +101,7 @@ export default function DashboardHome() {
       {/* Quick Actions Buttons */}
       <div className="grid grid-cols-2 gap-4">
         <motion.button
-          initial={{ y: 10 }}
+         
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.06, ease: 'easeOut', delay: 0.01 }}
           whileTap={{ scale: 0.96 }}
@@ -112,7 +112,7 @@ export default function DashboardHome() {
           Entrata
         </motion.button>
         <motion.button
-          initial={{ y: 10 }}
+         
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.06, ease: 'easeOut', delay: 0.01 }}
           whileTap={{ scale: 0.96 }}
@@ -126,7 +126,7 @@ export default function DashboardHome() {
 
       {/* Debts Summary Card */}
       <motion.div
-        initial={{ y: 10 }}
+       
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.06, ease: 'easeOut', delay: 0.01 }}
         onClick={() => router.push('/dashboard/debts')}
@@ -149,7 +149,7 @@ export default function DashboardHome() {
 
       {/* Recent Ledger List */}
       <motion.div
-        initial={{ y: 15 }}
+       
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.06, ease: 'easeOut', delay: 0.01 }}
         className="space-y-6"
@@ -177,7 +177,7 @@ export default function DashboardHome() {
               return (
                 <motion.div
                   key={t.id}
-                  initial={{ y: 8 }}
+                 
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.06, ease: 'easeOut', delay: Math.min(i, 5) * 0.006 }}
                   className="flex items-center justify-between py-4 group"

@@ -40,7 +40,7 @@ Use `components/Money.tsx` for any headline amount (pass `sign="+"` or `"-"` to 
 - Dark is the default and applies whenever no choice is stored. Light is switched on with the toggle in the Home header; it sets `html.light`. Never add a literal colour: use the tokens so both themes work.
 - Income and expense always come with a sign, arrow or word, never colour alone.
 - Text on a solid `income` or `expense` fill is `text-bg` (black: 9.2:1 and 7.6:1), never white (2.3:1 and 2.8:1).
-- Text and placeholders use `text-muted` at full opacity (5.6 to 6.4:1). Only icons may use `text-muted/70` (3.5:1, icons need 3:1); never go lower.
+- Text and placeholders use `text-muted` at full opacity (5.6 to 6.4:1). Only icons may use `text-muted/80` (at least 3.3:1 in light and 4.0:1 in dark, icons need 3:1); never go lower.
 
 Light theme: `bg #f5f5f7` · `surface #ffffff` · `elevated #e8e8ed` · `fg #0a0a0c` · `muted #636366` · `border rgba(0,0,0,.07)` · `income #14753a` · `expense #c42323` · `debt #7e22ce` · `info #1d4ed8` · chart series `#4f46e5`, `#0369a1`, `#a16207`. Text is at least 4.5:1 on all three surfaces.
 
@@ -48,7 +48,7 @@ Light theme: `bg #f5f5f7` · `surface #ffffff` · `elevated #e8e8ed` · `fg #0a0
 
 ## Motion
 
-Sections swap instantly and ease in over 0.06s from 60% opacity (never from 0%). Page blocks slide 6 to 15px with at most about 0.03s of stagger. Do not add exit animations to section changes, and do not fade page content in from 0%.
+Sections swap instantly and ease in over 0.06s from 60% opacity (never from 0%), only after the first paint: the server HTML and first load show the final look. Page blocks no longer slide in; list rows keep at most about 0.03s of stagger. Do not add exit animations to section changes, and do not fade page content in from 0%.
 
 ## Known gaps
 

@@ -163,14 +163,14 @@ export function ChatSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () 
                             <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                               <button
                                 onClick={(e) => startRename(s, e)}
-                                className="p-1 hover:text-fg text-muted/70 rounded-full transition-colors"
+                                className="p-1 hover:text-fg text-muted/80 rounded-full transition-colors"
                                 title="Rinomina chat"
                               >
                                 <Edit3 className="w-3 h-3" />
                               </button>
                               <button
                                 onClick={(e) => handleDelete(s.id, e)}
-                                className="p-1 hover:text-expense text-muted/70 rounded-full transition-colors"
+                                className="p-1 hover:text-expense text-muted/80 rounded-full transition-colors"
                                 title="Elimina chat"
                               >
                                 <Trash2 className="w-3 h-3" />
