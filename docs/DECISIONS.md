@@ -2,6 +2,11 @@
 
 A running log of design decisions, newest first. A decision taken in chat is written here the same day. Each line: what was decided, why, what it replaced. The design system itself is in [`DESIGN-SYSTEM.md`](./DESIGN-SYSTEM.md).
 
+## 2026-10-31 (night)
+
+- **Independent review fixes.** (1) The first paint no longer shows a dimmed, shifted page: the 60% start state and the inner slides were written into the server HTML and stayed until JavaScript loaded. The layout now skips its start state during the first render (`useSyncExternalStore`: false on the server and during hydration), and the page blocks' small slides were removed, so only later section changes ease in. (2) The inline theme script also sets the browser bar colour, so it is right after a reload in light mode. (3) A theme change in one tab reaches the other open tabs (`storage` event). (4) `proxy.ts` validates the session with Supabase only on `/login` and `/register`, so a session revoked elsewhere no longer bounces people to the dashboard; all other navigation stays network-free. (5) Muted icons are `muted/80` (see above).
+- **Known, out of scope.** `/api/ai/chat` and `/api/ai/analysis` check that the user is signed in but do not enforce the AI email allowlist on the server (the allowlist only switches the UI). A full reload of `/dashboard/ai-chat` redirects to Home before the user loads. Both existed before this work.
+
 ## 2026-10-31 (evening)
 
 - **Light theme added; dark stays the default.** Tokens live in `app/globals.css` (`:root` is dark, `:root.light` overrides). The choice is stored in `localStorage` (`theme`) and applied by a tiny inline script in `app/layout.tsx` before first paint, so there is no flash. No stored choice means dark, whatever the system setting says. The toggle is a small round button in the Home header, next to the history button (`components/ThemeToggle.tsx`); it is not repeated elsewhere.
@@ -19,7 +24,7 @@ A running log of design decisions, newest first. A decision taken in chat is wri
 
 ## 2026-10-31 (later)
 
-- **Contrast gaps fixed.** Text on solid `income`/`expense` fills (buttons, active segmented controls, delete confirmations, hover states) is now `bg` black instead of white: 9.2:1 and 7.6:1, up from 2.3:1 and 2.8:1. Text and placeholders that were `muted` at 30 to 60% are now full `muted` (5.6 to 6.4:1). Icons that were at 40 to 50% are now `muted/70` (3.5:1, above the 3:1 icons need). Brand colours themselves are unchanged. Supersedes the "recorded, not re-tinted" decision below.
+- **Contrast gaps fixed.** Text on solid `income`/`expense` fills (buttons, active segmented controls, delete confirmations, hover states) is now `bg` black instead of white: 9.2:1 and 7.6:1, up from 2.3:1 and 2.8:1. Text and placeholders that were `muted` at 30 to 60% are now full `muted` (5.6 to 6.4:1). Icons that were at 40 to 50% are now `muted/80` (at least 3.3:1 in light, 4.0:1 in dark; first set to 70%, which measured 2.96:1 on the light page and was raised after review). Brand colours themselves are unchanged. Supersedes the "recorded, not re-tinted" decision below.
 
 ## 2026-10-31
 
@@ -37,4 +42,5 @@ A running log of design decisions, newest first. A decision taken in chat is wri
 ## Open
 
 - Move the remaining analytics amounts and the calculator to `font-display`.
+- Enforce the AI allowlist on the server routes; stop the `/dashboard/ai-chat` reload redirect.
 - Pre-existing lint errors in `app/oauth/authorize/page.tsx` (`react-hooks/immutability`) and `migrate_actions.js` (`no-require-imports`), untouched here.

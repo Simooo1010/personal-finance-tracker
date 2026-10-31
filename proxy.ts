@@ -34,7 +34,15 @@ export async function proxy(request: NextRequest) {
   const {
     data: { session },
   } = await supabase.auth.getSession()
-  const user = session ? true : null
+  let user: boolean | null = session ? true : null
+
+  // /login and /register are rare entry points: validate there, so a session revoked elsewhere
+  // does not bounce people to the dashboard. Everything else stays network-free.
+  const isAuthPage = request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/register'
+  if (user && isAuthPage) {
+    const { data } = await supabase.auth.getUser()
+    user = data.user ? true : null
+  }
 
   // If user is not signed in and trying to access dashboard, redirect to login
   if (

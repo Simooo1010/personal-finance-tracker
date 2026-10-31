@@ -6,12 +6,16 @@ import { WalletProvider } from '@/components/WalletContext'
 import { TransactionsProvider } from '@/components/TransactionsContext'
 import { AiProvider } from '@/components/AiContext'
 import { AiChatProvider } from '@/components/ai-chat/AiChatContext'
+import { useSyncExternalStore } from 'react'
 import { usePathname } from 'next/navigation'
 import { motion, MotionConfig } from 'framer-motion'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const isFullWidth = pathname === '/dashboard/ai-chat'
+  // false on the server and during hydration, true afterwards: the first paint is the final
+  // look (no dimmed page waiting for JavaScript); later section changes ease in.
+  const hydrated = useSyncExternalStore(() => () => {}, () => true, () => false)
 
   return (
     // Every entrance animation in the dashboard defaults to a short 0.06s tween so a
@@ -31,7 +35,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       It starts at 60% (never 0%) so there is no empty frame between sections. */}
                   <motion.div
                     key={pathname}
-                    initial={{ opacity: 0.6 }}
+                    initial={hydrated ? { opacity: 0.6 } : false}
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.06, ease: 'easeOut' }}
                   >

@@ -327,7 +327,7 @@ export default function ActivityPage() {
           {wallets.map((w, index) => (
             <motion.div
               key={w.slug}
-              initial={{ x: 20 }}
+             
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.06, ease: 'easeOut', delay: Math.min(index, 5) * 0.006 }}
               className="card min-w-[260px] max-w-[300px] flex-shrink-0 snap-center p-6 flex flex-col justify-between min-h-[140px] group relative"
@@ -389,7 +389,7 @@ export default function ActivityPage() {
         {/* Filters */}
         <div className="space-y-4 pb-2">
           <div className="relative">
-            <Search className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-muted/70" strokeWidth={1.5} />
+            <Search className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-muted/80" strokeWidth={1.5} />
             <input
               type="text"
               value={search}
