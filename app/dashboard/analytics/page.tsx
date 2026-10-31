@@ -1226,7 +1226,7 @@ export default function AnalyticsPage() {
                     />
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center space-y-0.5 text-center">
-                    <span className={`font-display text-2xl font-bold tracking-tight ${
+                    <span className={`font-display text-xl font-bold tracking-tight ${
                       analyticsData.totals.savingsRate >= 0 ? 'text-income' : 'text-expense'
                     }`}>
                       {analyticsData.totals.savingsRate >= 0 ? '+' : ''}
@@ -1683,7 +1683,7 @@ export default function AnalyticsPage() {
                 </div>
                 <div className="card p-5 space-y-2">
                   <span className="text-[9px] tracking-wider text-muted uppercase">Copertura Residua Stima</span>
-                  <h4 className="font-display text-lg font-semibold tracking-tight text-fg text-income">
+                  <h4 className="text-lg font-semibold tracking-tight text-fg text-income">
                     {analyticsData.totals.avgDailyOutsideExpense > 0 
                       ? `${Math.floor((wallets.filter(w => w.slug !== defaultWallet).reduce((s, w) => s + (analyticsData.totals.currentBalances[w.slug] || 0), 0) || 0) / analyticsData.totals.avgDailyOutsideExpense)} giorni`
                       : 'N/A'

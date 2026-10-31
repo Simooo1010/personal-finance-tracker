@@ -109,7 +109,7 @@ export default function TransactionsPage() {
           Bilancio Selezione
         </span>
         <h1 className={`text-3xl tracking-tight ${net >= 0 ? 'text-fg' : 'text-expense'}`}>
-          {net >= 0 ? "+" : "-"}<Money amount={Math.abs(net)} intWeight={700} centsWeight={200} />
+          <Money sign={net >= 0 ? '+' : '-'} amount={Math.abs(net)} intWeight={700} centsWeight={200} />
         </h1>
       </motion.div>
 

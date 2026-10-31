@@ -50,8 +50,11 @@ body {
   overscroll-behavior: none;
 }
 
-input, textarea, select, button {
-  font-family: var(--font-bricolage);
+/* In the base layer so utilities such as `font-display` still win inside buttons and inputs */
+@layer base {
+  input, textarea, select, button {
+    font-family: var(--font-bricolage);
+  }
 }
 
 ::-webkit-scrollbar { display: none; }

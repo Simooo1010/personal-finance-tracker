@@ -31,7 +31,7 @@ Weight is the personality. Pick by role, never one bold value everywhere.
 
 ## Money
 
-Use `components/Money.tsx` for any headline amount: whole euros heavy (700, or 600 for stat totals), cents 200, small euro sign at 300. Size comes from the parent (`text-4xl sm:text-6xl` hero, `text-2xl` balances, `text-lg` stats). In lists use `font-display text-xs font-medium whitespace-nowrap`.
+Use `components/Money.tsx` for any headline amount (pass `sign="+"` or `"-"` to put a sign in the same face): whole euros heavy (700, or 600 for stat totals), cents 200, small euro sign at 300. Size comes from the parent (`text-4xl sm:text-6xl` hero, `text-2xl` balances, `text-lg` stats). In lists use `font-display text-xs font-medium whitespace-nowrap`.
 
 ## Colour (dark only)
 
