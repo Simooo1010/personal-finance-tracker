@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
-import { createClient } from '@/lib/supabaseClient'
+import { createClient, getLocalUser } from '@/lib/supabaseClient'
 import { Transaction } from '@/lib/supabase'
 
 interface TransactionsContextType {
@@ -28,7 +28,7 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
 
   const fetchTransactions = useCallback(async () => {
     const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getLocalUser(supabase)
     if (!user) { setLoading(false); return }
     const { data } = await supabase.from('transactions').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
     if (data) setTransactions(data)

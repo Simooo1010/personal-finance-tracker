@@ -101,13 +101,13 @@ export function ChatSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () 
                   <Loader2 className="w-4 h-4 animate-spin text-muted" />
                 </div>
               ) : sessions.length === 0 ? (
-                <div className="text-center py-8 px-4 text-xs text-muted/60 font-light">
+                <div className="text-center py-8 px-4 text-xs text-muted font-light">
                   Nessuna chat precedente. Inizia ora!
                 </div>
               ) : (
                 groups.map(group => (
                   <div key={group.label} className="space-y-1">
-                    <div className="px-3 text-[10.5px] font-semibold tracking-wider uppercase text-muted/50">
+                    <div className="px-3 text-[10.5px] font-semibold tracking-wider uppercase text-muted">
                       {group.label}
                     </div>
                     {group.sessions.map(s => {

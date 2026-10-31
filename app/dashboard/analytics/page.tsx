@@ -636,7 +636,7 @@ export default function AnalyticsPage() {
           {/* Summary Row */}
           <div className="grid grid-cols-2 gap-8 border-b border-border/10 pb-8">
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               className="space-y-2"
             >
@@ -651,9 +651,9 @@ export default function AnalyticsPage() {
             </motion.div>
 
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.04 }}
+              transition={{ duration: 0.06, ease: 'easeOut', delay: 0.01 }}
               className="space-y-2"
             >
               <div className="flex items-center gap-1.5 text-muted">
@@ -669,9 +669,9 @@ export default function AnalyticsPage() {
 
           {/* Ratio bar Section */}
           <motion.div
-            initial={{ opacity: 0, y: 12 }}
+            initial={{ y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.08 }}
+            transition={{ duration: 0.06, ease: 'easeOut', delay: 0.01 }}
             className="space-y-4"
           >
             <div className="flex items-center gap-2 text-muted">
@@ -685,13 +685,13 @@ export default function AnalyticsPage() {
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${incPct}%` }}
-                  transition={{ duration: 0.7, ease: 'easeOut' }}
+                  transition={{ duration: 0.35, ease: 'easeOut' }}
                   className="bg-income"
                 />
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${expPct}%` }}
-                  transition={{ duration: 0.7, ease: 'easeOut', delay: 0.1 }}
+                  transition={{ duration: 0.35, ease: 'easeOut', delay: 0.1 }}
                   className="bg-expense"
                 />
               </div>
@@ -705,9 +705,9 @@ export default function AnalyticsPage() {
           {/* Monthly Stats Section */}
           {Object.keys(monthlyGroup).length > 0 && (
             <motion.div
-              initial={{ opacity: 0, y: 12 }}
+              initial={{ y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.12 }}
+              transition={{ duration: 0.06, ease: 'easeOut', delay: 0.01 }}
               className="space-y-6"
             >
               <div className="flex items-center gap-2 text-muted pb-2 border-b border-border/10">
@@ -743,9 +743,9 @@ export default function AnalyticsPage() {
           {/* Top expenses Section */}
           {topExpenses.length > 0 && (
             <motion.div
-              initial={{ opacity: 0, y: 12 }}
+              initial={{ y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.16 }}
+              transition={{ duration: 0.06, ease: 'easeOut', delay: 0.01 }}
               className="space-y-6"
             >
               <div className="flex items-center gap-2 text-muted pb-2 border-b border-border/10">
@@ -771,7 +771,7 @@ export default function AnalyticsPage() {
                           <motion.div
                             initial={{ width: 0 }}
                             animate={{ width: `${pct}%` }}
-                            transition={{ duration: 0.6, delay: 0.2 + i * 0.05 }}
+                            transition={{ duration: 0.3, delay: 0.05 + Math.min(i, 8) * 0.02 }}
                             className="h-full bg-expense/40 rounded-full"
                           />
                         </div>
@@ -791,7 +791,7 @@ export default function AnalyticsPage() {
           {/* Summary Row */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 border-b border-border/10 pb-8">
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               className="space-y-2 card p-4 bg-surface"
             >
@@ -801,9 +801,9 @@ export default function AnalyticsPage() {
             </motion.div>
 
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.05 }}
+              transition={{ duration: 0.06, ease: 'easeOut', delay: 0.01 }}
               className="space-y-2 card p-4 bg-surface"
             >
               <span className="text-[9px] tracking-[0.25em] uppercase text-muted font-normal block">Debiti Attivi</span>
@@ -812,9 +812,9 @@ export default function AnalyticsPage() {
             </motion.div>
 
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
+              transition={{ duration: 0.06, ease: 'easeOut', delay: 0.01 }}
               className="space-y-2 card p-4 bg-surface"
             >
               <span className="text-[9px] tracking-[0.25em] uppercase text-muted font-normal block">Bilancio Netto</span>
@@ -1012,9 +1012,9 @@ export default function AnalyticsPage() {
                           return (
                             <svg width="85" height="28" className="opacity-75">
                               <path d={getPath(spark0)} fill="none" stroke="var(--muted)" strokeWidth="1" />
-                              {spark1.length > 0 && <path d={getPath(spark1)} fill="none" stroke="#818cf8" strokeWidth="1" />}
-                              {spark2.length > 0 && <path d={getPath(spark2)} fill="none" stroke="#38bdf8" strokeWidth="1" />}
-                              {spark3.length > 0 && <path d={getPath(spark3)} fill="none" stroke="#eab308" strokeWidth="1" />}
+                              {spark1.length > 0 && <path d={getPath(spark1)} fill="none" stroke="var(--chart-1)" strokeWidth="1" />}
+                              {spark2.length > 0 && <path d={getPath(spark2)} fill="none" stroke="var(--chart-2)" strokeWidth="1" />}
+                              {spark3.length > 0 && <path d={getPath(spark3)} fill="none" stroke="var(--chart-3)" strokeWidth="1" />}
                             </svg>
                           )
                         })()
@@ -1023,7 +1023,7 @@ export default function AnalyticsPage() {
                           <path
                             d={getSparklinePath(sparkData, 85, 26)}
                             fill="none"
-                            stroke="#818cf8"
+                            stroke="var(--chart-1)"
                             strokeWidth="1.2"
                             strokeLinecap="round"
                           />
@@ -1195,7 +1195,7 @@ export default function AnalyticsPage() {
             {/* Chart renders */}
             {analyticsData.daily.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-muted space-y-2">
-                <Info className="w-5 h-5 text-muted/50" />
+                <Info className="w-5 h-5 text-muted/70" />
                 <p className="text-xs font-light">Nessuna transazione registrata nel periodo selezionato</p>
               </div>
             ) : activeMetric === 'savings-rate' ? (
@@ -1222,7 +1222,7 @@ export default function AnalyticsPage() {
                       animate={{ 
                         strokeDashoffset: 263.8 - (263.8 * Math.min(100, Math.max(0, Math.abs(analyticsData.totals.savingsRate)))) / 100 
                       }}
-                      transition={{ duration: 1, ease: 'easeOut' }}
+                      transition={{ duration: 0.5, ease: 'easeOut' }}
                     />
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center space-y-0.5 text-center">
@@ -1307,24 +1307,24 @@ export default function AnalyticsPage() {
                 >
                   <defs>
                     <linearGradient id="area-grad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#ffffff" stopOpacity="0.10" />
-                      <stop offset="100%" stopColor="#ffffff" stopOpacity="0.0" />
+                      <stop offset="0%" stopColor="var(--fg)" stopOpacity="0.10" />
+                      <stop offset="100%" stopColor="var(--fg)" stopOpacity="0.0" />
                     </linearGradient>
                     <linearGradient id="area-grad-busta" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="var(--muted)" stopOpacity="0.06" />
                       <stop offset="100%" stopColor="var(--muted)" stopOpacity="0.0" />
                     </linearGradient>
                     <linearGradient id="area-grad-fuori" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#818cf8" stopOpacity="0.08" />
-                      <stop offset="100%" stopColor="#818cf8" stopOpacity="0.0" />
+                      <stop offset="0%" stopColor="var(--chart-1)" stopOpacity="0.08" />
+                      <stop offset="100%" stopColor="var(--chart-1)" stopOpacity="0.0" />
                     </linearGradient>
                     <linearGradient id="area-grad-apple" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.08" />
-                      <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.0" />
+                      <stop offset="0%" stopColor="var(--chart-2)" stopOpacity="0.08" />
+                      <stop offset="100%" stopColor="var(--chart-2)" stopOpacity="0.0" />
                     </linearGradient>
                     <linearGradient id="area-grad-postepay" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#eab308" stopOpacity="0.08" />
-                      <stop offset="100%" stopColor="#eab308" stopOpacity="0.0" />
+                      <stop offset="0%" stopColor="var(--chart-3)" stopOpacity="0.08" />
+                      <stop offset="100%" stopColor="var(--chart-3)" stopOpacity="0.0" />
                     </linearGradient>
                   </defs>
 
@@ -1389,7 +1389,7 @@ export default function AnalyticsPage() {
                           <path
                             d={activeChartCoords.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y2!}`).join(' ')}
                             fill="none"
-                            stroke="#818cf8"
+                            stroke="var(--chart-1)"
                             strokeWidth="1.2"
                           />
                         </>
@@ -1408,7 +1408,7 @@ export default function AnalyticsPage() {
                           <path
                             d={activeChartCoords.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y3!}`).join(' ')}
                             fill="none"
-                            stroke="#38bdf8"
+                            stroke="var(--chart-2)"
                             strokeWidth="1.2"
                           />
                         </>
@@ -1427,7 +1427,7 @@ export default function AnalyticsPage() {
                           <path
                             d={activeChartCoords.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y4!}`).join(' ')}
                             fill="none"
-                            stroke="#eab308"
+                            stroke="var(--chart-3)"
                             strokeWidth="1.2"
                           />
                         </>
@@ -1462,7 +1462,7 @@ export default function AnalyticsPage() {
                       <path
                         d={activeChartCoords.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y1}`).join(' ')}
                         fill="none"
-                        stroke="#ffffff"
+                        stroke="var(--fg)"
                         strokeWidth="1.2"
                       />
                     </>
@@ -1494,7 +1494,7 @@ export default function AnalyticsPage() {
                               cx={activeChartCoords.points[hoveredIndex].x}
                               cy={activeChartCoords.points[hoveredIndex].y2!}
                               r="4"
-                              fill="#818cf8"
+                              fill="var(--chart-1)"
                             />
                           )}
                           {wallets[2] && activeChartCoords.points[hoveredIndex].y3 !== undefined && (
@@ -1502,7 +1502,7 @@ export default function AnalyticsPage() {
                               cx={activeChartCoords.points[hoveredIndex].x}
                               cy={activeChartCoords.points[hoveredIndex].y3!}
                               r="4"
-                              fill="#38bdf8"
+                              fill="var(--chart-2)"
                             />
                           )}
                           {wallets[3] && activeChartCoords.points[hoveredIndex].y4 !== undefined && (
@@ -1510,7 +1510,7 @@ export default function AnalyticsPage() {
                               cx={activeChartCoords.points[hoveredIndex].x}
                               cy={activeChartCoords.points[hoveredIndex].y4!}
                               r="4"
-                              fill="#eab308"
+                              fill="var(--chart-3)"
                             />
                           )}
                         </>
@@ -1519,7 +1519,7 @@ export default function AnalyticsPage() {
                           cx={activeChartCoords.points[hoveredIndex].x}
                           cy={activeChartCoords.points[hoveredIndex].y1}
                           r="4"
-                          fill={activeMetric === 'withdrawals' ? 'var(--expense)' : '#ffffff'}
+                          fill={activeMetric === 'withdrawals' ? 'var(--expense)' : 'var(--fg)'}
                         />
                       )}
                     </>
@@ -1587,19 +1587,19 @@ export default function AnalyticsPage() {
                           </p>
                         )}
                         {wallets[1] && activeChartCoords.points[hoveredIndex].val2 !== undefined && (
-                          <p className="text-[#818cf8] flex justify-between gap-4">
+                          <p className="text-chart-1 flex justify-between gap-4">
                             <span>{wallets[1].name}:</span>
                             <span className="font-normal">€{fmt(activeChartCoords.points[hoveredIndex].val2!)}</span>
                           </p>
                         )}
                         {wallets[2] && activeChartCoords.points[hoveredIndex].val3 !== undefined && (
-                          <p className="text-[#38bdf8] flex justify-between gap-4">
+                          <p className="text-chart-2 flex justify-between gap-4">
                             <span>{wallets[2].name}:</span>
                             <span className="font-normal">€{fmt(activeChartCoords.points[hoveredIndex].val3!)}</span>
                           </p>
                         )}
                         {wallets[3] && activeChartCoords.points[hoveredIndex].val4 !== undefined && (
-                          <p className="text-[#eab308] flex justify-between gap-4">
+                          <p className="text-chart-3 flex justify-between gap-4">
                             <span>{wallets[3].name}:</span>
                             <span className="font-normal">€{fmt(activeChartCoords.points[hoveredIndex].val4!)}</span>
                           </p>
@@ -1620,15 +1620,15 @@ export default function AnalyticsPage() {
                       <span>Envelope Busta</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <div className="w-2 h-2 rounded-full bg-[#818cf8]" />
+                      <div className="w-2 h-2 rounded-full bg-chart-1" />
                       <span>Pocket Fuori</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <div className="w-2 h-2 rounded-full bg-[#38bdf8]" />
+                      <div className="w-2 h-2 rounded-full bg-chart-2" />
                       <span>Apple Account</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <div className="w-2 h-2 rounded-full bg-[#eab308]" />
+                      <div className="w-2 h-2 rounded-full bg-chart-3" />
                       <span>Postepay</span>
                     </div>
                   </div>

@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { createClient } from '@/lib/supabaseClient'
+import { createClient, getLocalUser } from '@/lib/supabaseClient'
 
 export type ChatRole = 'user' | 'assistant'
 
@@ -67,7 +67,7 @@ export function AiChatProvider({ children }: { children: ReactNode }) {
 
   // ── Load sessions once, with the one-time legacy-data migration ──
   const loadSessions = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getLocalUser(supabase)
     if (!user) return
 
     const { data } = await supabase
@@ -137,7 +137,7 @@ export function AiChatProvider({ children }: { children: ReactNode }) {
 
     setLoadingMessageSets(prev => new Set(prev).add(sessionId))
 
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getLocalUser(supabase)
     if (!user) return
 
     const { data, error } = await supabase
@@ -212,7 +212,7 @@ export function AiChatProvider({ children }: { children: ReactNode }) {
     })
     delete abortControllers.current[sessionId]
 
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getLocalUser(supabase)
     if (!user) return
     await supabase.from('chat_messages').insert([
       { user_id: user.id, session_id: sessionId, role: 'user', content: userText },

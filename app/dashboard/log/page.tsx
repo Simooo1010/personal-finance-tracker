@@ -63,7 +63,7 @@ export default function LogPage() {
   const getTypeColor = (type: string) => {
     if (type.includes('delete') || type.includes('revert')) return 'text-expense bg-expense/10'
     if (type.includes('add') || type.includes('insert')) return 'text-income bg-income/10'
-    return 'text-blue-400 bg-blue-400/10'
+    return 'text-info bg-info/10'
   }
 
   const formatType = (type: string) => {
@@ -84,7 +84,7 @@ export default function LogPage() {
           </div>
         ) : history.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
-            <Info className="w-8 h-8 text-muted/50" strokeWidth={1.5} />
+            <Info className="w-8 h-8 text-muted/70" strokeWidth={1.5} />
             <p className="text-sm text-muted font-light">Nessuna attività registrata</p>
           </div>
         ) : (
@@ -95,7 +95,7 @@ export default function LogPage() {
                 return (
                   <motion.div
                     key={action.id}
-                    initial={{ opacity: 0, x: -10 }}
+                    initial={{ x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     className="relative pl-6 md:pl-8 group"
                   >

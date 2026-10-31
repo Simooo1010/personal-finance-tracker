@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, Calculator as CalcIcon, TrendingUp, TrendingDown } from 'lucide-react'
 import Calculator from './Calculator'
 import { Transaction } from '@/lib/supabase'
-import { createClient } from '@/lib/supabaseClient'
+import { createClient, getLocalUser } from '@/lib/supabaseClient'
 import { parseTransaction, formatDebtTitle } from '@/lib/transactions'
 import { pushAction } from '@/lib/actionsTracker'
 import { useWallets } from '@/components/WalletContext'
@@ -106,7 +106,7 @@ export default function TransactionForm({
       finalTitle = title.trim() + ` [${wallet}]`
     }
 
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getLocalUser(supabase)
     const payload = { 
       title: finalTitle, 
       amount: parseFloat(amount), 
@@ -198,7 +198,7 @@ export default function TransactionForm({
               <button
                 onClick={() => setType('income')}
                 className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-full text-xs font-normal t cursor-pointer ${
-                  type === 'income' ? 'bg-income text-white shadow-sm' : 'text-muted hover:text-fg'
+                  type === 'income' ? 'bg-income text-bg shadow-sm' : 'text-muted hover:text-fg'
                 }`}
               >
                 <TrendingUp className="w-3.5 h-3.5" strokeWidth={2} />
@@ -207,7 +207,7 @@ export default function TransactionForm({
               <button
                 onClick={() => setType('expense')}
                 className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-full text-xs font-normal t cursor-pointer ${
-                  type === 'expense' ? 'bg-expense text-white shadow-sm' : 'text-muted hover:text-fg'
+                  type === 'expense' ? 'bg-expense text-bg shadow-sm' : 'text-muted hover:text-fg'
                 }`}
               >
                 <TrendingDown className="w-3.5 h-3.5" strokeWidth={2} />
@@ -250,7 +250,7 @@ export default function TransactionForm({
                   value={title}
                   onChange={e => setTitle(e.target.value)}
                   placeholder="es. Stipendio, Spesa..."
-                  className="w-full bg-transparent border-b border-border/30 py-2.5 text-base font-light text-fg placeholder:text-muted/40 focus:outline-none focus:border-fg t"
+                  className="w-full bg-transparent border-b border-border/30 py-2.5 text-base font-light text-fg placeholder:text-muted focus:outline-none focus:border-fg t"
                 />
               </div>
 
@@ -267,7 +267,7 @@ export default function TransactionForm({
                     onChange={e => setAmount(e.target.value)}
                     placeholder="0.00"
                     step="0.01"
-                    className="w-full bg-transparent border-b border-border/30 pl-5 pr-10 py-2.5 text-base font-light text-fg placeholder:text-muted/40 focus:outline-none focus:border-fg t"
+                    className="w-full bg-transparent border-b border-border/30 pl-5 pr-10 py-2.5 text-base font-light text-fg placeholder:text-muted focus:outline-none focus:border-fg t"
                   />
                   <button
                     onClick={() => setShowCalc(true)}
@@ -299,7 +299,7 @@ export default function TransactionForm({
               onClick={handleSave}
               disabled={saving || !title.trim() || !amount || !createdAt}
               className={`w-full py-3.5 rounded-full text-xs tracking-widest uppercase font-medium t disabled:opacity-40 shadow-sm ${
-                type === 'income' ? 'bg-income text-white' : 'bg-expense text-white'
+                type === 'income' ? 'bg-income text-bg' : 'bg-expense text-bg'
               }`}
             >
               {saving ? 'Salvataggio...' : editTransaction ? 'Aggiorna' : 'Salva'}

@@ -49,7 +49,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="it" className={`dark ${bricolage.variable} ${unbounded.variable}`}>
+    <html lang="it" className={`dark ${bricolage.variable} ${unbounded.variable}`} suppressHydrationWarning>
+      <head>
+        {/* Dark is the default. Apply a saved light choice before first paint so there is no flash. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{if(localStorage.getItem('theme')==='light'){var r=document.documentElement;r.classList.remove('dark');r.classList.add('light')}}catch(e){}",
+          }}
+        />
+      </head>
       <body className="min-h-dvh flex flex-col font-sans">{children}</body>
     </html>
   );

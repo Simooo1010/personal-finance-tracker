@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabaseClient'
 import { useWallets } from '@/components/WalletContext'
 import { useTransactions } from '@/components/TransactionsContext'
 import { pushAction } from '@/lib/actionsTracker'
+import { useIncrementalList } from '@/lib/useIncrementalList'
 
 export default function TransactionsPage() {
   const { wallets, walletMap, defaultWallet, hasMultipleWallets } = useWallets()
@@ -73,6 +74,8 @@ export default function TransactionsPage() {
   }, 0)
   const fmt = (n: number) => n.toLocaleString('it-IT', { minimumFractionDigits: 2 })
 
+  const { visible: visibleTx, hasMore: hasMoreTx, sentinelRef: sentinelRefTx } = useIncrementalList(filtered, `${search}|${filter}|${walletFilter}`)
+
   return (
     <div className="space-y-10 py-4">
 
@@ -101,7 +104,7 @@ export default function TransactionsPage() {
 
       {/* Selection Stats */}
       <motion.div
-        initial={{ opacity: 0, y: 10 }}
+        initial={{ y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         className="pb-4"
       >
@@ -115,13 +118,13 @@ export default function TransactionsPage() {
 
       {/* Search Input (Ghost Style) */}
       <div className="relative">
-        <Search className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-muted/50" strokeWidth={1.5} />
+        <Search className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-muted/70" strokeWidth={1.5} />
         <input
           type="text"
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Cerca transazioni..."
-          className="w-full bg-transparent border-b border-border/20 pl-7 pr-4 py-3 text-sm font-light text-fg placeholder:text-muted/40 focus:outline-none focus:border-fg t"
+          className="w-full bg-transparent border-b border-border/20 pl-7 pr-4 py-3 text-sm font-light text-fg placeholder:text-muted focus:outline-none focus:border-fg t"
         />
       </div>
 
@@ -189,17 +192,16 @@ export default function TransactionsPage() {
       ) : (
         <div className="divide-y divide-border/5">
           <AnimatePresence mode="popLayout">
-            {filtered.map((t, i) => {
+            {visibleTx.map((t, i) => {
               const parsed = parseTransaction(t, defaultWallet)
               const walletLabel = walletMap[parsed.wallet] || parsed.wallet
               return (
                 <motion.div
                   key={t.id}
-                  layout
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={false}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, x: -30 }}
-                  transition={{ delay: i * 0.02 }}
+                  transition={{ duration: 0.06, ease: 'easeOut', delay: Math.min(i, 5) * 0.006 }}
                   className="flex items-center justify-between py-4 group"
                 >
                   <div className="flex items-center gap-3.5 min-w-0">
@@ -216,7 +218,7 @@ export default function TransactionsPage() {
                       <div className="flex flex-wrap items-center gap-1.5">
                         <p className="text-sm font-light text-fg truncate">{parsed.cleanTitle}</p>
                         {parsed.isDebt && (
-                          <span className="px-1.5 py-0.5 rounded text-[8px] tracking-wide uppercase font-semibold bg-purple-500/10 text-purple-400">
+                          <span className="px-1.5 py-0.5 rounded text-[8px] tracking-wide uppercase font-semibold bg-debt/10 text-debt">
                             {parsed.debtInfo?.type === 'to_me' ? 'Credito' : 'Debito'}
                           </span>
                         )}
@@ -248,7 +250,7 @@ export default function TransactionsPage() {
                       title={confirmDeleteId === t.id ? 'Conferma eliminazione' : 'Elimina'}
                       className={`flex items-center justify-center rounded-full t cursor-pointer ${
                         confirmDeleteId === t.id
-                          ? 'w-auto px-2 h-7 gap-1 bg-expense text-white text-[10px] tracking-wide uppercase font-medium'
+                          ? 'w-auto px-2 h-7 gap-1 bg-expense text-bg text-[10px] tracking-wide uppercase font-medium'
                           : 'w-7 h-7 text-muted hover:text-expense hover:bg-expense/5'
                       }`}
                     >
@@ -266,6 +268,7 @@ export default function TransactionsPage() {
               </motion.div>
             )})}
           </AnimatePresence>
+          {hasMoreTx && <div ref={sentinelRefTx} className="h-px" aria-hidden="true" />}
         </div>
       )}
 
