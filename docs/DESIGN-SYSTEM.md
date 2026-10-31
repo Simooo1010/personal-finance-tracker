@@ -38,11 +38,11 @@ Use `components/Money.tsx` for any headline amount (pass `sign="+"` or `"-"` to 
 `bg #000000` · `surface #0a0a0c` · `elevated #151518` · `fg #ffffff` · `muted #8e8e93` · `border rgba(255,255,255,.04)` · `income #22c55e` · `expense #f87171` · `debt #c084fc` · chart series `#818cf8`, `#38bdf8`, `#eab308`.
 
 - Income and expense always come with a sign, arrow or word, never colour alone.
+- Text on a solid `income` or `expense` fill is `text-bg` (black: 9.2:1 and 7.6:1), never white (2.3:1 and 2.8:1).
+- Text and placeholders use `text-muted` at full opacity (5.6 to 6.4:1). Only icons may use `text-muted/70` (3.5:1, icons need 3:1); never go lower.
 - Shape: cards 26px radius, anything tappable is a pill (9999px), sheets round the top 36px.
 
 ## Known gaps
 
-- White text on solid `income`/`expense` fills (button hover) is 2.3:1 and 2.8:1: use `bg` text in new work.
-- `muted` below full opacity (placeholders) misses 4.5:1.
 - Some analytics numbers and the calculator still use Bricolage instead of `font-display`.
 - No light-theme tokens although `ThemeToggle` exists.

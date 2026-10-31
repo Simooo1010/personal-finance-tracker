@@ -54,7 +54,7 @@ function LoginForm() {
         {/* Header */}
         <div className="text-center space-y-1">
           <h1 className="text-[10px] tracking-[0.4em] uppercase text-muted font-light">Finanze</h1>
-          <p className="text-[9px] tracking-widest uppercase text-muted/50">Accedi al tuo account</p>
+          <p className="text-[9px] tracking-widest uppercase text-muted">Accedi al tuo account</p>
         </div>
 
         {/* Form */}
@@ -68,7 +68,7 @@ function LoginForm() {
                 onChange={e => setEmail(e.target.value)}
                 placeholder="nome@email.com"
                 required
-                className="w-full bg-transparent border-b border-border/30 py-2.5 text-base font-light text-fg placeholder:text-muted/40 focus:outline-none focus:border-fg t"
+                className="w-full bg-transparent border-b border-border/30 py-2.5 text-base font-light text-fg placeholder:text-muted focus:outline-none focus:border-fg t"
               />
             </div>
             <div>
@@ -79,7 +79,7 @@ function LoginForm() {
                 onChange={e => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="w-full bg-transparent border-b border-border/30 py-2.5 text-base font-light text-fg placeholder:text-muted/40 focus:outline-none focus:border-fg t"
+                className="w-full bg-transparent border-b border-border/30 py-2.5 text-base font-light text-fg placeholder:text-muted focus:outline-none focus:border-fg t"
               />
             </div>
           </div>

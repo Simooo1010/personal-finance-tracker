@@ -102,7 +102,7 @@ function Consent() {
       >
         <div className="space-y-1">
           <h1 className="text-[10px] tracking-[0.4em] uppercase text-muted font-light">Finanze</h1>
-          <p className="text-[9px] tracking-widest uppercase text-muted/50">Autorizza accesso esterno</p>
+          <p className="text-[9px] tracking-widest uppercase text-muted">Autorizza accesso esterno</p>
         </div>
 
         {status === 'checking' && <p className="text-sm text-muted font-light">Verifica sessione...</p>}

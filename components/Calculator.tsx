@@ -323,7 +323,7 @@ export default function Calculator({ isOpen, onClose, onConfirm, initialValue }:
                       isOperator
                         ? 'bg-elevated text-fg hover:bg-border/20'
                         : isEquals
-                        ? 'bg-income text-white shadow-sm'
+                        ? 'bg-income text-bg shadow-sm'
                         : isSpecial
                         ? 'bg-elevated/50 text-muted hover:bg-elevated'
                         : isParenthesis
@@ -342,7 +342,7 @@ export default function Calculator({ isOpen, onClose, onConfirm, initialValue }:
               <button
                 onClick={handleConfirm}
                 disabled={liveResult === null && isNaN(parseFloat(formula))}
-                className="w-full py-3 bg-income/10 hover:bg-income hover:text-white text-income text-xs tracking-wider uppercase font-medium rounded-full t cursor-pointer flex items-center justify-center gap-2 disabled:opacity-40"
+                className="w-full py-3 bg-income/10 hover:bg-income hover:text-bg text-income text-xs tracking-wider uppercase font-medium rounded-full t cursor-pointer flex items-center justify-center gap-2 disabled:opacity-40"
               >
                 <Check className="w-4 h-4" strokeWidth={2} />
                 Conferma Importo

@@ -394,7 +394,7 @@ export default function WalletsPage() {
                   <p>
                     Attualmente hai solo il portafoglio &quot;Generale&quot;. Vuoi configurare portafogli specifici?
                   </p>
-                  <p className="text-muted/60">
+                  <p className="text-muted">
                     Se non ti serve questa funzionalità, puoi semplicemente ignorarla e 
                     continuare a usare il portafoglio predefinito in qualsiasi momento.
                   </p>
@@ -822,7 +822,7 @@ export default function WalletsPage() {
                 </button>
                 <button
                   onClick={executeDeleteTransfer}
-                  className="flex-1 py-2.5 bg-expense text-white text-xs tracking-wider uppercase font-semibold rounded-full hover:bg-expense/90 t cursor-pointer"
+                  className="flex-1 py-2.5 bg-expense text-bg text-xs tracking-wider uppercase font-semibold rounded-full hover:bg-expense/90 t cursor-pointer"
                 >
                   Elimina
                 </button>
@@ -842,7 +842,7 @@ export default function WalletsPage() {
               <p className="text-xs text-muted font-light">Eliminando questo portafoglio, eliminerai anche tutte le transazioni associate.</p>
               <div className="flex gap-3">
                 <button onClick={() => setConfirmDeleteWallet(null)} className="flex-1 py-2.5 border border-border/20 text-muted hover:text-fg text-xs uppercase rounded-full cursor-pointer">Annulla</button>
-                <button onClick={handleDeleteWallet} className="flex-1 py-2.5 bg-expense text-white text-xs uppercase rounded-full hover:opacity-90 cursor-pointer">Elimina</button>
+                <button onClick={handleDeleteWallet} className="flex-1 py-2.5 bg-expense text-bg text-xs uppercase rounded-full hover:opacity-90 cursor-pointer">Elimina</button>
               </div>
             </motion.div>
           </div>

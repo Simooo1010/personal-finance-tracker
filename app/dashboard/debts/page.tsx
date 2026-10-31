@@ -351,7 +351,7 @@ export default function DebtsPage() {
                     
                     <p className="text-sm font-light text-muted">{info.desc}</p>
                     
-                    <p className="text-[10px] text-muted/60 tracking-wider">
+                    <p className="text-[10px] text-muted tracking-wider">
                       Registrato il {new Date(debt.created_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </p>
                   </div>
@@ -369,8 +369,8 @@ export default function DebtsPage() {
                           isCompleted
                             ? 'bg-elevated text-muted hover:text-fg'
                             : info.type === 'to_me'
-                            ? 'bg-income/10 text-income hover:bg-income hover:text-white border-income/20'
-                            : 'bg-expense/10 text-expense hover:bg-expense hover:text-white border-expense/20'
+                            ? 'bg-income/10 text-income hover:bg-income hover:text-bg border-income/20'
+                            : 'bg-expense/10 text-expense hover:bg-expense hover:text-bg border-expense/20'
                         }`}
                         title={isCompleted ? 'Riapri debito' : info.type === 'to_me' ? 'Segna come riscosso' : 'Segna come restituito'}
                       >
@@ -448,7 +448,7 @@ export default function DebtsPage() {
                     type="button"
                     onClick={() => setDebtType('to_me')}
                     className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-full text-xs font-normal t cursor-pointer ${
-                      debtType === 'to_me' ? 'bg-income text-white shadow-sm' : 'text-muted hover:text-fg'
+                      debtType === 'to_me' ? 'bg-income text-bg shadow-sm' : 'text-muted hover:text-fg'
                     }`}
                   >
                     <ArrowUpRight className="w-3.5 h-3.5" />
@@ -458,7 +458,7 @@ export default function DebtsPage() {
                     type="button"
                     onClick={() => setDebtType('by_me')}
                     className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-full text-xs font-normal t cursor-pointer ${
-                      debtType === 'by_me' ? 'bg-expense text-white shadow-sm' : 'text-muted hover:text-fg'
+                      debtType === 'by_me' ? 'bg-expense text-bg shadow-sm' : 'text-muted hover:text-fg'
                     }`}
                   >
                     <ArrowDownRight className="w-3.5 h-3.5" />
@@ -474,14 +474,14 @@ export default function DebtsPage() {
                       Chi
                     </label>
                     <div className="relative">
-                      <User className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-muted/40" />
+                      <User className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-muted/70" />
                       <input
                         type="text"
                         value={person}
                         onChange={e => setPerson(e.target.value)}
                         placeholder="Nome della persona"
                         required
-                        className="w-full bg-transparent border-b border-border/30 pl-6 py-2.5 text-base font-light text-fg placeholder:text-muted/30 focus:outline-none focus:border-fg t"
+                        className="w-full bg-transparent border-b border-border/30 pl-6 py-2.5 text-base font-light text-fg placeholder:text-muted focus:outline-none focus:border-fg t"
                       />
                     </div>
                   </div>
@@ -492,13 +492,13 @@ export default function DebtsPage() {
                       Descrizione
                     </label>
                     <div className="relative">
-                      <FileText className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-muted/40" />
+                      <FileText className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-muted/70" />
                       <input
                         type="text"
                         value={desc}
                         onChange={e => setDesc(e.target.value)}
                         placeholder="es. Cena, Spesa, Regalo..."
-                        className="w-full bg-transparent border-b border-border/30 pl-6 py-2.5 text-base font-light text-fg placeholder:text-muted/30 focus:outline-none focus:border-fg t"
+                        className="w-full bg-transparent border-b border-border/30 pl-6 py-2.5 text-base font-light text-fg placeholder:text-muted focus:outline-none focus:border-fg t"
                       />
                     </div>
                   </div>
@@ -517,7 +517,7 @@ export default function DebtsPage() {
                         placeholder="0.00"
                         step="0.01"
                         required
-                        className="w-full bg-transparent border-b border-border/30 pl-6 py-2.5 text-base font-light text-fg placeholder:text-muted/30 focus:outline-none focus:border-fg t"
+                        className="w-full bg-transparent border-b border-border/30 pl-6 py-2.5 text-base font-light text-fg placeholder:text-muted focus:outline-none focus:border-fg t"
                       />
                     </div>
                   </div>
@@ -567,7 +567,7 @@ export default function DebtsPage() {
                   whileTap={{ scale: 0.98 }}
                   type="submit"
                   disabled={saving || !person.trim() || !amount || !createdAt}
-                  className={`w-full py-3.5 rounded-full text-xs tracking-widest uppercase font-medium t disabled:opacity-40 shadow-sm text-white ${
+                  className={`w-full py-3.5 rounded-full text-xs tracking-widest uppercase font-medium t disabled:opacity-40 shadow-sm text-bg ${
                     debtType === 'to_me' ? 'bg-income' : 'bg-expense'
                   }`}
                 >
@@ -620,7 +620,7 @@ export default function DebtsPage() {
                 </button>
                 <button
                   onClick={executeDeleteDebt}
-                  className="flex-1 py-2.5 bg-expense text-white text-xs tracking-wider uppercase font-semibold rounded-full hover:bg-expense/90 t cursor-pointer"
+                  className="flex-1 py-2.5 bg-expense text-bg text-xs tracking-wider uppercase font-semibold rounded-full hover:bg-expense/90 t cursor-pointer"
                 >
                   Elimina
                 </button>

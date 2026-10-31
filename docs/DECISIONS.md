@@ -2,6 +2,10 @@
 
 A running log of design decisions, newest first. A decision taken in chat is written here the same day. Each line: what was decided, why, what it replaced. The design system itself is in [`DESIGN-SYSTEM.md`](./DESIGN-SYSTEM.md).
 
+## 2026-10-31 (later)
+
+- **Contrast gaps fixed.** Text on solid `income`/`expense` fills (buttons, active segmented controls, delete confirmations, hover states) is now `bg` black instead of white: 9.2:1 and 7.6:1, up from 2.3:1 and 2.8:1. Text and placeholders that were `muted` at 30 to 60% are now full `muted` (5.6 to 6.4:1). Icons that were at 40 to 50% are now `muted/70` (3.5:1, above the 3:1 icons need). Brand colours themselves are unchanged. Supersedes the "recorded, not re-tinted" decision below.
+
 ## 2026-10-31
 
 - **Two fonts: Bricolage Grotesque for text, Unbounded for money.** Chosen by the owner from a board of options (SF Pro, SF Rounded, SF Mono, Unbounded, Bricolage Grotesque, Fraunces, Syne, Big Shoulders Display, each in light, balanced and bold). Replaces Barlow. The owner asked for something more particular and for boldness.
@@ -12,12 +16,11 @@ A running log of design decisions, newest first. A decision taken in chat is wri
 - **Unbounded only for numbers.** It is wide and would overflow a 342px phone column in titles. Hero balance is 36px on phones, 60px from sm up.
 - **`font-thin` now means 200.** Neither font has a 100 weight, so the Tailwind `thin` weight is remapped to the lightest real one.
 - **Dark only, documented as such.** The code has a theme toggle but no light tokens; the design system records the dark theme and lists the gap.
-- **Colour contrast gaps are recorded, not re-tinted.** White on solid `income`/`expense` hover fills (2.3:1 and 2.8:1) and `muted` below full opacity (placeholders) miss 4.5:1. The brand colours stay exact; new work uses `bg` text on those fills.
+- **Colour contrast gaps were first recorded, not re-tinted** (white on solid `income`/`expense` fills, `muted` below full opacity). Fixed later the same day, see above.
 - **Design system is built from the code, not from screenshots.** Source of truth: `app/globals.css`, `app/layout.tsx`, `components/*.tsx`. Components are static renditions; the React code stays in the repo.
 
 ## Open
 
 - Move the remaining analytics amounts and the calculator to `font-display`.
 - Add light theme tokens, or remove the theme toggle.
-- Fix the two contrast gaps above.
 - Pre-existing lint errors in `app/oauth/authorize/page.tsx` (`react-hooks/immutability`) and `migrate_actions.js` (`no-require-imports`), untouched here.

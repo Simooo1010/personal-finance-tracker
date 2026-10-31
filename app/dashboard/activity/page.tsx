@@ -378,13 +378,13 @@ export default function ActivityPage() {
         {/* Filters */}
         <div className="space-y-4 pb-2">
           <div className="relative">
-            <Search className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-muted/50" strokeWidth={1.5} />
+            <Search className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-muted/70" strokeWidth={1.5} />
             <input
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Cerca transazioni..."
-              className="w-full bg-transparent border-b border-border/20 pl-7 pr-4 py-3 text-sm font-light text-fg placeholder:text-muted/40 focus:outline-none focus:border-fg t"
+              className="w-full bg-transparent border-b border-border/20 pl-7 pr-4 py-3 text-sm font-light text-fg placeholder:text-muted focus:outline-none focus:border-fg t"
             />
           </div>
 
@@ -686,7 +686,7 @@ export default function ActivityPage() {
               <p className="text-xs text-muted font-light">Eliminando questo portafoglio, eliminerai anche tutte le transazioni associate.</p>
               <div className="flex gap-3">
                 <button onClick={() => setConfirmDeleteWallet(null)} className="flex-1 py-2.5 border border-border/20 text-muted hover:text-fg text-xs uppercase rounded-full">Annulla</button>
-                <button onClick={handleDeleteWallet} className="flex-1 py-2.5 bg-expense text-white text-xs uppercase rounded-full">Elimina</button>
+                <button onClick={handleDeleteWallet} className="flex-1 py-2.5 bg-expense text-bg text-xs uppercase rounded-full">Elimina</button>
               </div>
             </motion.div>
           </div>
@@ -705,7 +705,7 @@ export default function ActivityPage() {
               </p>
               <div className="flex gap-3">
                 <button onClick={() => setConfirmDeleteTransfer(null)} className="flex-1 py-2.5 border border-border/20 text-muted hover:text-fg text-xs uppercase rounded-full">Annulla</button>
-                <button onClick={executeDeleteTransfer} className="flex-1 py-2.5 bg-expense text-white text-xs uppercase rounded-full">Elimina</button>
+                <button onClick={executeDeleteTransfer} className="flex-1 py-2.5 bg-expense text-bg text-xs uppercase rounded-full">Elimina</button>
               </div>
             </motion.div>
           </div>

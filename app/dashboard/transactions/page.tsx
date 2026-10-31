@@ -115,13 +115,13 @@ export default function TransactionsPage() {
 
       {/* Search Input (Ghost Style) */}
       <div className="relative">
-        <Search className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-muted/50" strokeWidth={1.5} />
+        <Search className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-muted/70" strokeWidth={1.5} />
         <input
           type="text"
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Cerca transazioni..."
-          className="w-full bg-transparent border-b border-border/20 pl-7 pr-4 py-3 text-sm font-light text-fg placeholder:text-muted/40 focus:outline-none focus:border-fg t"
+          className="w-full bg-transparent border-b border-border/20 pl-7 pr-4 py-3 text-sm font-light text-fg placeholder:text-muted focus:outline-none focus:border-fg t"
         />
       </div>
 
@@ -248,7 +248,7 @@ export default function TransactionsPage() {
                       title={confirmDeleteId === t.id ? 'Conferma eliminazione' : 'Elimina'}
                       className={`flex items-center justify-center rounded-full t cursor-pointer ${
                         confirmDeleteId === t.id
-                          ? 'w-auto px-2 h-7 gap-1 bg-expense text-white text-[10px] tracking-wide uppercase font-medium'
+                          ? 'w-auto px-2 h-7 gap-1 bg-expense text-bg text-[10px] tracking-wide uppercase font-medium'
                           : 'w-7 h-7 text-muted hover:text-expense hover:bg-expense/5'
                       }`}
                     >

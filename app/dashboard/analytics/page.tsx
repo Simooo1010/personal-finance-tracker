@@ -1195,7 +1195,7 @@ export default function AnalyticsPage() {
             {/* Chart renders */}
             {analyticsData.daily.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-muted space-y-2">
-                <Info className="w-5 h-5 text-muted/50" />
+                <Info className="w-5 h-5 text-muted/70" />
                 <p className="text-xs font-light">Nessuna transazione registrata nel periodo selezionato</p>
               </div>
             ) : activeMetric === 'savings-rate' ? (

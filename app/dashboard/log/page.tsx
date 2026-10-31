@@ -84,7 +84,7 @@ export default function LogPage() {
           </div>
         ) : history.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
-            <Info className="w-8 h-8 text-muted/50" strokeWidth={1.5} />
+            <Info className="w-8 h-8 text-muted/70" strokeWidth={1.5} />
             <p className="text-sm text-muted font-light">Nessuna attività registrata</p>
           </div>
         ) : (

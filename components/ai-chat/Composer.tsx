@@ -65,7 +65,7 @@ export function Composer({
             {streaming ? <Square className="w-3.5 h-3.5" fill="currentColor" /> : <Send className="w-3.5 h-3.5" strokeWidth={2} />}
           </button>
         </form>
-        <p className="text-center text-[10.5px] text-muted/60">
+        <p className="text-center text-[10.5px] text-muted">
           Sparkle può commettere errori. Verifica sempre i dati importanti.
         </p>
       </div>
