@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabaseServer'
 import { parseTransaction, getTransactionEffect, getWalletBalances } from '@/lib/transactions'
 import { streamGroq, GroqError, isGroqConfigured, type GroqMessage } from '@/lib/groq'
+import { createHmac, randomUUID } from 'node:crypto'
+import { z } from 'zod'
 
 /**
  * Groq's free tier is rate limited by tokens-per-minute, so only the tail of a
@@ -21,7 +23,20 @@ type StreamEvent =
   | { type: 'session'; sessionId: string; sessionTitle: string }
   | { type: 'delta'; text: string }
   | { type: 'error'; code: string; message: string }
-  | { type: 'done'; exportBlocks: string[] }
+  | { type: 'done'; exportBlocks: string[]; actionProposal: SignedTransactionProposal | null }
+
+const transactionProposalSchema = z.object({
+  type: z.literal('transaction.create'),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  wallet: z.string().min(1).max(80),
+  direction: z.enum(['income', 'expense']),
+  description: z.string().trim().min(1).max(120),
+  amount: z.number().finite().positive().max(1_000_000)
+    .refine(value => Math.abs(value * 100 - Math.round(value * 100)) < 1e-8),
+}).strict()
+
+type TransactionProposal = z.infer<typeof transactionProposalSchema>
+type SignedTransactionProposal = TransactionProposal & { requestId: string; confirmationToken: string }
 
 function encodeEvent(event: StreamEvent): Uint8Array {
   return new TextEncoder().encode(JSON.stringify(event) + '\n')
@@ -39,8 +54,9 @@ function encodeEvent(event: StreamEvent): Uint8Array {
 function createProtocolBlockFilter() {
   let buf = ''
   let emittedLen = 0
-  let awaitingCloseOfSuppressed: 'memory' | 'export' | null = null
+  let awaitingCloseOfSuppressed: 'memory' | 'export' | 'action' | null = null
   const exportBlocks: string[] = []
+  const actionBlocks: string[] = []
 
   function* drain(): Generator<string> {
     while (true) {
@@ -70,15 +86,16 @@ function createProtocolBlockFilter() {
       }
 
       const lang = buf.slice(afterFence, newlineIdx).trim()
-      if (lang === 'json:memory' || lang === 'json:export') {
+      if (lang === 'json:memory' || lang === 'json:export' || lang === 'json:action') {
         const closeIdx = buf.indexOf('```', newlineIdx + 1)
         if (closeIdx === -1) {
-          awaitingCloseOfSuppressed = lang === 'json:memory' ? 'memory' : 'export'
+          awaitingCloseOfSuppressed = lang === 'json:memory' ? 'memory' : lang === 'json:export' ? 'export' : 'action'
           return
         }
         awaitingCloseOfSuppressed = null
         const blockEnd = closeIdx + 3
         if (lang === 'json:export') exportBlocks.push(buf.slice(fenceIdx, blockEnd))
+        if (lang === 'json:action') actionBlocks.push(buf.slice(newlineIdx + 1, closeIdx))
         emittedLen = blockEnd
         continue
       }
@@ -107,6 +124,10 @@ function createProtocolBlockFilter() {
         emittedLen = buf.length
         return []
       }
+      if (awaitingCloseOfSuppressed === 'action') {
+        emittedLen = buf.length
+        return []
+      }
       const remaining = buf.slice(emittedLen)
       emittedLen = buf.length
       return remaining ? [remaining] : []
@@ -117,7 +138,19 @@ function createProtocolBlockFilter() {
     exportBlocks(): string[] {
       return exportBlocks
     },
+    actionBlocks(): string[] {
+      return actionBlocks
+    },
   }
+}
+
+function signTransactionProposal(userId: string, proposal: TransactionProposal): SignedTransactionProposal {
+  const requestId = randomUUID()
+  const payload = Buffer.from(JSON.stringify({ userId, requestId, proposal })).toString('base64url')
+  const secret = process.env.GROQ_API_KEY
+  if (!secret) throw new Error('GROQ_API_KEY non configurata')
+  const signature = createHmac('sha256', secret).update(payload).digest('base64url')
+  return { ...proposal, requestId, confirmationToken: `${payload}.${signature}` }
 }
 
 export async function POST(req: Request) {
@@ -219,7 +252,7 @@ export async function POST(req: Request) {
         const balances = getWalletBalances(transactions, walletSlugs, defaultWallet)
         const netWorth = Object.values(balances).reduce((sum, bal) => sum + bal, 0)
 
-        const walletDetails = wallets.map(w => `- ${w.name}: €${(balances[w.slug] || 0).toFixed(2)}`).join('\n')
+        const walletDetails = wallets.map(w => `- ${w.name} (slug: ${w.slug}): €${(balances[w.slug] || 0).toFixed(2)}`).join('\n')
 
         const thirtyDaysAgo = new Date()
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
@@ -273,6 +306,13 @@ ${formattedDebtsList ? `- Dettaglio Debiti/Crediti:\n${formattedDebtsList}` : '-
 ${formattedTxList || 'Nessuna transazione recente.'}
 
 Usa tutte queste informazioni (sia i dati finanziari che la memoria personale dell'utente) per rispondere in modo preciso, contestualizzato e pratico a tutte le sue domande. Ricorda il contesto delle chat passate quando rispondi. Puoi usare tabelle Markdown quando aiutano a confrontare numeri o categorie in modo più chiaro di un elenco.
+
+[SCRITTURA CON CONFERMA ESPLICITA]
+Puoi proporre esclusivamente la creazione di una singola transazione (entrata o uscita). Non puoi eseguire altre modifiche, cancellazioni, trasferimenti o operazioni bancarie. Genera un blocco json:action solo quando l'utente chiede chiaramente di registrare una transazione e hai tutti i dati: importo in euro, entrata/uscita, descrizione, data e portafoglio. Se manca un dato o ci sono più interpretazioni, chiedi chiarimenti senza generare alcun blocco. Non presumere mai l'intenzione di registrare solo perché l'utente parla di una spesa. Non convertire altre valute: chiedi chiarimenti invece di indovinare o fare conversioni. Usa una data ISO YYYY-MM-DD e uno slug esatto dei portafogli elencati. L'importo deve essere numerico positivo in euro con massimo due cifre decimali. Dopo aver spiegato cosa hai preparato, chiudi la risposta con un solo blocco:
+\`\`\`json:action
+{"type":"transaction.create","date":"YYYY-MM-DD","wallet":"slug","direction":"expense","description":"Descrizione","amount":12.5}
+\`\`\`
+Il blocco crea soltanto una proposta: l'utente deve verificare ogni campo e premere Conferma prima che venga salvata.
 
 [AGGIORNAMENTO MEMORIA UTENTE]
 Se l'utente rivela nuovi dettagli personali rilevanti, obiettivi di risparmio specifici, acquisti desiderati o preferenze (es: "voglio risparmiare 200€ entro Natale per una console", "la mia passione è il gaming"), puoi includere a fine risposta un blocco invisibile speciale per aggiornare la sua memoria a lungo termine con la seguente sintassi:
@@ -342,7 +382,20 @@ Se l'utente ti chiede di generare, esportare o scaricare un file (es. Excel/XLSX
           }
         }
 
-        controller.enqueue(encodeEvent({ type: 'done', exportBlocks: filter.exportBlocks() }))
+        let actionProposal: SignedTransactionProposal | null = null
+        if (filter.actionBlocks().length === 1) {
+          try {
+            const parsed = transactionProposalSchema.parse(JSON.parse(filter.actionBlocks()[0]))
+            const walletExists = wallets.some(wallet => wallet.slug === parsed.wallet)
+            const date = new Date(`${parsed.date}T00:00:00.000Z`)
+            const dateIsValid = !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === parsed.date
+            if (walletExists && dateIsValid) actionProposal = signTransactionProposal(user.id, parsed)
+          } catch {
+            // Invalid or ambiguous model output is discarded; it is never shown as an actionable proposal.
+          }
+        }
+
+        controller.enqueue(encodeEvent({ type: 'done', exportBlocks: filter.exportBlocks(), actionProposal }))
       } catch (err) {
         if (err instanceof GroqError) {
           controller.enqueue(encodeEvent({ type: 'error', code: err.code, message: err.message }))
