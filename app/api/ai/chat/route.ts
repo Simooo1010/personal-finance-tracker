@@ -242,7 +242,7 @@ export async function POST(req: Request) {
         const balances = getWalletBalances(transactions, walletSlugs, defaultWallet)
         const netWorth = Object.values(balances).reduce((sum, bal) => sum + bal, 0)
 
-        const walletDetails = wallets.map(w => `- ${w.name} (slug: ${w.slug}): €${(balances[w.slug] || 0).toFixed(2)}`).join('\n')
+        const walletDetails = wallets.map(w => `- ${w.name} (ID: ${w.id}, slug: ${w.slug}): €${(balances[w.slug] || 0).toFixed(2)}`).join('\n')
 
         const thirtyDaysAgo = new Date()
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)

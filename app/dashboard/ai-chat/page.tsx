@@ -54,7 +54,13 @@ function parseMessageContent(content: string): { cleanText: string; exports: Exp
       // Ignore malformed proposal blocks; they never render as an action.
     }
   }
-  const cleanText = content.replace(/```json:export[\s\S]*?```/g, '').replace(/```json:action[\s\S]*?```/g, '').trim()
+  const cleanText = content.replace(/```json:export[\s\S]*?```/g, '').replace(/```json:action[\s\S]*?```/g, '').replace(/```json\s*([\s\S]*?)```/g, (block, raw) => {
+    try {
+      const value = JSON.parse(raw)
+      const candidate = value?.action ?? value
+      return typeof candidate?.type === 'string' && /^(transaction|debt|transfer|wallet|memory)\./.test(candidate.type) ? '' : block
+    } catch { return block }
+  }).trim()
   return { cleanText, exports, actions }
 }
 
