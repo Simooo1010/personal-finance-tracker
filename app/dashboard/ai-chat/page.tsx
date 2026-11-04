@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Trash2, PanelLeftClose, PanelLeftOpen, Check, X, Loader2 } from 'lucide-react'
+import { Trash2, PanelLeftClose, PanelLeftOpen, Check, Loader2 } from 'lucide-react'
 import { SparkleIcon } from '@/components/SparkleIcon'
 import { Markdown } from '@/components/Markdown'
 import { useAi } from '@/components/AiContext'
@@ -11,7 +11,8 @@ import { useRouter } from 'next/navigation'
 import { ChatSidebar } from '@/components/ai-chat/ChatSidebar'
 import { Composer } from '@/components/ai-chat/Composer'
 import { useTransactions } from '@/components/TransactionsContext'
-import { parseSignedTransactionProposal } from '@/lib/aiActionSchema'
+import { useWallets } from '@/components/WalletContext'
+import { parseSignedAIAction } from '@/lib/aiActionSchema'
 
 const SUGGESTIONS = [
   'Quanto ho speso questa settimana?',
@@ -47,7 +48,7 @@ function parseMessageContent(content: string): { cleanText: string; exports: Exp
   const actionRegex = /```json:action\s*([\s\S]*?)\s*```/g
   while ((match = actionRegex.exec(content)) !== null) {
     try {
-      const parsed = parseSignedTransactionProposal(JSON.parse(match[1]))
+      const parsed = parseSignedAIAction(JSON.parse(match[1]))
       if (parsed) actions.push(parsed)
     } catch {
       // Ignore malformed proposal blocks; they never render as an action.
@@ -133,11 +134,10 @@ function FileCard({ exp }: { exp: ExportBlock }) {
   )
 }
 
-function MessageRow({ message, actionStatus, onConfirm, onDismiss }: {
+function MessageRow({ message, actionStatus, onConfirm }: {
   message: ChatMessage
   actionStatus: Record<string, { state: 'saving' | 'saved' | 'dismissed' | 'error'; message?: string }>
   onConfirm: (proposal: TransactionActionProposal) => void
-  onDismiss: (requestId: string) => void
 }) {
   if (message.role === 'user') {
     return (
@@ -150,6 +150,7 @@ function MessageRow({ message, actionStatus, onConfirm, onDismiss }: {
   }
 
   const { cleanText, exports, actions } = parseMessageContent(message.content)
+  const completedInHistory = message.content.includes('<!-- ai-action-completed -->')
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="w-full">
       <div className="text-[10.5px] font-semibold tracking-wider uppercase text-income mb-1.5">Sparkle</div>
@@ -158,29 +159,23 @@ function MessageRow({ message, actionStatus, onConfirm, onDismiss }: {
         {exports.map((exp, idx) => <FileCard key={idx} exp={exp} />)}
         {actions.map(action => {
           const status = actionStatus[action.requestId]
-          const amount = new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(action.amount)
-          const date = new Intl.DateTimeFormat('it-IT', { dateStyle: 'long', timeZone: 'UTC' }).format(new Date(`${action.date}T12:00:00Z`))
           return (
             <div key={action.requestId} className="mt-3 rounded-2xl border border-income/20 bg-income/5 p-4">
-              <div className="text-[10px] uppercase tracking-wider text-income font-semibold">Proposta di registrazione · da verificare</div>
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-2 mt-3 text-xs">
-                <div><dt className="text-muted">Descrizione</dt><dd className="font-medium break-words">{action.description}</dd></div>
-                <div><dt className="text-muted">Importo</dt><dd className="font-medium">{amount} · {action.direction === 'income' ? 'Entrata' : 'Uscita'}</dd></div>
-                <div><dt className="text-muted">Data</dt><dd>{date}</dd></div>
-                <div><dt className="text-muted">Portafoglio</dt><dd className="break-words">{action.wallet}</dd></div>
+              <div className="text-[10px] uppercase tracking-wider text-income font-semibold">{action.preview.title} · da verificare</div>
+              <dl className="mt-3 space-y-2 text-xs">
+                {action.preview.fields.map((field, index) => <div key={`${field.label}-${index}`} className="grid grid-cols-[minmax(6rem,1fr)_2fr] gap-2">
+                  <dt className="text-muted">{field.label}</dt>
+                  <dd className="font-medium break-words">{field.before && <span className="text-muted line-through">{field.before} → </span>}{field.after ?? field.before ?? '—'}</dd>
+                </div>)}
               </dl>
-              {status?.state === 'saved' ? (
-                <p className="mt-3 flex items-center gap-1.5 text-xs text-income"><Check className="w-3.5 h-3.5" /> Transazione registrata</p>
-              ) : status?.state === 'dismissed' ? (
-                <p className="mt-3 text-xs text-muted">Proposta ignorata</p>
+              {action.preview.warning && <p className="mt-3 text-xs text-expense">{action.preview.warning}</p>}
+              {status?.state === 'saved' || (completedInHistory && !status) ? (
+                <p className="mt-3 flex items-center gap-1.5 text-xs text-income"><Check className="w-3.5 h-3.5" /> Operazione completata</p>
               ) : (
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <button onClick={() => onConfirm(action)} disabled={status?.state === 'saving'} className="inline-flex items-center gap-1.5 rounded-full bg-income px-3 py-2 text-[11px] font-semibold text-bg disabled:opacity-60">
                     {status?.state === 'saving' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                    Conferma e registra
-                  </button>
-                  <button onClick={() => onDismiss(action.requestId)} disabled={status?.state === 'saving'} className="inline-flex items-center gap-1.5 rounded-full bg-elevated px-3 py-2 text-[11px] text-muted disabled:opacity-60">
-                    <X className="w-3.5 h-3.5" /> Ignora
+                    Conferma ed esegui
                   </button>
                   {status?.state === 'error' && <p role="alert" className="w-full text-xs text-expense">{status.message}</p>}
                 </div>
@@ -231,6 +226,7 @@ export default function AiChatPage() {
   const [actionStatus, setActionStatus] = useState<Record<string, { state: 'saving' | 'saved' | 'dismissed' | 'error'; message?: string }>>({})
   const bottomRef = useRef<HTMLDivElement>(null)
   const { refetch: refetchTransactions } = useTransactions()
+  const { refetchWallets } = useWallets()
 
   useEffect(() => {
     if (isAiEnabled === false) router.push('/dashboard')
@@ -266,20 +262,18 @@ export default function AiChatPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           token: proposal.confirmationToken,
-          proposal: {
-            type: proposal.type,
-            date: proposal.date,
-            wallet: proposal.wallet,
-            direction: proposal.direction,
-            description: proposal.description,
-            amount: proposal.amount,
-          },
+              proposal: {
+                kind: proposal.kind,
+                command: proposal.command,
+                preview: proposal.preview,
+              },
         }),
       })
       const result = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(result.error || 'Salvataggio non riuscito. Riprova.')
       setActionStatus(prev => ({ ...prev, [proposal.requestId]: { state: 'saved' } }))
       await refetchTransactions()
+      if (proposal.command.operation.startsWith('wallets.')) await refetchWallets()
     } catch (error) {
       setActionStatus(prev => ({
         ...prev,
@@ -378,7 +372,7 @@ export default function AiChatPage() {
           ) : (
             <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-7">
               <AnimatePresence initial={false}>
-                {messages.map((m) => <MessageRow key={m.id} message={m} actionStatus={actionStatus} onConfirm={confirmAction} onDismiss={(id) => setActionStatus(prev => ({ ...prev, [id]: { state: 'dismissed' } }))} />)}
+                {messages.map((m) => <MessageRow key={m.id} message={m} actionStatus={actionStatus} onConfirm={confirmAction} />)}
                 {stream && <StreamingRow key="__stream__" text={stream.text} />}
                 {error && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-center">
