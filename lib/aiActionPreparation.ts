@@ -15,11 +15,11 @@ function preview(title: string, fields: Array<{ label: string; before?: string |
 }
 
 function normalizeTransaction(transaction: Transaction) {
-  return transactionRowSchema.parse({ ...transaction, amount: Number(transaction.amount) })
+  return transactionRowSchema.parse({ id: transaction.id, title: transaction.title, amount: Number(transaction.amount), type: transaction.type, created_at: transaction.created_at })
 }
 
 function normalizeWallet(wallet: Wallet) {
-  return walletRowSchema.parse(wallet)
+  return walletRowSchema.parse({ id: wallet.id, slug: wallet.slug, name: wallet.name, description: wallet.description, position: wallet.position })
 }
 
 function findTransaction(transactions: Transaction[], id: string) {
@@ -118,7 +118,7 @@ export function prepareAIAction(
       created_at: action.changes.date ? dateWithExistingTime(action.changes.date, current.created_at) : current.created_at,
     }
     const before = normalizeTransaction(current)
-    const fields = []
+    const fields: Array<{ label: string; before: string | null; after: string | null }> = [{ label: 'Transazione', before: null, after: `${parsed.cleanTitle} · ${currentWallet.name} · ${current.created_at.slice(0, 10)}` }]
     if (before.title !== after.title) fields.push({ label: 'Descrizione / portafoglio', before: `${parsed.cleanTitle} · ${currentWallet.name}`, after: `${nextDescription} · ${wallet.name}` })
     if (before.amount !== after.amount) fields.push({ label: 'Importo', before: `€${before.amount.toFixed(2)}`, after: `€${after.amount.toFixed(2)}` })
     if (before.type !== after.type) fields.push({ label: 'Tipo', before: before.type === 'income' ? 'Entrata' : 'Uscita', after: after.type === 'income' ? 'Entrata' : 'Uscita' })
