@@ -1,8 +1,12 @@
 import { createClient } from '@/lib/supabaseServer'
 import { parseTransaction, getTransactionEffect, getWalletBalances } from '@/lib/transactions'
 import { streamGroq, GroqError, isGroqConfigured, type GroqMessage } from '@/lib/groq'
-import { createHmac, randomUUID } from 'node:crypto'
-import { z } from 'zod'
+import {
+  isValidProposalDate,
+  signTransactionProposal,
+  transactionProposalSchema,
+  type SignedTransactionProposal,
+} from '@/lib/aiActions'
 
 /**
  * Groq's free tier is rate limited by tokens-per-minute, so only the tail of a
@@ -24,19 +28,6 @@ type StreamEvent =
   | { type: 'delta'; text: string }
   | { type: 'error'; code: string; message: string }
   | { type: 'done'; exportBlocks: string[]; actionProposal: SignedTransactionProposal | null }
-
-const transactionProposalSchema = z.object({
-  type: z.literal('transaction.create'),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  wallet: z.string().min(1).max(80),
-  direction: z.enum(['income', 'expense']),
-  description: z.string().trim().min(1).max(120),
-  amount: z.number().finite().positive().max(1_000_000)
-    .refine(value => Math.abs(value * 100 - Math.round(value * 100)) < 1e-8),
-}).strict()
-
-type TransactionProposal = z.infer<typeof transactionProposalSchema>
-type SignedTransactionProposal = TransactionProposal & { requestId: string; confirmationToken: string }
 
 function encodeEvent(event: StreamEvent): Uint8Array {
   return new TextEncoder().encode(JSON.stringify(event) + '\n')
@@ -142,15 +133,6 @@ function createProtocolBlockFilter() {
       return actionBlocks
     },
   }
-}
-
-function signTransactionProposal(userId: string, proposal: TransactionProposal): SignedTransactionProposal {
-  const requestId = randomUUID()
-  const payload = Buffer.from(JSON.stringify({ userId, requestId, proposal })).toString('base64url')
-  const secret = process.env.GROQ_API_KEY
-  if (!secret) throw new Error('GROQ_API_KEY non configurata')
-  const signature = createHmac('sha256', secret).update(payload).digest('base64url')
-  return { ...proposal, requestId, confirmationToken: `${payload}.${signature}` }
 }
 
 export async function POST(req: Request) {
@@ -308,7 +290,7 @@ ${formattedTxList || 'Nessuna transazione recente.'}
 Usa tutte queste informazioni (sia i dati finanziari che la memoria personale dell'utente) per rispondere in modo preciso, contestualizzato e pratico a tutte le sue domande. Ricorda il contesto delle chat passate quando rispondi. Puoi usare tabelle Markdown quando aiutano a confrontare numeri o categorie in modo più chiaro di un elenco.
 
 [SCRITTURA CON CONFERMA ESPLICITA]
-Puoi proporre esclusivamente la creazione di una singola transazione (entrata o uscita). Non puoi eseguire altre modifiche, cancellazioni, trasferimenti o operazioni bancarie. Genera un blocco json:action solo quando l'utente chiede chiaramente di registrare una transazione e hai tutti i dati: importo in euro, entrata/uscita, descrizione, data e portafoglio. Se manca un dato o ci sono più interpretazioni, chiedi chiarimenti senza generare alcun blocco. Non presumere mai l'intenzione di registrare solo perché l'utente parla di una spesa. Non convertire altre valute: chiedi chiarimenti invece di indovinare o fare conversioni. Usa una data ISO YYYY-MM-DD e uno slug esatto dei portafogli elencati. L'importo deve essere numerico positivo in euro con massimo due cifre decimali. Dopo aver spiegato cosa hai preparato, chiudi la risposta con un solo blocco:
+Puoi proporre esclusivamente la creazione di una singola transazione (entrata o uscita). Non puoi eseguire altre modifiche, cancellazioni, trasferimenti o operazioni bancarie. Se l'utente chiede di modificare, cancellare, annullare o trasferire dati, spiega che questa funzione non è disponibile e non generare alcun blocco azione. Genera un blocco json:action solo quando l'utente chiede chiaramente di registrare una transazione e hai tutti i dati: importo in euro, entrata/uscita, descrizione, data e portafoglio. Se manca un dato o ci sono più interpretazioni, chiedi chiarimenti senza generare alcun blocco. Non presumere mai l'intenzione di registrare solo perché l'utente parla di una spesa. Non convertire altre valute: chiedi chiarimenti invece di indovinare o fare conversioni. Usa una data ISO YYYY-MM-DD e uno slug esatto dei portafogli elencati. L'importo deve essere numerico positivo in euro con massimo due cifre decimali. Dopo aver spiegato cosa hai preparato, chiudi la risposta con un solo blocco:
 \`\`\`json:action
 {"type":"transaction.create","date":"YYYY-MM-DD","wallet":"slug","direction":"expense","description":"Descrizione","amount":12.5}
 \`\`\`
@@ -387,9 +369,7 @@ Se l'utente ti chiede di generare, esportare o scaricare un file (es. Excel/XLSX
           try {
             const parsed = transactionProposalSchema.parse(JSON.parse(filter.actionBlocks()[0]))
             const walletExists = wallets.some(wallet => wallet.slug === parsed.wallet)
-            const date = new Date(`${parsed.date}T00:00:00.000Z`)
-            const dateIsValid = !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === parsed.date
-            if (walletExists && dateIsValid) actionProposal = signTransactionProposal(user.id, parsed)
+            if (walletExists && isValidProposalDate(parsed.date)) actionProposal = signTransactionProposal(user.id, parsed)
           } catch {
             // Invalid or ambiguous model output is discarded; it is never shown as an actionable proposal.
           }
