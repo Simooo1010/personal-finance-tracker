@@ -48,6 +48,23 @@ SUPABASE_SERVICE_ROLE_KEY=...
 The AI analysis and AI chat routes return `{ "enabled": false }` when `GROQ_API_KEY`
 is missing, so the rest of the app keeps working without it.
 
+### AI transaction proposals
+
+In the in-app assistant, Sparkle can prepare one new income or expense transaction
+when you explicitly ask it to record one and provide the date, amount, direction,
+description, and wallet. The app validates and signs the structured proposal on
+the server, shows every field for review, and saves it only after you select
+**Conferma e registra**. Invalid or incomplete proposals are discarded. Repeated
+confirmation requests are idempotent, so they cannot create duplicate entries.
+
+This capability only creates transactions; it cannot edit or delete records,
+create transfers, or perform banking operations. The Claude/ChatGPT integration
+described below remains read-only. To enable in-app transaction proposals, run
+[`supabase_migration_ai_writes.sql`](./supabase_migration_ai_writes.sql) once in
+the Supabase SQL editor. The AI proposal flow uses the existing `GROQ_API_KEY`
+for server-side proposal signatures and the signed-in user's Supabase session for
+authorization.
+
 ## Connecting Claude / ChatGPT to your data (read-only)
 
 Run `supabase_migration_oauth.sql` once in the Supabase SQL editor, then deploy

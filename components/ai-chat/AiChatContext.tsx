@@ -26,7 +26,18 @@ type NdjsonEvent =
   | { type: 'session'; sessionId: string; sessionTitle: string }
   | { type: 'delta'; text: string }
   | { type: 'error'; code: string; message: string }
-  | { type: 'done'; exportBlocks: string[] }
+  | { type: 'done'; exportBlocks: string[]; actionProposal: TransactionActionProposal | null }
+
+export type TransactionActionProposal = {
+  type: 'transaction.create'
+  date: string
+  wallet: string
+  direction: 'income' | 'expense'
+  description: string
+  amount: number
+  requestId: string
+  confirmationToken: string
+}
 
 const PENDING_KEY = '__pending__'
 
@@ -310,6 +321,7 @@ export function AiChatProvider({ children }: { children: ReactNode }) {
       const decoder = new TextDecoder()
       let buffer = ''
       let exportBlocks: string[] = []
+      let actionProposal: TransactionActionProposal | null = null
       let sawError: string | null = null
 
       while (true) {
@@ -346,6 +358,7 @@ export function AiChatProvider({ children }: { children: ReactNode }) {
             sawError = event.message
           } else if (event.type === 'done') {
             exportBlocks = event.exportBlocks
+            actionProposal = event.actionProposal
           }
         }
       }
@@ -355,7 +368,8 @@ export function AiChatProvider({ children }: { children: ReactNode }) {
         return
       }
 
-      const finalText = accumulatedText + (exportBlocks.length ? '\n\n' + exportBlocks.join('\n\n') : '')
+      const actionBlock = actionProposal ? `\n\n\`\`\`json:action\n${JSON.stringify(actionProposal)}\n\`\`\`` : ''
+      const finalText = accumulatedText + (exportBlocks.length ? '\n\n' + exportBlocks.join('\n\n') : '') + actionBlock
       if (resolvedSessionId) {
         await finalizeStream(resolvedSessionId, finalText, trimmed)
       }
