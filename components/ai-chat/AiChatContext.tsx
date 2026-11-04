@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createClient, getLocalUser } from '@/lib/supabaseClient'
+import type { SignedAIAction } from '@/lib/aiActionSchema'
 
 export type ChatRole = 'user' | 'assistant'
 
@@ -26,18 +27,9 @@ type NdjsonEvent =
   | { type: 'session'; sessionId: string; sessionTitle: string }
   | { type: 'delta'; text: string }
   | { type: 'error'; code: string; message: string }
-  | { type: 'done'; exportBlocks: string[]; actionProposal: TransactionActionProposal | null }
+  | { type: 'done'; exportBlocks: string[]; actionProposal: SignedAIAction | null }
 
-export type TransactionActionProposal = {
-  type: 'transaction.create'
-  date: string
-  wallet: string
-  direction: 'income' | 'expense'
-  description: string
-  amount: number
-  requestId: string
-  confirmationToken: string
-}
+export type TransactionActionProposal = SignedAIAction
 
 const PENDING_KEY = '__pending__'
 
@@ -321,7 +313,7 @@ export function AiChatProvider({ children }: { children: ReactNode }) {
       const decoder = new TextDecoder()
       let buffer = ''
       let exportBlocks: string[] = []
-      let actionProposal: TransactionActionProposal | null = null
+      let actionProposal: SignedAIAction | null = null
       let sawError: string | null = null
 
       while (true) {
