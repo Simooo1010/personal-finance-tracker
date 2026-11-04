@@ -74,7 +74,7 @@ function createProtocolBlockFilter() {
       }
 
       const lang = buf.slice(afterFence, newlineIdx).trim()
-      if (lang === 'json:memory' || lang === 'json:export' || lang === 'json:action') {
+      if (lang === 'json:memory' || lang === 'json:export' || lang === 'json:action' || lang === 'json') {
         const closeIdx = buf.indexOf('```', newlineIdx + 1)
         if (closeIdx === -1) {
           awaitingCloseOfSuppressed = lang === 'json:memory' ? 'memory' : lang === 'json:export' ? 'export' : 'action'
@@ -84,6 +84,20 @@ function createProtocolBlockFilter() {
         const blockEnd = closeIdx + 3
         if (lang === 'json:export') exportBlocks.push(buf.slice(fenceIdx, blockEnd))
         if (lang === 'json:action') actionBlocks.push(buf.slice(newlineIdx + 1, closeIdx))
+        if (lang === 'json') {
+          const raw = buf.slice(newlineIdx + 1, closeIdx)
+          try {
+            const value = JSON.parse(raw)
+            const candidate = value?.action ?? value
+            if (candidate && typeof candidate === 'object' && typeof candidate.type === 'string' && /^(transaction|debt|transfer|wallet|memory)\./.test(candidate.type)) {
+              actionBlocks.push(JSON.stringify(candidate))
+            } else {
+              yield buf.slice(fenceIdx, blockEnd)
+            }
+          } catch {
+            // Do not expose malformed action protocol output to the user.
+          }
+        }
         emittedLen = blockEnd
         continue
       }
@@ -343,6 +357,7 @@ Se l'utente ti chiede di generare, esportare o scaricare un file (es. Excel/XLSX
             actionProposal = signAIAction(user.id, prepared)
           } catch (error) {
             console.warn('Discarded invalid AI action proposal:', error instanceof Error ? error.message : 'invalid proposal')
+            controller.enqueue(encodeEvent({ type: 'delta', text: '\n\nNon sono riuscito a preparare una proposta valida. Riformula la richiesta e riprova.' }))
           }
         }
 
