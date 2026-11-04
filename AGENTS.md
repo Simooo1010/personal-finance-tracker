@@ -1,3 +1,7 @@
+## Required project context
+
+Before any task, read [instructions.md](instructions.md) and [MEMORY.md](MEMORY.md), as well as this file. Follow the delegation, GitHub sync, and verification rules there. Update project memory with verified changes and outstanding blockers before delivery.
+
 <!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know
 
@@ -7,6 +11,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ## Required review, testing, and real-usage loop
 
 For every change in this repository, treat implementation as unfinished until this loop has been completed or an external blocker is clearly recorded:
+
+For documentation-only changes, review content, links, and the full diff; app automated checks and browser flows may be marked not applicable when no executable code or app behavior changed. Still complete the GitHub delivery steps or record their blockers.
 
 1. **Define acceptance from use.** Before changing code, write down the expected user-visible behavior, the main successful path, and likely mistakes, retries, cancellation, and recovery cases. Keep actions that modify data behind the confirmation and authorization rules in the product.
 2. **Review the implementation.** Inspect the relevant code and the full diff for correctness, security, ownership, input validation, accessible controls, failure handling, and consistency with existing product behavior. Do not rely on the model's response as authority for a write.
