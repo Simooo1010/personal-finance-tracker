@@ -1,9 +1,6 @@
 import { createClient } from '@/lib/supabaseServer'
 import { parseTransaction, getTransactionEffect, getWalletBalances } from '@/lib/transactions'
 import { streamGroq, GroqError, isGroqConfigured, type GroqMessage } from '@/lib/groq'
-import { signAIAction } from '@/lib/aiActions'
-import { prepareAIAction } from '@/lib/aiActionPreparation'
-import { aiActionRequestSchema, type SignedAIAction } from '@/lib/aiActionSchema'
 
 /**
  * Groq's free tier is rate limited by tokens-per-minute, so only the tail of a
@@ -24,7 +21,7 @@ type StreamEvent =
   | { type: 'session'; sessionId: string; sessionTitle: string }
   | { type: 'delta'; text: string }
   | { type: 'error'; code: string; message: string }
-  | { type: 'done'; exportBlocks: string[]; actionProposal: SignedAIAction | null }
+  | { type: 'done'; exportBlocks: string[] }
 
 function encodeEvent(event: StreamEvent): Uint8Array {
   return new TextEncoder().encode(JSON.stringify(event) + '\n')
@@ -32,9 +29,9 @@ function encodeEvent(event: StreamEvent): Uint8Array {
 
 /**
  * The system prompt asks the model to end its reply with invisible
- * ```json:action``` / ```json:export``` fenced blocks. Neither should ever
- * flash on screen as raw text while streaming. `json:action` is processed server-side;
- * `json:export` still needs to reach the
+ * ```json:memory``` / ```json:export``` fenced blocks. Neither should ever
+ * flash on screen as raw text while streaming. `json:memory` is pure server
+ * bookkeeping and is dropped entirely. `json:export` still needs to reach the
  * client (to render as a download card and be persisted for reloads), so
  * completed export blocks are captured separately instead of being emitted
  * as regular deltas — the caller appends them once the stream ends.
@@ -42,9 +39,8 @@ function encodeEvent(event: StreamEvent): Uint8Array {
 function createProtocolBlockFilter() {
   let buf = ''
   let emittedLen = 0
-  let awaitingCloseOfSuppressed: 'memory' | 'export' | 'action' | null = null
+  let awaitingCloseOfSuppressed: 'memory' | 'export' | null = null
   const exportBlocks: string[] = []
-  const actionBlocks: string[] = []
 
   function* drain(): Generator<string> {
     while (true) {
@@ -74,30 +70,15 @@ function createProtocolBlockFilter() {
       }
 
       const lang = buf.slice(afterFence, newlineIdx).trim()
-      if (lang === 'json:memory' || lang === 'json:export' || lang === 'json:action' || lang === 'json') {
+      if (lang === 'json:memory' || lang === 'json:export') {
         const closeIdx = buf.indexOf('```', newlineIdx + 1)
         if (closeIdx === -1) {
-          awaitingCloseOfSuppressed = lang === 'json:memory' ? 'memory' : lang === 'json:export' ? 'export' : 'action'
+          awaitingCloseOfSuppressed = lang === 'json:memory' ? 'memory' : 'export'
           return
         }
         awaitingCloseOfSuppressed = null
         const blockEnd = closeIdx + 3
         if (lang === 'json:export') exportBlocks.push(buf.slice(fenceIdx, blockEnd))
-        if (lang === 'json:action') actionBlocks.push(buf.slice(newlineIdx + 1, closeIdx))
-        if (lang === 'json') {
-          const raw = buf.slice(newlineIdx + 1, closeIdx)
-          try {
-            const value = JSON.parse(raw)
-            const candidate = value?.action ?? value
-            if (candidate && typeof candidate === 'object' && typeof candidate.type === 'string' && /^(transaction|debt|transfer|wallet|memory)\./.test(candidate.type)) {
-              actionBlocks.push(JSON.stringify(candidate))
-            } else {
-              yield buf.slice(fenceIdx, blockEnd)
-            }
-          } catch {
-            // Do not expose malformed action protocol output to the user.
-          }
-        }
         emittedLen = blockEnd
         continue
       }
@@ -126,19 +107,15 @@ function createProtocolBlockFilter() {
         emittedLen = buf.length
         return []
       }
-      if (awaitingCloseOfSuppressed === 'action') {
-        emittedLen = buf.length
-        return []
-      }
       const remaining = buf.slice(emittedLen)
       emittedLen = buf.length
       return remaining ? [remaining] : []
     },
+    fullText(): string {
+      return buf
+    },
     exportBlocks(): string[] {
       return exportBlocks
-    },
-    actionBlocks(): string[] {
-      return actionBlocks
     },
   }
 }
@@ -242,7 +219,7 @@ export async function POST(req: Request) {
         const balances = getWalletBalances(transactions, walletSlugs, defaultWallet)
         const netWorth = Object.values(balances).reduce((sum, bal) => sum + bal, 0)
 
-        const walletDetails = wallets.map(w => `- ${w.name} (ID: ${w.id}, slug: ${w.slug}): €${(balances[w.slug] || 0).toFixed(2)}`).join('\n')
+        const walletDetails = wallets.map(w => `- ${w.name}: €${(balances[w.slug] || 0).toFixed(2)}`).join('\n')
 
         const thirtyDaysAgo = new Date()
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
@@ -254,15 +231,11 @@ export async function POST(req: Request) {
         const formattedTxList = recentRealTx.slice(0, 20).map(t => {
           const parsed = parseTransaction(t, defaultWallet)
           const date = new Date(t.created_at).toLocaleDateString('it-IT')
-          return `- ID ${t.id} [${date}] ${t.type === 'income' ? 'Entrata' : 'Uscita'} su [${walletMap[parsed.wallet] || parsed.wallet}] slug=${parsed.wallet}: "${parsed.cleanTitle}" (€${Number(t.amount).toFixed(2)})`
-        }).join('\n')
-        const transferList = transactions.filter(t => t.title.endsWith('-transfer]')).slice(0, 40).map(t => {
-          const parsed = parseTransaction(t, defaultWallet)
-          return `- ID ${t.id} ${t.type === 'expense' ? 'Da' : 'A'} ${walletMap[parsed.wallet] || parsed.wallet}: ${parsed.cleanTitle} (€${Number(t.amount).toFixed(2)}) [${t.created_at.slice(0, 10)}]`
+          return `- [${date}] ${t.type === 'income' ? 'Entrata' : 'Uscita'} su [${walletMap[parsed.wallet] || parsed.wallet}]: "${parsed.cleanTitle}" (€${Number(t.amount).toFixed(2)})`
         }).join('\n')
 
         const debtsList = transactions
-          .map(t => ({ id: t.id, amount: Number(t.amount), ...parseTransaction(t, defaultWallet) }))
+          .map(t => ({ amount: Number(t.amount), ...parseTransaction(t, defaultWallet) }))
           .filter(item => item.isDebt && item.debtInfo !== null)
 
         const activeCredits = debtsList.filter(d => d.debtInfo?.type === 'to_me' && d.debtInfo.status === 'active')
@@ -273,7 +246,7 @@ export async function POST(req: Request) {
 
         const formattedDebtsList = debtsList
           .filter(d => d.debtInfo?.status === 'active')
-          .map(d => `- ID ${d.id}: ${d.debtInfo?.type === 'to_me' ? 'Credito da' : 'Debito verso'} ${d.debtInfo?.person}: "${d.debtInfo?.desc}" (€${d.amount.toFixed(2)}) [${d.debtInfo?.status}]`)
+          .map(d => `- ${d.debtInfo?.type === 'to_me' ? 'Credito da' : 'Debito verso'} ${d.debtInfo?.person}: "${d.debtInfo?.desc}" (€${d.amount.toFixed(2)})`)
           .join('\n')
 
         const systemPrompt = `Sei un assistente virtuale di finanza personale avanzato integrato nell'app di tracciamento spese dell'utente (stile ChatGPT). Il tuo stile è estremamente amichevole, empatico, professionale, diretto e privo di formalismi. Parla in italiano.
@@ -298,16 +271,16 @@ ${walletDetails}
 ${formattedDebtsList ? `- Dettaglio Debiti/Crediti:\n${formattedDebtsList}` : '- Nessun debito o credito attivo.'}
 - Transazioni recenti (ultimi 30 giorni):
 ${formattedTxList || 'Nessuna transazione recente.'}
-- Trasferimenti recenti (ogni coppia ha un ID in uscita e un ID in entrata):
-${transferList || 'Nessun trasferimento recente.'}
 
 Usa tutte queste informazioni (sia i dati finanziari che la memoria personale dell'utente) per rispondere in modo preciso, contestualizzato e pratico a tutte le sue domande. Ricorda il contesto delle chat passate quando rispondi. Puoi usare tabelle Markdown quando aiutano a confrontare numeri o categorie in modo più chiaro di un elenco.
 
-[SCRITTURA FINANZIARIA CON CONFERMA ESPLICITA]
-Puoi proporre creazione, modifica ed eliminazione di transazioni, debiti/crediti, trasferimenti, portafogli e memoria. Ogni risposta può contenere una sola azione, mostrata in un'anteprima, e l'utente deve confermarla esplicitamente. Non scrivere direttamente nei dati.
-Segui con precisione il verbo: “modifica/cambia/correggi” significa update; “elimina/cancella” significa delete; “registra/aggiungi/crea” significa create. Non trasformare MAI una richiesta di modifica o cancellazione in una creazione. Se il bersaglio non è identificabile univocamente o mancano dati indispensabili, chiedi chiarimenti senza blocco azione. Usa gli ID indicati nel contesto. Per una modifica cambia solo i campi richiesti e conserva gli altri.
-Schemi (tutti i campi non opzionali sono necessari): transaction.create {type,date,wallet,direction,description,amount}; transaction.update {type,transactionId,changes:{date?,wallet?,direction?,description?,amount?}}; transaction.delete {type,transactionId}; debt.create {type,date,wallet,debtType,person,description,amount}; debt.update {type,transactionId,changes:{date?,wallet?,debtType?,person?,description?,amount?}}; debt.set_status {type,transactionId,status}; debt.delete {type,transactionId}; transfer.create {type,date,sourceWallet,destinationWallet,description?,amount}; transfer.update {type,transactionId,changes:{date?,sourceWallet?,destinationWallet?,description?,amount?}}; transfer.delete {type,transactionId}; wallet.create {type,name,description?}; wallet.update {type,walletId,changes:{name?,description?}}; wallet.delete {type,walletId}; memory.replace {type,text}. Date ISO YYYY-MM-DD, amount positivo in euro con massimo due decimali, slug esatto dai portafogli. Dopo una breve spiegazione, termina con un solo blocco json:action contenente l'oggetto.
-Tutti gli aggiornamenti alla memoria richiedono conferma, mai usare json:memory. Quando l’utente chiede di ricordare o dimenticare un fatto, emetti memory.replace con l’intero testo aggiornato, mantenendo tutti i fatti ancora validi e rimuovendo solo quelli indicati.
+[AGGIORNAMENTO MEMORIA UTENTE]
+Se l'utente rivela nuovi dettagli personali rilevanti, obiettivi di risparmio specifici, acquisti desiderati o preferenze (es: "voglio risparmiare 200€ entro Natale per una console", "la mia passione è il gaming"), puoi includere a fine risposta un blocco invisibile speciale per aggiornare la sua memoria a lungo termine con la seguente sintassi:
+\`\`\`json:memory
+{
+  "fact": "Descrizione sintetica della nuova informazione od obiettivo dell'utente"
+}
+\`\`\`
 
 [ABILITÀ GENERAZIONE FILE]
 Se l'utente ti chiede di generare, esportare o scaricare un file (es. Excel/XLSX, CSV, PDF, TXT), DEVI rispondere includendo un blocco di codice JSON speciale con questa identica sintassi:
@@ -349,19 +322,27 @@ Se l'utente ti chiede di generare, esportare o scaricare un file (es. Excel/XLSX
           controller.enqueue(encodeEvent({ type: 'delta', text: safeChunk }))
         }
 
-        let actionProposal: SignedAIAction | null = null
-        if (filter.actionBlocks().length === 1) {
+        // Post-process the full (unfiltered) text for the invisible memory block.
+        const fullText = filter.fullText()
+        const memoryRegex = /```json:memory\s*([\s\S]*?)\s*```/g
+        let memMatch
+        while ((memMatch = memoryRegex.exec(fullText)) !== null) {
           try {
-            const parsed = aiActionRequestSchema.parse(JSON.parse(filter.actionBlocks()[0]))
-            const prepared = prepareAIAction(parsed, { wallets, transactions, defaultWallet, memoryText: userMemoryText })
-            actionProposal = signAIAction(user.id, prepared)
-          } catch (error) {
-            console.warn('Discarded invalid AI action proposal:', error instanceof Error ? error.message : 'invalid proposal')
-            controller.enqueue(encodeEvent({ type: 'delta', text: '\n\nNon sono riuscito a preparare una proposta valida. Riformula la richiesta e riprova.' }))
+            const memObj = JSON.parse(memMatch[1])
+            if (memObj && memObj.fact) {
+              const updatedMem = userMemoryText ? `${userMemoryText}\n- ${memObj.fact}` : `- ${memObj.fact}`
+              await supabase.from('user_ai_memory').upsert({
+                user_id: user.id,
+                memory_text: updatedMem,
+                updated_at: new Date().toISOString(),
+              })
+            }
+          } catch {
+            // Malformed memory block — ignore, nothing to persist.
           }
         }
 
-        controller.enqueue(encodeEvent({ type: 'done', exportBlocks: filter.exportBlocks(), actionProposal }))
+        controller.enqueue(encodeEvent({ type: 'done', exportBlocks: filter.exportBlocks() }))
       } catch (err) {
         if (err instanceof GroqError) {
           controller.enqueue(encodeEvent({ type: 'error', code: err.code, message: err.message }))
