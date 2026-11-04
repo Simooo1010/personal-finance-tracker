@@ -132,12 +132,12 @@ Use subagents only when they pay off (parallel independent work, large sweeps, i
 
 | Work | Model |
 |---|---|
-| Research, read-only sweeps, light low-risk tasks | Luna or Terra as specified in instructions.md |
-| Building, implementation, verification, fixing errors | Sol as specified in instructions.md |
+| All read-only work, including independent code/documentation/security review, complex audits and running existing checks | Luna or Terra only, as specified in instructions.md; never Sol/Astra |
+| Building, editing files/docs, authoring tests, fixing errors and authorized external mutations | Sol as specified in instructions.md |
 
 - Effort at most **High**. Never max.
 - Independent subagents run in parallel in the same turn.
-- The code review (gate 3) is done by an agent that did not write the code.
+- The code review (gate 3) is read-only and done by Luna or Terra, by an agent that did not write the code. Review difficulty does not permit Sol/Astra; report findings for a separate writer to fix.
 
 ---
 

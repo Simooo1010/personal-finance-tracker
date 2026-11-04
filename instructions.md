@@ -24,16 +24,18 @@ Treat transfers and multi-record restores as atomic operations, with idempotent 
 
 The main agent coordinates app work through subagents, assigns bounded tasks with acceptance criteria, and remains responsible for integration and verified results. Use subagents for investigation, implementation, testing, review, and fixes when tools support them. Parallelize independent tasks; give each writer exclusive ownership of its files. If delegation is unavailable, record that limitation and continue the authorized work.
 
-Choose the least expensive suitable available model and set both model and reasoning effort explicitly:
+Classify by the actions authorized in the assignment, not the topic's difficulty or importance. **Every read-only task must use Luna or Terra, never Sol or Astra.** This includes independent code/documentation/security reviews, audits, complex analysis, planning recommendations, searches, summaries, and verification that only inspects or runs existing checks without changing application/external data. Returning findings in a message is read-only; it is not a writing assignment. Creating/editing source, tests, documentation, configuration or external records is write work. Incidental test/build artifacts do not turn verification into implementation.
+
+Choose the least expensive suitable allowed model and set both model and reasoning effort explicitly:
 
 | Work | Model | Effort |
 | --- | --- | --- |
 | Simple read-only inspection, searches, summaries, low-stakes checks | Luna (`gpt-6-luna`) | low; medium if needed |
-| Broader read-only investigation or bounded low-stakes work | Terra (`gpt-6.1-terra`) | low or medium; high only when justified |
-| Implementation, writing, substantive tests, fixes, security review, complex reasoning | Sol (`gpt-6.1-sol` or available Sol variant) | low, medium, or high according to difficulty |
-| Rare, exceptionally difficult issue remaining after cheaper attempts | Astra (`gpt-6-astra`) | lowest supported effort only (currently low); never medium or high |
+| Broader/complex read-only investigation, independent code/documentation/security review, audit, existing-check verification | Terra (`gpt-6.1-terra`) | low or medium; high only when justified |
+| Implementation, file/document writing, authoring tests, fixes, authorized external mutations | Sol (`gpt-6.1-sol` or available Sol variant) | low, medium, or high according to difficulty |
+| Rare, exceptionally difficult write task remaining after cheaper attempts | Astra (`gpt-6-astra`) | lowest supported effort only (currently low); never medium or high; never read-only work |
 
-Never give any subagent effort above high. Never use Astra routinely. If a listed model is unavailable, use an available suitable model within these caps and report the substitution. Read-only agents must not edit files or mutate external data. Require evidence, file references, checks, and unresolved issues in handoffs; independently verify claims before integration or writes.
+Never give any subagent effort above high. Never use Astra routinely. For read-only work, substitute Luna and Terra only for each other; if neither is available, report the limitation rather than silently selecting Sol/Astra. Split mixed assignments into read-only investigation/review (Luna/Terra) and implementation (Sol) when practical. A reviewer reports findings; a separate writer applies fixes. Do not broaden a review into write work merely to justify Sol. For write tasks, other suitable substitutions must stay within the effort caps and be reported. Read-only agents must not edit files or mutate external data. Require evidence, file references, checks, and unresolved issues in handoffs; independently verify claims before integration or writes.
 
 ## Acceptance and repeat-until-working loop
 

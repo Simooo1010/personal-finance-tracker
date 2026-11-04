@@ -11,7 +11,7 @@ Read `instructions.md` and `AGENTS.md` together with this file before every task
 
 ## Working agreements added 2026-11-04
 
-- `instructions.md` defines subagent delegation: Luna/Terra for read-only or low-stakes work, Sol for substantive writing/testing/fixes, rare Astra at minimum effort only. All subagents are capped at high effort.
+- `instructions.md` defines subagent delegation: Luna/Terra only for every read-only task, including independent reviews, security audits and running existing checks; Sol for implementation/file writing/test authoring/fixes, rare Astra for exceptionally difficult write tasks at minimum effort only. All subagents are capped at high effort. This routing was explicitly clarified by the owner below.
 - `AGENTS.md` links both project context files; agents must read all three and maintain this memory.
 - Every feature requires review, automated checks, actual browser use, and repeated fixes/retests until acceptance passes or a precise external blocker is recorded.
 - Commit and push reviewed task changes at logical checkpoints; verify remote synchronization and finish the PR/CI loop. No background file watcher is installed by these instructions.
@@ -35,3 +35,9 @@ Read `instructions.md` and `AGENTS.md` together with this file before every task
 - Next: approve/amend spec, establish isolated sandbox and authorized preview, then reproducible baseline/tests and prioritized fixes. Do not claim full QA or implementation complete from this documentation checkpoint.
 - Documentation review: independent Sol reviewer found a missing template reference and clarified docs-only gates, fixture privacy and branch prefixes; corrected the local workflow. Local Markdown links and `git diff --check` passed. Application/lockfile behavior unchanged.
 - Delivery: draft PR [#19](https://github.com/Simooo1010/personal-finance-tracker/pull/19), branch `codex/app-audit-spec`. Initial commit `de05b35` pushed and matched the connector's PR head. Independent follow-up confirmed all review findings fixed. Vercel preview is a separate hosting check, not automated application regression coverage. No production merge is authorized or performed; spec approval remains next.
+
+## Read-only model routing correction — 2026-11-04
+
+- Owner clarified that all read-only work must use Luna or Terra, never Sol. The earlier Sol documentation reviews above describe what happened, not an approved precedent; they did not follow the intended routing.
+- Updated AGENTS, CLAUDE, instructions and WORKFLOW to classify by allowed actions: reviews/security/complex reasoning and existing-check verification remain read-only; reporting findings is not file writing. Sol authors changes/tests/fixes. Mixed tasks should be split. Read-only fallback stays within Luna/Terra; report if both unavailable. No application behavior or spec approval changed.
+- Independent read-only Terra review found no routing ambiguity or outstanding findings. Documentation diff checks passed; app tests/browser checks are not applicable to this instruction-only correction. Delivered on the existing draft PR #19; no merge.
