@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "tsc --target ES2022 --module commonjs --moduleResolution node --esModuleInterop --skipLibCheck --outDir node_modules/.cache/test-build --types node tests/ai-actions.test.ts && node node_modules/.cache/test-build/tests/ai-actions.test.js"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",

@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation'
 import { ChatSidebar } from '@/components/ai-chat/ChatSidebar'
 import { Composer } from '@/components/ai-chat/Composer'
 import { useTransactions } from '@/components/TransactionsContext'
+import { parseSignedTransactionProposal } from '@/lib/aiActionSchema'
 
 const SUGGESTIONS = [
   'Quanto ho speso questa settimana?',
@@ -46,13 +47,8 @@ function parseMessageContent(content: string): { cleanText: string; exports: Exp
   const actionRegex = /```json:action\s*([\s\S]*?)\s*```/g
   while ((match = actionRegex.exec(content)) !== null) {
     try {
-      const parsed = JSON.parse(match[1])
-      if (
-        parsed?.type === 'transaction.create' && typeof parsed.date === 'string' &&
-        typeof parsed.wallet === 'string' && (parsed.direction === 'income' || parsed.direction === 'expense') &&
-        typeof parsed.description === 'string' && typeof parsed.amount === 'number' &&
-        typeof parsed.requestId === 'string' && typeof parsed.confirmationToken === 'string'
-      ) actions.push(parsed as TransactionActionProposal)
+      const parsed = parseSignedTransactionProposal(JSON.parse(match[1]))
+      if (parsed) actions.push(parsed)
     } catch {
       // Ignore malformed proposal blocks; they never render as an action.
     }
