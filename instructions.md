@@ -4,6 +4,22 @@
 
 Every main agent and subagent must read `AGENTS.md`, `instructions.md`, and `MEMORY.md` before working. Revisit them when scope changes and before delivery. Follow more specific directory instructions too. These files describe this repository; do not confuse project memory with the assistant's private memory or the app's AI memory.
 
+Also read `CLAUDE.md`, `docs/WORKFLOW.md`, and the current `docs/SPEC.md`. Follow the adopted playbook every session. Owner chose Autonomous mode after spec approval, phone/desktop and both themes, and finance-app-only instruction updates on 2026-11-04. Never treat a draft spec or approval-mode choice as approval to implement it. Production merge needs owner OK.
+
+## Discover connections quickly
+
+Start with `docs/CONNECTIONS.md` and the Git remote. Batch independent read-only checks of GitHub branch/PR state, Vercel deployment commit, and Supabase project/schema; do not make the owner repeat information available through connectors. Use known project IDs and purpose-built tools instead of broad account scans or UI navigation. Keep one dated evidence table with service, project, commit/environment, access actually tested, and blockers. Stop discovery when the next action is supported; refresh only changed or relevant facts.
+
+Store identifiers, names and verification dates only. Never copy tokens, environment values, OAuth code/token rows, financial records, or personal data into connection docs or logs. Connection listings are not proof of a usable browser login or sandbox. Inspect metadata first; do not invoke stored functions to test connectivity. If access expires, record it and request reconnection instead of retrying indefinitely. Preserve the distinction between application rollback and database rollback: compare deployed migrations, policies and RPCs when code is reverted.
+
+## Keep features contained
+
+Build data access and pure domain logic before UI. Keep shared ledger/auth providers independent of optional AI, exports, or analytics initialization. No implicit write just from visiting a page. Validate inputs and model output at each write boundary, authorize ownership server-side/RLS, and require the product's confirmation before consequential actions. A hidden button is not authorization.
+
+Use feature error boundaries with useful retry/navigation, explicit loading/error/empty states, bounded requests with cancellation, and a recovery path that retains unsaved input. A failed fetch must not become a zero balance or an empty account. Paginate with deterministic ordering; refuse to present incomplete totals as complete. Profile before/after with the same dataset, device and build; avoid speculative caches or disabling checks to make results look faster.
+
+Treat transfers and multi-record restores as atomic operations, with idempotent retries and concurrency checks where needed. Check both returned database errors and thrown exceptions. Do not record success, close a draft, or mark history reverted until the write is verified. Each fixed bug gets a regression test; exercise failure, duplicate-click, cancel, reload, and recovery paths. Keep fixtures synthetic or anonymized inside tests, never production seed data. No database migration or schema normalization as incidental cleanup.
+
 ## Delegate deliberately
 
 The main agent coordinates app work through subagents, assigns bounded tasks with acceptance criteria, and remains responsible for integration and verified results. Use subagents for investigation, implementation, testing, review, and fixes when tools support them. Parallelize independent tasks; give each writer exclusive ownership of its files. If delegation is unavailable, record that limitation and continue the authorized work.

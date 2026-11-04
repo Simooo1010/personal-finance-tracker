@@ -2,6 +2,8 @@
 
 Before any task, read [instructions.md](instructions.md) and [MEMORY.md](MEMORY.md), as well as this file. Follow the delegation, GitHub sync, and verification rules there. Update project memory with verified changes and outstanding blockers before delivery.
 
+Read [docs/WORKFLOW.md](docs/WORKFLOW.md) and [docs/SPEC.md](docs/SPEC.md) before implementation. Use [docs/CONNECTIONS.md](docs/CONNECTIONS.md) for fast read-only discovery; verify current access rather than assuming a stored connection works. Autonomous mode starts only after the owner approves the spec.
+
 <!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know
 
