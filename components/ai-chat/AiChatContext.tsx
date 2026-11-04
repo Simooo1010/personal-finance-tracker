@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createClient, getLocalUser } from '@/lib/supabaseClient'
+import { parseSignedAIAction } from '@/lib/aiActionSchema'
 import type { SignedAIAction } from '@/lib/aiActionSchema'
 
 export type ChatRole = 'user' | 'assistant'
@@ -150,9 +151,31 @@ export function AiChatProvider({ children }: { children: ReactNode }) {
       .eq('session_id', sessionId)
       .order('created_at', { ascending: true })
 
+    const loadedMessages = !error && data ? data.map(m => ({ id: m.id, role: m.role, content: m.content })) : []
+    const requestIds = loadedMessages.flatMap(message => {
+      if (message.role !== 'assistant') return []
+      const matches = message.content.matchAll(/```json:action\s*([\s\S]*?)\s*```/g)
+      return Array.from(matches, (match: RegExpMatchArray) => {
+        try { return parseSignedAIAction(JSON.parse(match[1]))?.requestId ?? null } catch { return null }
+      }).filter((id): id is string => Boolean(id))
+    })
+    const completedIds = new Set<string>()
+    if (requestIds.length) {
+      const { data: completed } = await supabase.from('ai_write_requests').select('request_id').eq('user_id', user.id).in('request_id', requestIds)
+      for (const row of completed || []) completedIds.add(row.request_id)
+    }
     setMessagesBySession(prev => ({
       ...prev,
-      [sessionId]: !error && data ? data.map(m => ({ id: m.id, role: m.role, content: m.content })) : [],
+      [sessionId]: loadedMessages.map(message => {
+        if (message.role !== 'assistant') return message
+        const content = message.content.replace(/```json:action\s*([\s\S]*?)\s*```/g, (block: string, json: string) => {
+          try {
+            const id = parseSignedAIAction(JSON.parse(json))?.requestId
+            return id && completedIds.has(id) ? `${block}\n<!-- ai-action-completed -->` : block
+          } catch { return block }
+        })
+        return { ...message, content }
+      }),
     }))
     setLoadingMessageSets(prev => {
       const next = new Set(prev)

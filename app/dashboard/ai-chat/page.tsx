@@ -150,6 +150,7 @@ function MessageRow({ message, actionStatus, onConfirm }: {
   }
 
   const { cleanText, exports, actions } = parseMessageContent(message.content)
+  const completedInHistory = message.content.includes('<!-- ai-action-completed -->')
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="w-full">
       <div className="text-[10.5px] font-semibold tracking-wider uppercase text-income mb-1.5">Sparkle</div>
@@ -168,7 +169,7 @@ function MessageRow({ message, actionStatus, onConfirm }: {
                 </div>)}
               </dl>
               {action.preview.warning && <p className="mt-3 text-xs text-expense">{action.preview.warning}</p>}
-              {status?.state === 'saved' ? (
+              {status?.state === 'saved' || (completedInHistory && !status) ? (
                 <p className="mt-3 flex items-center gap-1.5 text-xs text-income"><Check className="w-3.5 h-3.5" /> Operazione completata</p>
               ) : (
                 <div className="mt-3 flex flex-wrap items-center gap-2">
