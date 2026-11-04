@@ -184,7 +184,7 @@ export function prepareAIAction(
       }
     }
     const changes = action.type === 'debt.set_status' ? { status: action.status } : action.changes
-    const nextDebt = { ...parsed.debtInfo, ...changes }
+    const nextDebt = { ...parsed.debtInfo, person: changes.person ?? parsed.debtInfo.person, desc: changes.description ?? parsed.debtInfo.desc, type: changes.debtType ?? parsed.debtInfo.type, status: changes.status ?? parsed.debtInfo.status }
     const wallet = changes.wallet ? walletBySlug(wallets, changes.wallet) : walletBySlug(wallets, parsed.wallet)
     const after = {
       ...before,
