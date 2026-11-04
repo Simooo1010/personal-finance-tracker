@@ -2,8 +2,6 @@
 
 import { createContext, useContext, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createClient, getLocalUser } from '@/lib/supabaseClient'
-import { parseSignedAIAction } from '@/lib/aiActionSchema'
-import type { SignedAIAction } from '@/lib/aiActionSchema'
 
 export type ChatRole = 'user' | 'assistant'
 
@@ -28,9 +26,7 @@ type NdjsonEvent =
   | { type: 'session'; sessionId: string; sessionTitle: string }
   | { type: 'delta'; text: string }
   | { type: 'error'; code: string; message: string }
-  | { type: 'done'; exportBlocks: string[]; actionProposal: SignedAIAction | null }
-
-export type TransactionActionProposal = SignedAIAction
+  | { type: 'done'; exportBlocks: string[] }
 
 const PENDING_KEY = '__pending__'
 
@@ -151,31 +147,9 @@ export function AiChatProvider({ children }: { children: ReactNode }) {
       .eq('session_id', sessionId)
       .order('created_at', { ascending: true })
 
-    const loadedMessages = !error && data ? data.map(m => ({ id: m.id, role: m.role, content: m.content })) : []
-    const requestIds = loadedMessages.flatMap(message => {
-      if (message.role !== 'assistant') return []
-      const matches = message.content.matchAll(/```json:action\s*([\s\S]*?)\s*```/g)
-      return Array.from(matches, (match: RegExpMatchArray) => {
-        try { return parseSignedAIAction(JSON.parse(match[1]))?.requestId ?? null } catch { return null }
-      }).filter((id): id is string => Boolean(id))
-    })
-    const completedIds = new Set<string>()
-    if (requestIds.length) {
-      const { data: completed } = await supabase.from('ai_write_requests').select('request_id').eq('user_id', user.id).in('request_id', requestIds)
-      for (const row of completed || []) completedIds.add(row.request_id)
-    }
     setMessagesBySession(prev => ({
       ...prev,
-      [sessionId]: loadedMessages.map(message => {
-        if (message.role !== 'assistant') return message
-        const content = message.content.replace(/```json:action\s*([\s\S]*?)\s*```/g, (block: string, json: string) => {
-          try {
-            const id = parseSignedAIAction(JSON.parse(json))?.requestId
-            return id && completedIds.has(id) ? `${block}\n<!-- ai-action-completed -->` : block
-          } catch { return block }
-        })
-        return { ...message, content }
-      }),
+      [sessionId]: !error && data ? data.map(m => ({ id: m.id, role: m.role, content: m.content })) : [],
     }))
     setLoadingMessageSets(prev => {
       const next = new Set(prev)
@@ -336,7 +310,6 @@ export function AiChatProvider({ children }: { children: ReactNode }) {
       const decoder = new TextDecoder()
       let buffer = ''
       let exportBlocks: string[] = []
-      let actionProposal: SignedAIAction | null = null
       let sawError: string | null = null
 
       while (true) {
@@ -373,7 +346,6 @@ export function AiChatProvider({ children }: { children: ReactNode }) {
             sawError = event.message
           } else if (event.type === 'done') {
             exportBlocks = event.exportBlocks
-            actionProposal = event.actionProposal
           }
         }
       }
@@ -383,8 +355,7 @@ export function AiChatProvider({ children }: { children: ReactNode }) {
         return
       }
 
-      const actionBlock = actionProposal ? `\n\n\`\`\`json:action\n${JSON.stringify(actionProposal)}\n\`\`\`` : ''
-      const finalText = accumulatedText + (exportBlocks.length ? '\n\n' + exportBlocks.join('\n\n') : '') + actionBlock
+      const finalText = accumulatedText + (exportBlocks.length ? '\n\n' + exportBlocks.join('\n\n') : '')
       if (resolvedSessionId) {
         await finalizeStream(resolvedSessionId, finalText, trimmed)
       }

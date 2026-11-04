@@ -2,17 +2,14 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Trash2, PanelLeftClose, PanelLeftOpen, Check, Loader2 } from 'lucide-react'
+import { Trash2, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { SparkleIcon } from '@/components/SparkleIcon'
 import { Markdown } from '@/components/Markdown'
 import { useAi } from '@/components/AiContext'
-import { useAiChat, type ChatMessage, type TransactionActionProposal } from '@/components/ai-chat/AiChatContext'
+import { useAiChat, type ChatMessage } from '@/components/ai-chat/AiChatContext'
 import { useRouter } from 'next/navigation'
 import { ChatSidebar } from '@/components/ai-chat/ChatSidebar'
 import { Composer } from '@/components/ai-chat/Composer'
-import { useTransactions } from '@/components/TransactionsContext'
-import { useWallets } from '@/components/WalletContext'
-import { parseSignedAIAction } from '@/lib/aiActionSchema'
 
 const SUGGESTIONS = [
   'Quanto ho speso questa settimana?',
@@ -27,9 +24,8 @@ type ExportBlock = {
   rows: any[]
 }
 
-function parseMessageContent(content: string): { cleanText: string; exports: ExportBlock[]; actions: TransactionActionProposal[] } {
+function parseMessageContent(content: string): { cleanText: string; exports: ExportBlock[] } {
   const exports: ExportBlock[] = []
-  const actions: TransactionActionProposal[] = []
   const exportRegex = /```json:export\s*([\s\S]*?)\s*```/g
   let match
   while ((match = exportRegex.exec(content)) !== null) {
@@ -45,23 +41,8 @@ function parseMessageContent(content: string): { cleanText: string; exports: Exp
       // limit) — skip it rather than rendering a broken card.
     }
   }
-  const actionRegex = /```json:action\s*([\s\S]*?)\s*```/g
-  while ((match = actionRegex.exec(content)) !== null) {
-    try {
-      const parsed = parseSignedAIAction(JSON.parse(match[1]))
-      if (parsed) actions.push(parsed)
-    } catch {
-      // Ignore malformed proposal blocks; they never render as an action.
-    }
-  }
-  const cleanText = content.replace(/```json:export[\s\S]*?```/g, '').replace(/```json:action[\s\S]*?```/g, '').replace(/```json\s*([\s\S]*?)```/g, (block, raw) => {
-    try {
-      const value = JSON.parse(raw)
-      const candidate = value?.action ?? value
-      return typeof candidate?.type === 'string' && /^(transaction|debt|transfer|wallet|memory)\./.test(candidate.type) ? '' : block
-    } catch { return block }
-  }).trim()
-  return { cleanText, exports, actions }
+  const cleanText = content.replace(/```json:export[\s\S]*?```/g, '').trim()
+  return { cleanText, exports }
 }
 
 function triggerDownload(exp: ExportBlock) {
@@ -140,11 +121,7 @@ function FileCard({ exp }: { exp: ExportBlock }) {
   )
 }
 
-function MessageRow({ message, actionStatus, onConfirm }: {
-  message: ChatMessage
-  actionStatus: Record<string, { state: 'saving' | 'saved' | 'dismissed' | 'error'; message?: string }>
-  onConfirm: (proposal: TransactionActionProposal) => void
-}) {
+function MessageRow({ message }: { message: ChatMessage }) {
   if (message.role === 'user') {
     return (
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex justify-end">
@@ -155,40 +132,13 @@ function MessageRow({ message, actionStatus, onConfirm }: {
     )
   }
 
-  const { cleanText, exports, actions } = parseMessageContent(message.content)
-  const completedInHistory = message.content.includes('<!-- ai-action-completed -->')
+  const { cleanText, exports } = parseMessageContent(message.content)
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="w-full">
       <div className="text-[10.5px] font-semibold tracking-wider uppercase text-income mb-1.5">Sparkle</div>
       <div className="text-xs sm:text-sm font-light leading-relaxed max-w-none">
         {cleanText && <Markdown>{cleanText}</Markdown>}
         {exports.map((exp, idx) => <FileCard key={idx} exp={exp} />)}
-        {actions.map(action => {
-          const status = actionStatus[action.requestId]
-          return (
-            <div key={action.requestId} className="mt-3 rounded-2xl border border-income/20 bg-income/5 p-4">
-              <div className="text-[10px] uppercase tracking-wider text-income font-semibold">{action.preview.title} · da verificare</div>
-              <dl className="mt-3 space-y-2 text-xs">
-                {action.preview.fields.map((field, index) => <div key={`${field.label}-${index}`} className="grid grid-cols-[minmax(6rem,1fr)_2fr] gap-2">
-                  <dt className="text-muted">{field.label}</dt>
-                  <dd className="font-medium break-words">{field.before && <span className="text-muted line-through">{field.before} → </span>}{field.after ?? field.before ?? '—'}</dd>
-                </div>)}
-              </dl>
-              {action.preview.warning && <p className="mt-3 text-xs text-expense">{action.preview.warning}</p>}
-              {status?.state === 'saved' || (completedInHistory && !status) ? (
-                <p className="mt-3 flex items-center gap-1.5 text-xs text-income"><Check className="w-3.5 h-3.5" /> Operazione completata</p>
-              ) : (
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <button onClick={() => onConfirm(action)} disabled={status?.state === 'saving'} className="inline-flex items-center gap-1.5 rounded-full bg-income px-3 py-2 text-[11px] font-semibold text-bg disabled:opacity-60">
-                    {status?.state === 'saving' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                    Conferma ed esegui
-                  </button>
-                  {status?.state === 'error' && <p role="alert" className="w-full text-xs text-expense">{status.message}</p>}
-                </div>
-              )}
-            </div>
-          )
-        })}
       </div>
     </motion.div>
   )
@@ -229,10 +179,7 @@ export default function AiChatPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState('')
-  const [actionStatus, setActionStatus] = useState<Record<string, { state: 'saving' | 'saved' | 'dismissed' | 'error'; message?: string }>>({})
   const bottomRef = useRef<HTMLDivElement>(null)
-  const { refetch: refetchTransactions } = useTransactions()
-  const { refetchWallets } = useWallets()
 
   useEffect(() => {
     if (isAiEnabled === false) router.push('/dashboard')
@@ -257,35 +204,6 @@ export default function AiChatPage() {
     if (!confirm('Sei sicuro di voler eliminare questa conversazione?')) return
     const result = await deleteSession(activeSessionId)
     if (!result.ok && result.reason) alert(result.reason)
-  }
-
-  const confirmAction = async (proposal: TransactionActionProposal) => {
-    if (actionStatus[proposal.requestId]?.state === 'saving' || actionStatus[proposal.requestId]?.state === 'saved') return
-    setActionStatus(prev => ({ ...prev, [proposal.requestId]: { state: 'saving' } }))
-    try {
-      const response = await fetch('/api/ai/actions/confirm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token: proposal.confirmationToken,
-              proposal: {
-                kind: proposal.kind,
-                command: proposal.command,
-                preview: proposal.preview,
-              },
-        }),
-      })
-      const result = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(result.error || 'Salvataggio non riuscito. Riprova.')
-      setActionStatus(prev => ({ ...prev, [proposal.requestId]: { state: 'saved' } }))
-      await refetchTransactions()
-      if (proposal.command.operation.startsWith('wallets.')) await refetchWallets()
-    } catch (error) {
-      setActionStatus(prev => ({
-        ...prev,
-        [proposal.requestId]: { state: 'error', message: error instanceof Error ? error.message : 'Errore durante il salvataggio.' },
-      }))
-    }
   }
 
   return (
@@ -378,7 +296,7 @@ export default function AiChatPage() {
           ) : (
             <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-7">
               <AnimatePresence initial={false}>
-                {messages.map((m) => <MessageRow key={m.id} message={m} actionStatus={actionStatus} onConfirm={confirmAction} />)}
+                {messages.map((m) => <MessageRow key={m.id} message={m} />)}
                 {stream && <StreamingRow key="__stream__" text={stream.text} />}
                 {error && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-center">
