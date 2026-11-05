@@ -1,6 +1,6 @@
 # Project workflow
 
-Adapted from https://github.com/Simooo1010/claude-project-playbook at commit `acd42cb48cb1de7f2669de3c7c5845bcb6c53c27`, reviewed 2026-11-04. Finance-app settings in `CLAUDE.md`, product safety rules in `AGENTS.md`, and `instructions.md` take precedence over generic template defaults. This checkout runs in Codex on Windows; use the available tools and models specified in `instructions.md`, not unavailable Claude model names. Owner selected Autonomous mode after spec approval; production merge still requires owner OK. The spec below is a proposal until explicitly approved.
+Adapted from https://github.com/Simooo1010/claude-project-playbook at commit `acd42cb48cb1de7f2669de3c7c5845bcb6c53c27`, reviewed 2026-11-04. Finance-app settings in `CLAUDE.md`, product safety rules in `AGENTS.md`, and `instructions.md` take precedence over generic template defaults. This checkout runs in Codex on Windows. Follow the model routing in `instructions.md`. The owner approved the spec for Autonomous delivery on 2026-11-05. Production merge requires separate owner approval.
 
 # WORKFLOW — how Claude works in this repo
 
