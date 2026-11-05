@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createClient, getLocalUser } from '@/lib/supabaseClient'
+import { buildChatBody } from '@/lib/ai-chat-limits'
 
 export type ChatRole = 'user' | 'assistant'
 
@@ -252,10 +253,10 @@ export function AiChatProvider({ children }: { children: ReactNode }) {
 
     const targetSessionId = activeSessionId
     const draftKey = targetSessionId ?? PENDING_KEY
+    if (abortControllers.current[draftKey]) return
     const userMsg: ChatMessage = { id: `local-user-${Date.now()}`, role: 'user', content: trimmed }
 
     const historyForRequest = [...(targetSessionId ? getMessages(targetSessionId) : []), userMsg]
-      .map(m => ({ role: m.role, content: m.content }))
 
     setMessagesBySession(prev => ({
       ...prev,
@@ -297,12 +298,13 @@ export function AiChatProvider({ children }: { children: ReactNode }) {
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: targetSessionId, messages: historyForRequest }),
+        body: buildChatBody(targetSessionId, historyForRequest),
         signal: controller.signal,
       })
 
-      if (!res.ok || !res.body) {
+      if (!res.ok || !res.body || !res.headers.get('content-type')?.includes('application/x-ndjson')) {
         const data = await res.json().catch(() => ({}))
+        if (data.enabled === false) throw new Error('Funzionalità AI non abilitata')
         throw new Error(data.message || data.error || 'Errore nella richiesta')
       }
 
@@ -311,6 +313,7 @@ export function AiChatProvider({ children }: { children: ReactNode }) {
       let buffer = ''
       let exportBlocks: string[] = []
       let sawError: string | null = null
+      let sawDone = false
 
       while (true) {
         const { done, value } = await reader.read()
@@ -345,13 +348,14 @@ export function AiChatProvider({ children }: { children: ReactNode }) {
           } else if (event.type === 'error') {
             sawError = event.message
           } else if (event.type === 'done') {
+            sawDone = true
             exportBlocks = event.exportBlocks
           }
         }
       }
 
-      if (sawError) {
-        await settleWithError(resolvedSessionId, draftKey, accumulatedText, trimmed, sawError)
+      if (sawError || !sawDone) {
+        await settleWithError(resolvedSessionId, draftKey, accumulatedText, trimmed, sawError ?? 'Connessione AI interrotta. Riprova.')
         return
       }
 
@@ -359,8 +363,8 @@ export function AiChatProvider({ children }: { children: ReactNode }) {
       if (resolvedSessionId) {
         await finalizeStream(resolvedSessionId, finalText, trimmed)
       }
-    } catch (err: any) {
-      if (err?.name === 'AbortError') {
+    } catch (err) {
+      if (controller.signal.aborted) {
         // User stopped generation deliberately — keep whatever text streamed in so far.
         if (resolvedSessionId && accumulatedText) {
           await finalizeStream(resolvedSessionId, accumulatedText, trimmed)
@@ -374,7 +378,10 @@ export function AiChatProvider({ children }: { children: ReactNode }) {
         }
         return
       }
-      await settleWithError(resolvedSessionId, draftKey, accumulatedText, trimmed, err.message || 'Errore di rete')
+      await settleWithError(resolvedSessionId, draftKey, accumulatedText, trimmed, err instanceof Error ? err.message : 'Errore di rete')
+    } finally {
+      const key = resolvedSessionId ?? draftKey
+      if (abortControllers.current[key] === controller) delete abortControllers.current[key]
     }
     // Intentionally not depending on `streams` — accumulation is tracked in
     // the local `accumulatedText` variable above so this closure doesn't

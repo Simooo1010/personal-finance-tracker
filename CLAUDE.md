@@ -7,7 +7,7 @@
 - **Acceptance devices:** phone and desktop, light and dark themes. Specific phone/browser remains to be recorded when owner testing begins.
 - **Data:** Supabase. The owner confirmed there is no sandbox. No personal/production test records without specific authorization. See `SETUP-FOR-OWNER.md`.
 - **Runtime:** Codex on Windows for this checkout; keep existing Next.js/React/Supabase stack. Use the models/effort caps in `instructions.md` rather than the playbook's generic Claude model table.
-- **Read-only models:** Luna or Terra only, including independent code/documentation/security review and complex investigation. Sol is for write work, not read-only reviews or verification.
+- **Subagent models:** Luna or Terra for research, low-stakes work and all read-only tasks, including complex investigation and independent reviews. Sol is for substantive implementation and fixes.
 - **Dependencies:** existing `package.json` is the application baseline. Ask before adding runtime dependencies. Dev test/lint tooling is exempt under WORKFLOW section 7; document additions and pin the lockfile.
 - **Writes:** preserve existing user-confirmed transactions, debts, transfers, wallets, history, and chat workflows. AI output is untrusted input, never authorization for financial or memory writes. External AI tools remain read-only. Any change to write policy or database schema requires a reviewed spec/migration and verified ownership checks.
 - Commands: `npm ci`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, `npm run dev`, `npm start`. GitHub Actions runs the baseline checks. Authenticated and performance checks use the isolated environment in `docs/SANDBOX-BOOTSTRAP.md`.

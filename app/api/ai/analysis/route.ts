@@ -1,29 +1,29 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabaseServer'
+import { z } from 'zod'
+import { acquireAiRequest, aiErrorResponse, AiRequestError, aiRequestSignal, authorizeAiRequest } from '@/lib/ai-request'
 import { parseTransaction, getTransactionEffect, getWalletBalances } from '@/lib/transactions'
-import { callGroq, GroqError, isGroqConfigured } from '@/lib/groq'
+import { callGroq, GroqError } from '@/lib/groq'
+
+const analysisInput = z.object({ forceRefresh: z.boolean().optional() }).strict()
 
 export async function POST(req: Request) {
-  if (!isGroqConfigured()) {
-    return NextResponse.json({ enabled: false }, { status: 200 })
-  }
-
+  const signal = aiRequestSignal(req.signal)
+  let release: (() => void) | undefined
   try {
-    const { forceRefresh } = await req.json().catch(() => ({ forceRefresh: false }))
-
-    // 1. Authenticate user
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Non autorizzato' }, { status: 401 })
-    }
+    const auth = await authorizeAiRequest(req, analysisInput, 4096, signal)
+    if (auth instanceof Response) return auth
+    const { supabase, user, input: { forceRefresh } } = auth
+    release = acquireAiRequest('analysis', user.id, 'refresh').release
 
     // 2. Check if analysis exists in database to calculate cycles
     const { data: existingAnalysis, error: fetchError } = await supabase
       .from('ai_analysis')
       .select('*')
       .eq('user_id', user.id)
+      .abortSignal(signal)
       .maybeSingle()
+    signal.throwIfAborted()
+    if (fetchError) throw new AiRequestError(500, 'Errore nel caricamento dell\'analisi')
 
     const now = new Date()
 
@@ -53,6 +53,7 @@ export async function POST(req: Request) {
       .from('user_ai_memory')
       .select('memory_text')
       .eq('user_id', user.id)
+      .abortSignal(signal)
       .maybeSingle()
 
     const userMemoryText = memoryData?.memory_text || ''
@@ -63,6 +64,7 @@ export async function POST(req: Request) {
       .eq('user_id', user.id)
       .order('updated_at', { ascending: false })
       .limit(10)
+      .abortSignal(signal)
 
     const pastTopicsText = chatSessions && chatSessions.length > 0
       ? chatSessions.map(s => `- ${s.title}`).join('\n')
@@ -75,6 +77,8 @@ export async function POST(req: Request) {
       .select('*')
       .eq('user_id', user.id)
       .order('position')
+      .abortSignal(signal)
+    signal.throwIfAborted()
     if (walletsError || !wallets) {
       return NextResponse.json({ error: 'Errore nel caricamento dei portafogli' }, { status: 500 })
     }
@@ -85,6 +89,8 @@ export async function POST(req: Request) {
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
+      .abortSignal(signal)
+    signal.throwIfAborted()
     if (txError || !transactions) {
       return NextResponse.json({ error: 'Errore nel caricamento delle transazioni' }, { status: 500 })
     }
@@ -214,47 +220,41 @@ ${formattedTxList30d || 'Nessuna transazione recente negli ultimi 30 giorni.'}
   * Debiti attivi (denaro da saldare): €${totalDebts.toFixed(2)}
 ${formattedDebtsList ? `\nElenco dettagliato:\n${formattedDebtsList}` : '\nNessun debito o credito attivo.'}`
 
-    let analysisText: string
-    try {
-      analysisText = await callGroq({
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }],
-        temperature: 0.2,
-        maxTokens: 4096,
-        reasoningEffort: 'medium'
-      })
-    } catch (groqErr) {
-      if (groqErr instanceof GroqError) {
-        return NextResponse.json(
-          { error: groqErr.code, message: groqErr.message },
-          { status: groqErr.status }
-        )
-      }
-      throw groqErr
-    }
+    const analysisText = await callGroq({
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }],
+      temperature: 0.2,
+      maxTokens: 4096,
+      reasoningEffort: 'medium',
+      signal,
+    })
 
     // 6. Save/Update analysis in database
+    signal.throwIfAborted()
     let result
     if (existingAnalysis) {
-      const isAuto = !forceRefresh
-      const updateData: any = {
+      const updateData = {
         analysis_text: analysisText,
-        last_generation_time: now.toISOString()
-      }
-      if (isAuto) {
-        updateData.last_auto_generation_time = now.toISOString()
+        last_generation_time: now.toISOString(),
+        ...(!forceRefresh ? { last_auto_generation_time: now.toISOString() } : {}),
       }
 
       const { data, error: updateError } = await supabase
         .from('ai_analysis')
         .update(updateData)
         .eq('id', existingAnalysis.id)
+        .eq('user_id', user.id)
+        .eq('last_generation_time', existingAnalysis.last_generation_time)
         .select()
-        .single()
+        .abortSignal(signal)
+        .maybeSingle()
 
+      signal.throwIfAborted()
       if (updateError) {
-        console.error('Error updating ai_analysis:', updateError)
-        return NextResponse.json({ error: 'Errore nel salvataggio dell\'analisi' }, { status: 500 })
+        throw new AiRequestError(500, 'Errore nel salvataggio dell\'analisi')
+      }
+      if (!data) {
+        throw new AiRequestError(409, 'Analisi aggiornata da un’altra richiesta. Riprova.')
       }
       result = data
     } else {
@@ -269,11 +269,15 @@ ${formattedDebtsList ? `\nElenco dettagliato:\n${formattedDebtsList}` : '\nNessu
           analysis_text: analysisText
         })
         .select()
+        .abortSignal(signal)
         .single()
 
-      if (insertError) {
-        console.error('Error inserting ai_analysis:', insertError)
-        return NextResponse.json({ error: 'Errore nel salvataggio dell\'analisi iniziale' }, { status: 500 })
+      signal.throwIfAborted()
+      if (insertError?.code === '23505') {
+        throw new AiRequestError(409, 'Analisi aggiornata da un’altra richiesta. Riprova.')
+      }
+      if (insertError || !data) {
+        throw new AiRequestError(500, 'Errore nel salvataggio dell\'analisi iniziale')
       }
       result = data
     }
@@ -286,8 +290,12 @@ ${formattedDebtsList ? `\nElenco dettagliato:\n${formattedDebtsList}` : '\nNessu
       analysis_text: result.analysis_text
     })
 
-  } catch (err: any) {
-    console.error('Error in AI analysis route:', err)
-    return NextResponse.json({ error: 'Errore interno del server', details: err.message }, { status: 500 })
+  } catch (err) {
+    if (!signal.aborted && err instanceof GroqError) {
+      return NextResponse.json({ error: err.code, message: err.message }, { status: err.status })
+    }
+    return aiErrorResponse(err, signal)
+  } finally {
+    release?.()
   }
 }

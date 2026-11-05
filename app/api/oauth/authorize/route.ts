@@ -4,10 +4,9 @@ import { handleAuthorizeRequest } from '@/lib/oauth/authorizeHandler'
 
 /**
  * Called from the consent screen (app/oauth/authorize/page.tsx) after the
- * user is logged in and clicks "Allow". Verifies the browser's Supabase
- * session (and the account allowlist), mints a separate Supabase session for
- * the AI client, stores it with a one-time authorization code, then hands
- * back the redirect_uri to send the browser to. See lib/oauth/authorizeHandler.ts.
+ * user makes a decision. Both decisions check the registered callback and
+ * browser session. Only an allowlisted user's approval mints an independent
+ * Supabase session and one-time code. See lib/oauth/authorizeHandler.ts.
  */
 export async function POST(req: Request) {
   return handleAuthorizeRequest(req, {

@@ -1,5 +1,5 @@
 /**
- * Accounts allowed to use the AI integration (OAuth consent + MCP / v1 API).
+ * Accounts allowed to use in-app AI and the external OAuth, MCP and v1 integration.
  * Configured via MCP_ALLOWED_EMAILS (comma-separated); defaults to the owner's
  * account when unset or empty. Matching is exact and case-insensitive.
  */
