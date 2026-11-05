@@ -76,5 +76,8 @@ Each step is separately reviewable, testable and shippable on a `codex/` branch.
 | 2026-11-04 | Existing Supabase project has no sandbox | Owner | 2, 3 |
 | 2026-11-04 | Instruction improvements apply to finance app only; no upstream playbook PR | Owner | all |
 | 2026-11-05 | Approved the spec and authorized implementation in Autonomous mode | Owner | all |
+| 2026-11-05 | Use a dedicated test account for ledger data and the owner's account for AI checks with reversible test changes | Owner | 3, 5 |
 
-Before the affected implementation: decide a sandbox strategy without unapproved spending; agree what deleting a wallet should do to paired transfers and how it is confirmed; choose whether residual AI RPCs are retained or revoked; record test device/browser. Preserve existing behavior elsewhere. New features, major schema normalization, or changed debt semantics require a later spec change.
+The test account covers existing ledger behavior. Migration replay and schema-level experiments still require an isolated database. For personal-account AI checks, use a disposable conversation and verify cleanup. Plan recovery for AI memory and analysis cache writes before exercising those paths.
+
+Before the affected implementation, agree what deleting a wallet should do to paired transfers and how it is confirmed, choose whether residual AI RPCs are retained or revoked, and record test device/browser. New features, major schema normalization, or changed debt semantics require a later spec change.
