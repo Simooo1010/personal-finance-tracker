@@ -41,14 +41,14 @@ function Consent() {
       }
       setStatus('ready')
     })
-  }, [clientId, redirectUri, codeChallenge]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [clientId, redirectUri, codeChallenge])
 
   async function handleDecision(allow: boolean) {
     if (!allow) {
       const redirect = new URL(redirectUri)
       redirect.searchParams.set('error', 'access_denied')
       if (state) redirect.searchParams.set('state', state)
-      window.location.href = redirect.toString()
+      window.location.assign(redirect.toString())
       return
     }
 
@@ -83,7 +83,7 @@ function Consent() {
     }
 
     const { redirect_url } = await res.json()
-    window.location.href = redirect_url
+    window.location.assign(redirect_url)
   }
 
   let redirectHost = redirectUri
