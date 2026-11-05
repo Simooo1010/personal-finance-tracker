@@ -10,6 +10,7 @@ import { useAiChat, type ChatMessage } from '@/components/ai-chat/AiChatContext'
 import { useRouter } from 'next/navigation'
 import { ChatSidebar } from '@/components/ai-chat/ChatSidebar'
 import { Composer } from '@/components/ai-chat/Composer'
+import { downloadChatExport, parseMessageContent, type ChatExport } from '@/lib/chat-export'
 
 const SUGGESTIONS = [
   'Quanto ho speso questa settimana?',
@@ -17,106 +18,52 @@ const SUGGESTIONS = [
   'Ho abbastanza per un acquisto da 50€?',
 ]
 
-type ExportBlock = {
-  type: 'csv' | 'xlsx' | 'txt' | 'html'
-  filename: string
-  headers: string[]
-  rows: any[]
+const EXPORT_LABELS = {
+  csv: { badge: 'CSV', title: 'Tabella CSV', color: 'text-income' },
+  txt: { badge: 'TXT', title: 'Testo semplice', color: 'text-muted' },
+  html: { badge: 'HTML', title: 'Documento HTML', color: 'text-muted' },
 }
 
-function parseMessageContent(content: string): { cleanText: string; exports: ExportBlock[] } {
-  const exports: ExportBlock[] = []
-  const exportRegex = /```json:export\s*([\s\S]*?)\s*```/g
-  let match
-  while ((match = exportRegex.exec(content)) !== null) {
+function FileCard({ exp }: { exp: ChatExport }) {
+  const [downloadFailed, setDownloadFailed] = useState(false)
+  const label = EXPORT_LABELS[exp.type]
+
+  function handleDownload() {
+    setDownloadFailed(false)
     try {
-      const parsed = JSON.parse(match[1])
-      if (parsed && typeof parsed === 'object') {
-        parsed.rows = Array.isArray(parsed.rows) ? parsed.rows : []
-        parsed.headers = Array.isArray(parsed.headers) ? parsed.headers : []
-        exports.push(parsed)
-      }
+      downloadChatExport(exp)
     } catch {
-      // Truncated or malformed export block (e.g. cut off by the token
-      // limit) — skip it rather than rendering a broken card.
-    }
-  }
-  const cleanText = content.replace(/```json:export[\s\S]*?```/g, '').trim()
-  return { cleanText, exports }
-}
-
-function triggerDownload(exp: ExportBlock) {
-  const { type, filename, headers, rows } = exp
-  let content = ''
-  let mimeType = 'text/plain'
-
-  if (type === 'csv' || type === 'xlsx') {
-    content = '﻿'
-    if (headers.length > 0) content += headers.join(';') + '\n'
-    content += rows.map((r) => Array.isArray(r) ? r.join(';') : r).join('\n')
-    mimeType = 'text/csv;charset=utf-8;'
-  } else if (type === 'txt') {
-    content = rows.map((r) => Array.isArray(r) ? r.join(' ') : r).join('\n')
-    mimeType = 'text/plain;charset=utf-8;'
-  } else if (type === 'html') {
-    const win = window.open('', '_blank')
-    if (win) {
-      win.document.write(`
-        <html><head><title>${filename}</title><style>
-          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #111; padding: 40px; line-height: 1.6; }
-          .header { border-bottom: 2px solid #eaeaea; padding-bottom: 20px; margin-bottom: 30px; }
-          h1 { font-size: 24px; font-weight: 300; margin: 0; }
-          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-          th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
-          th { background-color: #fafafa; font-weight: 600; }
-          @media print { body { padding: 0; } button { display: none; } }
-        </style></head><body>
-          <div class="header"><h1>Report Finanziario Personale</h1>
-          <p style="font-size:12px;color:#666;margin:5px 0 0 0;">Generato il ${new Date().toLocaleDateString('it-IT')}</p></div>
-          <button onclick="window.print()" style="margin-bottom:20px;padding:10px 20px;background:#000;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;">Stampa / Salva in PDF</button>
-          ${rows.join('\n')}
-          <div style="margin-top:50px;font-size:12px;color:#888;text-align:center;">Personal Finance Tracker • Sparkle</div>
-          <script>setTimeout(() => { window.print(); }, 500);</script>
-        </body></html>
-      `)
-      win.document.close()
-      return
+      setDownloadFailed(true)
     }
   }
 
-  const blob = new Blob([content], { type: mimeType })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = filename || 'report.txt'
-  link.style.visibility = 'hidden'
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-}
-
-function FileCard({ exp }: { exp: ExportBlock }) {
-  const badge = exp.type === 'csv' || exp.type === 'xlsx' ? 'XL' : exp.type === 'html' ? 'PDF' : 'TXT'
-  const badgeColor = exp.type === 'csv' || exp.type === 'xlsx' ? 'text-income' : exp.type === 'html' ? 'text-expense' : 'text-muted'
   return (
-    <div className="flex items-center justify-between gap-3 p-3 bg-elevated rounded-2xl mt-2">
-      <div className="flex items-center gap-3 min-w-0">
-        <div className="w-9 h-9 rounded-full bg-fg/10 flex items-center justify-center shrink-0">
-          <span className={`font-semibold text-[10px] ${badgeColor}`}>{badge}</span>
+    <div className="bg-elevated rounded-2xl mt-2 p-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-full bg-fg/10 flex items-center justify-center shrink-0">
+            <span className={`font-semibold text-[10px] ${label.color}`} aria-hidden="true">{label.badge}</span>
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-medium truncate max-w-[160px] sm:max-w-[320px]">{exp.filename}</p>
+            <p className="text-[9px] text-muted tracking-wider uppercase font-light">{label.title}</p>
+          </div>
         </div>
-        <div className="min-w-0">
-          <p className="text-xs font-medium truncate max-w-[160px] sm:max-w-[320px]">{exp.filename}</p>
-          <p className="text-[9px] text-muted tracking-wider uppercase font-light">
-            {exp.type === 'html' ? 'Documento PDF' : 'Tabella Dati'}
-          </p>
-        </div>
+        <button
+          type="button"
+          onClick={handleDownload}
+          aria-label={`Scarica ${exp.filename}`}
+          className="min-h-9 px-3 py-1.5 bg-fg text-bg rounded-full text-[10px] font-semibold hover:opacity-90 t cursor-pointer shrink-0"
+        >
+          Scarica
+        </button>
       </div>
-      <button
-        onClick={() => triggerDownload(exp)}
-        className="px-3 py-1.5 bg-fg text-bg rounded-full text-[10px] font-semibold hover:opacity-90 t cursor-pointer shrink-0"
-      >
-        Scarica
-      </button>
+      {exp.type === 'html' && (
+        <p className="mt-2 text-xs text-muted">Apri il file nel browser e scegli Stampa per salvarlo come PDF.</p>
+      )}
+      {downloadFailed && (
+        <p className="mt-2 text-xs text-expense" role="alert">Download non riuscito. Riprova.</p>
+      )}
     </div>
   )
 }

@@ -45,7 +45,9 @@ SUPABASE_SERVICE_ROLE_KEY=...
 # MCP_ALLOWED_EMAILS=smndiraimondo@gmail.com
 ```
 
-The AI analysis and AI chat routes return `{ "enabled": false }` when `GROQ_API_KEY`
+The in-app AI analysis and chat routes enforce the server-side `MCP_ALLOWED_EMAILS`
+allowlist. The owner account remains the default when it is unset. For an
+authenticated, allowlisted request, these routes return `{ "enabled": false }` when `GROQ_API_KEY`
 is missing, so the rest of the app keeps working without it.
 
 ## Connecting Claude / ChatGPT to your data (read-only)
@@ -93,6 +95,20 @@ connector's session is refreshed and recovered automatically; if it can no
 longer be renewed (e.g. the session was revoked) its token is invalidated. If
 Claude reports that the connector "rejected credentials", disconnect and
 reconnect it from the connector settings.
+
+The token endpoint requires the registered `client_id` on code exchanges and
+refresh requests. Public clients register with `token_endpoint_auth_method`
+set to `none` and receive no secret. Confidential clients register with
+`client_secret_post` (the registration default) and send their issued
+`client_secret` in the request body. Use S256 PKCE and the exact registered
+callback URI. Registrations from older deployments were issued secrets. A
+connector that previously used one of those registrations without its secret
+must reconnect and register with `none` for public mode.
+
+An authorization code can be claimed once. If an exchange reports a server
+error after claiming the code, start a fresh login and consent flow to obtain
+another code. Refreshing rotates both opaque tokens. Clients should store the
+new pair before making another refresh request.
 
 **ChatGPT (requires a Plus/Pro plan — the only paid requirement anywhere in this
 setup):** create a Custom GPT (or Apps SDK app), add an Action, and import

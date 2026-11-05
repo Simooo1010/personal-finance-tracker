@@ -7,6 +7,8 @@
  */
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions'
+const MAX_GROQ_INPUT_BYTES = 256 * 1024
+const MAX_GROQ_STREAM_BYTES = 4 * 1024 * 1024
 
 /**
  * Groq deprecated the Llama models on the free tier in June 2026 and points
@@ -30,6 +32,7 @@ export type GroqCallOptions = {
   maxTokens?: number
   /** Only sent for models that support it (GPT-OSS / Qwen reasoning models). */
   reasoningEffort?: 'low' | 'medium' | 'high'
+  signal?: AbortSignal
 }
 
 export class GroqError extends Error {
@@ -66,7 +69,7 @@ function stripReasoning(text: string): string {
   return text.replace(/<think>[\s\S]*?<\/think>/g, '').trim()
 }
 
-function mapErrorStatus(status: number, apiMessage: string): GroqError {
+function mapErrorStatus(status: number): GroqError {
   if (status === 401 || status === 403) {
     return new GroqError(
       'INVALID_API_KEY',
@@ -88,7 +91,45 @@ function mapErrorStatus(status: number, apiMessage: string): GroqError {
       status
     )
   }
-  return new GroqError('GROQ_API_ERROR', apiMessage || 'Errore nella chiamata API di Groq', status)
+  return new GroqError('GROQ_API_ERROR', 'Errore nella chiamata API di Groq', status)
+}
+
+async function sendGroqRequest(
+  baseBody: Record<string, unknown>,
+  model: string,
+  apiKey: string,
+  reasoningEffort: NonNullable<GroqCallOptions['reasoningEffort']>,
+  signal?: AbortSignal,
+) {
+  const send = (body: Record<string, unknown>) => {
+    signal?.throwIfAborted()
+    const json = JSON.stringify(body)
+    if (new TextEncoder().encode(json).byteLength > MAX_GROQ_INPUT_BYTES) throw mapErrorStatus(413)
+    return fetch(GROQ_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: json,
+      signal,
+    })
+  }
+
+  const withReasoning = supportsReasoningControls(model)
+  let response = await send(withReasoning
+    ? { ...baseBody, reasoning_effort: reasoningEffort, include_reasoning: false }
+    : baseBody)
+  // Some models reject reasoning options. Use the same request deadline for the fallback.
+  if (response.status === 400 && withReasoning) {
+    void response.body?.cancel().catch(() => {})
+    response = await send(baseBody)
+  }
+  if (!response.ok) {
+    void response.body?.cancel().catch(() => {})
+    throw mapErrorStatus(response.status)
+  }
+  return response
 }
 
 /**
@@ -101,6 +142,7 @@ export async function callGroq({
   temperature = 0.7,
   maxTokens = 4096,
   reasoningEffort = 'low',
+  signal,
 }: GroqCallOptions): Promise<string> {
   const apiKey = process.env.GROQ_API_KEY
   if (!apiKey) {
@@ -117,37 +159,10 @@ export async function callGroq({
     stream: false,
   }
 
-  const send = (body: Record<string, unknown>) =>
-    fetch(GROQ_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(body),
-    })
-
-  const withReasoning = supportsReasoningControls(model)
-  let response = await send(
-    withReasoning
-      ? { ...baseBody, reasoning_effort: reasoningEffort, include_reasoning: false }
-      : baseBody
-  )
-
-  // A model may reject the reasoning knobs (they are model-specific and the set
-  // of supporting models changes); fall back to the plain request rather than
-  // failing the whole feature.
-  if (!response.ok && response.status === 400 && withReasoning) {
-    response = await send(baseBody)
-  }
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}))
-    throw mapErrorStatus(response.status, errorData?.error?.message)
-  }
-
+  const response = await sendGroqRequest(baseBody, model, apiKey, reasoningEffort, signal)
   const data = await response.json()
-  const text = stripReasoning(data.choices?.[0]?.message?.content || '')
+  const content: unknown = data.choices?.[0]?.message?.content
+  const text = typeof content === 'string' ? stripReasoning(content) : ''
 
   if (!text) {
     throw new GroqError('EMPTY_RESPONSE', 'Nessuna risposta generata dal modello', 500)
@@ -171,6 +186,7 @@ export async function* streamGroq({
   temperature = 0.7,
   maxTokens = 4096,
   reasoningEffort = 'low',
+  signal,
 }: GroqCallOptions): AsyncGenerator<string, void, unknown> {
   const apiKey = process.env.GROQ_API_KEY
   if (!apiKey) {
@@ -187,41 +203,20 @@ export async function* streamGroq({
     stream: true,
   }
 
-  const send = (body: Record<string, unknown>) =>
-    fetch(GROQ_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(body),
-    })
-
-  const withReasoning = supportsReasoningControls(model)
-  let response = await send(
-    withReasoning
-      ? { ...baseBody, reasoning_effort: reasoningEffort, include_reasoning: false }
-      : baseBody
-  )
-
-  if (!response.ok && response.status === 400 && withReasoning) {
-    response = await send(baseBody)
-  }
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}))
-    throw mapErrorStatus(response.status, errorData?.error?.message)
-  }
-
+  const response = await sendGroqRequest(baseBody, model, apiKey, reasoningEffort, signal)
   if (!response.body) {
     throw new GroqError('EMPTY_RESPONSE', 'Nessuna risposta generata dal modello', 500)
   }
 
   const reader = response.body.getReader()
+  const cancel = () => { void reader.cancel().catch(() => {}) }
+  signal?.addEventListener('abort', cancel, { once: true })
   const decoder = new TextDecoder()
   let buffer = ''
   let pending = ''
   let sawAnyDelta = false
+  let sawDone = false
+  let bytesRead = 0
 
   const flushSafe = function* (finalFlush: boolean) {
     // Hold back enough trailing text that a `<think>`/`</think>` tag split
@@ -261,9 +256,14 @@ export async function* streamGroq({
   }
 
   try {
-    while (true) {
+    while (!sawDone) {
+      signal?.throwIfAborted()
       const { done, value } = await reader.read()
       if (done) break
+      bytesRead += value.byteLength
+      if (bytesRead > MAX_GROQ_STREAM_BYTES) {
+        throw new GroqError('RESPONSE_TOO_LARGE', 'Risposta AI troppo grande', 502)
+      }
       buffer += decoder.decode(value, { stream: true })
 
       const lines = buffer.split('\n')
@@ -273,26 +273,37 @@ export async function* streamGroq({
         const trimmed = line.trim()
         if (!trimmed.startsWith('data:')) continue
         const payload = trimmed.slice(5).trim()
-        if (payload === '[DONE]') continue
+        if (payload === '[DONE]') {
+          sawDone = true
+          break
+        }
 
+        let delta: unknown
         try {
           const json = JSON.parse(payload)
-          const delta: string = json.choices?.[0]?.delta?.content || ''
-          if (delta) {
-            sawAnyDelta = true
-            pending += delta
-            yield* flushSafe(false)
-          }
+          delta = json.choices?.[0]?.delta?.content
         } catch {
-          // Ignore malformed SSE lines (e.g. keep-alive comments).
+          continue
+        }
+        if (typeof delta === 'string' && delta) {
+          sawAnyDelta = true
+          pending += delta
+          yield* flushSafe(false)
         }
       }
     }
   } finally {
+    signal?.removeEventListener('abort', cancel)
+    cancel()
     reader.releaseLock()
   }
 
   yield* flushSafe(true)
+
+  signal?.throwIfAborted()
+  if (!sawDone) {
+    throw new GroqError('STREAM_INTERRUPTED', 'Connessione AI interrotta. Riprova.', 502)
+  }
 
   if (!sawAnyDelta) {
     throw new GroqError('EMPTY_RESPONSE', 'Nessuna risposta generata dal modello', 500)

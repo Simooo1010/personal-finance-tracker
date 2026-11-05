@@ -18,6 +18,8 @@ Source rollback #17 removed application AI writing code. Live public metadata st
 
 Live `transactions.user_id` is nullable; the repository lacks the base CREATE TABLE. `chat_messages.session_id` references a session ID without a composite owner relationship. Schema and policy reads do not establish that a clean sandbox can be reproduced or that every ownership case passes.
 
+Step 2 recommendation: confirm whether any authorized consumer still uses the two residual write RPCs. If there is no consumer, keep the table and function definitions for reversible rollout and revoke execution from the API roles in a reviewed migration. Check effective grants inherited through `PUBLIC` as well as explicit grants. Capture the prior ACL for rollback, rehearse with two disposable users, and verify that ledger and read-only AI workflows still work. The owner must authorize the production change separately.
+
 Supabase security advisor was also read: it reports the two authenticated SECURITY DEFINER RPCs ([guidance](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable)), three informational no-policy OAuth tables (intentional server-only bookkeeping; [guidance](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy)), and disabled leaked-password protection ([guidance](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)). Advisor warnings need context; no permission or Auth setting was changed.
 
 ## Fast refresh procedure

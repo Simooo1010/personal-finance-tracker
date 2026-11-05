@@ -55,10 +55,11 @@ export async function GET(req: Request) {
           parameters: [
             { name: 'wallet', in: 'query', schema: { type: 'string' }, description: 'Wallet slug' },
             { name: 'type', in: 'query', schema: { type: 'string', enum: ['income', 'expense'] } },
-            { name: 'since', in: 'query', schema: { type: 'string', format: 'date-time' } },
-            { name: 'limit', in: 'query', schema: { type: 'integer', default: 100, maximum: 500 } },
+            { name: 'since', in: 'query', schema: { type: 'string' }, description: 'Rome calendar date (YYYY-MM-DD) or ISO timestamp with timezone' },
+            { name: 'limit', in: 'query', schema: { type: 'integer', default: 100, minimum: 1, maximum: 500 } },
           ],
           responses: {
+            '400': { description: 'Invalid or repeated query parameter' },
             '200': {
               description: 'OK',
               content: {

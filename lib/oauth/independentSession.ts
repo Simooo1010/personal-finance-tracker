@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { SupabaseClient, User } from '@supabase/supabase-js'
 
 /**
  * A Supabase session minted server-side exclusively for an AI client (MCP /
@@ -16,16 +16,15 @@ type AnonAuthLike = Pick<SupabaseClient, 'auth'>
 
 function errorCode(error: unknown): string {
   if (error && typeof error === 'object') {
-    const e = error as { code?: unknown; status?: unknown; message?: unknown }
+    const e = error as { code?: unknown; status?: unknown }
     if (typeof e.code === 'string' && e.code) return e.code
     if (typeof e.status === 'number') return `status_${e.status}`
-    if (typeof e.message === 'string' && e.message) return e.message.slice(0, 120)
   }
   return 'unknown'
 }
 
 /**
- * Creates a brand-new Supabase session for `email`, independent of any
+ * Creates a brand-new Supabase session for the verified user, independent of any
  * existing (browser) session: the service-role client generates a magic-link
  * token (no email is sent) and the anon client immediately redeems it.
  * Returns null on any failure. Never logs tokens or the email.
@@ -33,8 +32,9 @@ function errorCode(error: unknown): string {
 export async function mintIndependentSession(
   admin: AdminAuthLike,
   anon: AnonAuthLike,
-  email: string | null | undefined
+  user: Pick<User, 'id' | 'email'>
 ): Promise<IndependentSession | null> {
+  const { email, id } = user
   if (typeof email !== 'string' || !email.trim()) {
     console.warn('[mcp-auth] mint session failed: missing_email')
     return null
@@ -46,10 +46,11 @@ export async function mintIndependentSession(
       console.warn(`[mcp-auth] mint session failed (generateLink): ${linkError ? errorCode(linkError) : 'no_hashed_token'}`)
       return null
     }
+    if (linkData.user?.id !== id) return null
 
     const { data: otpData, error: otpError } = await anon.auth.verifyOtp({ token_hash: tokenHash, type: 'magiclink' })
     const session = otpData?.session
-    if (otpError || !session?.access_token || !session.refresh_token) {
+    if (otpError || !session?.access_token || !session.refresh_token || session.user.id !== id) {
       console.warn(`[mcp-auth] mint session failed (verifyOtp): ${otpError ? errorCode(otpError) : 'no_session'}`)
       return null
     }

@@ -44,46 +44,40 @@ function Consent() {
   }, [clientId, redirectUri, codeChallenge])
 
   async function handleDecision(allow: boolean) {
-    if (!allow) {
-      const redirect = new URL(redirectUri)
-      redirect.searchParams.set('error', 'access_denied')
-      if (state) redirect.searchParams.set('state', state)
-      window.location.assign(redirect.toString())
-      return
-    }
-
+    setError('')
     setStatus('submitting')
-    const supabase = createClient()
-    const { data } = await supabase.auth.getSession()
-    if (!data.session) {
-      setError('Sessione scaduta, effettua di nuovo il login.')
-      setStatus('error')
-      return
+    try {
+      const supabase = createClient()
+      const { data } = await supabase.auth.getSession()
+      if (!data.session) {
+        router.replace(`/login?next=${encodeURIComponent(`/oauth/authorize?${params.toString()}`)}`)
+        return
+      }
+
+      const res = await fetch('/api/oauth/authorize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_id: clientId,
+          redirect_uri: redirectUri,
+          state,
+          code_challenge: codeChallenge,
+          code_challenge_method: codeChallengeMethod,
+          decision: allow ? 'allow' : 'deny',
+          supabase_access_token: data.session.access_token,
+        }),
+      })
+      const body = await res.json()
+      if (res.ok && typeof body.redirect_url === 'string') {
+        window.location.assign(body.redirect_url)
+        return
+      }
+      setError(body.error_description || 'Richiesta non completata. Riprova.')
+    } catch {
+      setError('Richiesta non completata. Riprova.')
     }
 
-    const res = await fetch('/api/oauth/authorize', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: clientId,
-        redirect_uri: redirectUri,
-        state,
-        code_challenge: codeChallenge,
-        code_challenge_method: codeChallengeMethod,
-        supabase_access_token: data.session.access_token,
-        supabase_refresh_token: data.session.refresh_token,
-      }),
-    })
-
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      setError(body.error_description || body.error || 'Autorizzazione fallita.')
-      setStatus('error')
-      return
-    }
-
-    const { redirect_url } = await res.json()
-    window.location.assign(redirect_url)
+    setStatus('ready')
   }
 
   let redirectHost = redirectUri
@@ -107,8 +101,8 @@ function Consent() {
 
         {status === 'checking' && <p className="text-sm text-muted font-light">Verifica sessione...</p>}
 
-        {status === 'error' && (
-          <p className="text-xs text-expense font-light">{error}</p>
+        {error && (
+          <p className="text-xs text-expense font-light" role="alert">{error}</p>
         )}
 
         {(status === 'ready' || status === 'submitting') && (
@@ -124,7 +118,7 @@ function Consent() {
                 onClick={() => handleDecision(true)}
                 className="w-full py-3 bg-fg text-bg rounded-full text-xs tracking-wider uppercase font-medium hover:opacity-90 t disabled:opacity-40 cursor-pointer"
               >
-                {status === 'submitting' ? 'Autorizzazione...' : 'Consenti'}
+                Consenti
               </motion.button>
               <button
                 disabled={status === 'submitting'}
@@ -134,6 +128,7 @@ function Consent() {
                 Nega
               </button>
             </div>
+            {status === 'submitting' && <p className="text-sm text-muted font-light" role="status">Invio della risposta...</p>}
           </>
         )}
       </motion.div>
