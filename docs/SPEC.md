@@ -1,6 +1,6 @@
 # SPEC — Finance Tracker reliability and growth
 
-Status: proposed, awaiting owner approval. This document authorizes no production migration or merge. Read with `docs/WORKFLOW.md`, `AGENTS.md`, `instructions.md`, `docs/AUDIT.md`, and the design system. Owner selected Autonomous delivery after spec approval on 2026-11-04.
+Status: approved for Autonomous delivery on 2026-11-05. Production migration and merge require separate owner authorization. Read with `docs/WORKFLOW.md`, `AGENTS.md`, `instructions.md`, `docs/AUDIT.md`, and the design system.
 
 ## 1. Goal
 
@@ -75,6 +75,6 @@ Each step is separately reviewable, testable and shippable on a `codex/` branch.
 | 2026-11-04 | Autonomous mode after spec approval; phone and desktop, light and dark | Owner | 1, 3, 5 |
 | 2026-11-04 | Existing Supabase project has no sandbox | Owner | 2, 3 |
 | 2026-11-04 | Instruction improvements apply to finance app only; no upstream playbook PR | Owner | all |
-| 2026-11-04 | Initial spec approval pending; no application implementation yet | Recorded status | all |
+| 2026-11-05 | Approved the spec and authorized implementation in Autonomous mode | Owner | all |
 
 Before the affected implementation: decide a sandbox strategy without unapproved spending; agree what deleting a wallet should do to paired transfers and how it is confirmed; choose whether residual AI RPCs are retained or revoked; record test device/browser. Preserve existing behavior elsewhere. New features, major schema normalization, or changed debt semantics require a later spec change.
