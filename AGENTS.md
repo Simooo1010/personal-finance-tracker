@@ -4,7 +4,7 @@ Before any task, read [instructions.md](instructions.md) and [MEMORY.md](MEMORY.
 
 Read [docs/WORKFLOW.md](docs/WORKFLOW.md) and [docs/SPEC.md](docs/SPEC.md) before implementation. Use [docs/CONNECTIONS.md](docs/CONNECTIONS.md) for fast read-only discovery; verify current access rather than assuming a stored connection works. Autonomous mode starts only after the owner approves the spec.
 
-**Model routing:** all read-only assignments, including independent code, documentation and security reviews, use Luna or Terra only. Sol/Astra are not substitutes for read-only work. See `instructions.md` for write-task routing and effort caps.
+**Model routing:** use Luna or Terra for all read-only assignments, research and low-stakes or low-effort tasks, including routine edits. Reserve Sol for substantive implementation. See `instructions.md` for examples and effort caps.
 
 <!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know

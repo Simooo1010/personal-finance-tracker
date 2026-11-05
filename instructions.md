@@ -26,16 +26,18 @@ The main agent coordinates app work through subagents, assigns bounded tasks wit
 
 Classify by the actions authorized in the assignment, not the topic's difficulty or importance. **Every read-only task must use Luna or Terra, never Sol or Astra.** This includes independent code/documentation/security reviews, audits, complex analysis, planning recommendations, searches, summaries, and verification that only inspects or runs existing checks without changing application/external data. Returning findings in a message is read-only; it is not a writing assignment. Creating/editing source, tests, documentation, configuration or external records is write work. Incidental test/build artifacts do not turn verification into implementation.
 
-Choose the least expensive suitable allowed model and set both model and reasoning effort explicitly:
+Use Luna or Terra for research and for low-stakes, low-effort work, including routine edits. Use Sol for substantive implementation and fixes where complexity or consequences warrant it. Set the model and reasoning effort explicitly.
+
+Before delegating, inspect the relevant files, prerequisites, likely failure modes, and acceptance checks. Break broad work into bounded assignments and evaluate each one separately. Record the reason for the chosen model and effort in the assignment. Start at low effort when it can handle the work. Raise effort only when a concrete unresolved issue requires it. A security or finance label alone does not justify higher effort.
 
 | Work | Model | Effort |
 | --- | --- | --- |
-| Simple read-only inspection, searches, summaries, low-stakes checks | Luna (`gpt-6-luna`) | low; medium if needed |
-| Broader/complex read-only investigation, independent code/documentation/security review, audit, existing-check verification | Terra (`gpt-6.1-terra`) | low or medium; high only when justified |
-| Implementation, file/document writing, authoring tests, fixes, authorized external mutations | Sol (`gpt-6.1-sol` or available Sol variant) | low, medium, or high according to difficulty |
+| Simple inspection, research, summaries, checks and routine low-stakes edits | Luna (`gpt-6-luna`) | low; medium if needed |
+| Broader research and investigation, independent reviews, audits, existing-check verification and bounded low-stakes changes | Terra (`gpt-6.1-terra`) | low or medium; high only when justified |
+| Substantive implementation, complex test authoring, difficult fixes and consequential authorized mutations | Sol (`gpt-6.1-sol` or available Sol variant) | low, medium, or high according to difficulty |
 | Rare, exceptionally difficult write task remaining after cheaper attempts | Astra (`gpt-6-astra`) | lowest supported effort only (currently low); never medium or high; never read-only work |
 
-Never give any subagent effort above high. Never use Astra routinely. For read-only work, substitute Luna and Terra only for each other; if neither is available, report the limitation rather than silently selecting Sol/Astra. Split mixed assignments into read-only investigation/review (Luna/Terra) and implementation (Sol) when practical. A reviewer reports findings; a separate writer applies fixes. Do not broaden a review into write work merely to justify Sol. For write tasks, other suitable substitutions must stay within the effort caps and be reported. Read-only agents must not edit files or mutate external data. Require evidence, file references, checks, and unresolved issues in handoffs; independently verify claims before integration or writes.
+Never give any subagent effort above high. For research, read-only work and low-stakes tasks, substitute Luna and Terra only for each other. If neither is available, report the limitation. Split investigation and review from substantive implementation when practical. A reviewer reports findings and a separate writer applies fixes. Read-only agents must leave files and external data untouched. Require evidence, file references, checks and unresolved issues in handoffs, and independently verify claims before integration or writes.
 
 ## Acceptance and repeat-until-working loop
 
