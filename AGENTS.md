@@ -22,3 +22,7 @@ For documentation-only changes, review content, links, and the full diff; app au
 6. **Close the delivery loop.** Confirm the final diff is clean, open or update the PR, wait for required CI, address failures and review feedback in the same loop, and merge only when checks pass and repository protections allow it. Report completed checks, real-usage coverage, merge/deployment state, and any blocker that prevented an end-to-end test.
 
 If credentials, an authorized browser, a sandbox account, an applied database migration, or another external dependency is missing, continue all independent review and automated checks. State precisely which real-usage cases remain untested and what access or setup is required; never imply that the feature works in real use when it has not been exercised.
+
+## Language
+
+Chat with me in Italian. Write all code, comments, commit messages, docs, config files, skills and subagent prompts in English. Exception: deliverables explicitly meant for Italian readers stay in Italian.
