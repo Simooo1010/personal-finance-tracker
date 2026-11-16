@@ -23,3 +23,9 @@ Read `instructions.md` and `AGENTS.md` together with this file before every task
 - Documentation acceptance: all three files link the required context, model/effort caps are explicit, and delivery/testing rules distinguish evidence from blockers. Independent Sol review identified a documentation-testing scope inconsistency; `AGENTS.md` now explicitly permits documentation-only checks. Sol effort remains proportional to task difficulty, with high as the ceiling rather than a mandatory setting.
 - GitHub delivery: the initial sandbox checks reported an invalid CLI token and a DNS failure. A permitted Git push subsequently succeeded using available Git credentials: commit `7eb7574` on `codex/project-working-rules`. Do not treat the initial errors as proof that all GitHub access is unavailable. PR, CI, merge, and deployment remain separate delivery steps.
 - Before the next app change, install dependencies, read relevant `node_modules/next/dist/docs/` guides, define acceptance criteria, and establish authorized runtime/sandbox access.
+
+## Livello UI, first slice (2026-11-16, branch claude/task-livello-ui)
+
+- Done: liquid layer, new Home, nav + sidebar restyle, Flow diagram in Analisi, shadows removed. `tsc` clean; lint shows only the 4 pre-existing errors (`app/oauth/authorize`, `migrate_actions.js`); production build passes with dummy Supabase env vars. Visual check of Liquid/Flow in Chromium at 390x844 via a throwaway preview route (not committed).
+- NOT done (spec Part B): transaction sheet redesign + Keypad, Movimenti, Wallets tank room, Debiti, rest of Analisi (period chips, stat cards, weekly bars), AI chat/analysis, Log timeline, auth screens, OAuth card, desktop two-column layout, swipe-to-delete rows.
+- Not exercised: logged-in flows (no Supabase credentials in this environment). `npm ci` fails on a pre-existing lockfile drift (`@emnapi/*`); `npm install` was used and the lockfile change was not committed.

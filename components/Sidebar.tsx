@@ -2,7 +2,6 @@
 
 import { useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
 import { createClient } from '@/lib/supabaseClient'
 import { Home, ArrowLeftRight, BarChart3, LogOut, Wallet, HandCoins, History } from 'lucide-react'
 import { useAi } from '@/components/AiContext'
@@ -40,7 +39,7 @@ export default function Sidebar() {
     <aside className="hidden lg:flex flex-col w-64 fixed inset-y-0 left-0 bg-surface border-r border-border px-4 py-6 z-40">
       {/* Brand */}
       <div className="px-3 mb-8">
-        <span className="text-sm font-light tracking-widest uppercase text-fg">Finance</span>
+        <span className="text-sm font-light tracking-[0.3em] uppercase text-fg">Finance</span>
       </div>
 
       {/* Nav links */}
@@ -52,16 +51,9 @@ export default function Sidebar() {
               key={item.href}
               onClick={() => router.push(item.href)}
               className={`relative flex items-center gap-3 px-3 py-2.5 rounded-full text-sm t w-full text-left ${
-                active ? 'bg-elevated text-fg font-bold' : 'font-light text-muted hover:text-fg hover:bg-elevated/50'
+                active ? 'bg-fg text-bg font-bold' : 'font-light text-muted hover:text-fg hover:bg-elevated/50'
               }`}
             >
-              {active && (
-                <motion.div
-                  layoutId="sidebarActive"
-                  className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-fg rounded-r"
-                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                />
-              )}
               <item.icon className="w-4 h-4 shrink-0" strokeWidth={active ? 2 : 1.5} />
               {item.label}
             </button>

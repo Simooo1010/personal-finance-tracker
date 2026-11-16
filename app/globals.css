@@ -8,6 +8,7 @@
   --fg:       #ffffff;
   --muted:    #8e8e93;
   --border:   rgba(255, 255, 255, 0.04);
+  --outline:  #2c2c30;
   --income:   #22c55e;
   --expense:  #f87171;
   --debt:     #c084fc;
@@ -15,8 +16,8 @@
   --chart-1:  #818cf8;
   --chart-2:  #38bdf8;
   --chart-3:  #eab308;
-  --shadow-card: 0 0 0 1px rgba(255,255,255,0.01), 0 10px 40px rgba(0,0,0,0.4);
-  --shadow-pill: 0 6px 24px rgba(0,0,0,0.4);
+  --shadow-card: none;
+  --shadow-pill: none;
   color-scheme: dark;
 }
 
@@ -30,6 +31,7 @@
   --fg:       #0a0a0c;
   --muted:    #636366;
   --border:   rgba(0, 0, 0, 0.07);
+  --outline:  #c7c7cc;
   --income:   #14753a;
   --expense:  #c42323;
   --debt:     #7e22ce;
@@ -37,8 +39,8 @@
   --chart-1:  #4f46e5;
   --chart-2:  #0369a1;
   --chart-3:  #a16207;
-  --shadow-card: 0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06);
-  --shadow-pill: 0 6px 24px rgba(0,0,0,0.12);
+  --shadow-card: none;
+  --shadow-pill: none;
   color-scheme: light;
 }
 
@@ -50,6 +52,7 @@
   --color-fg:       var(--fg);
   --color-muted:    var(--muted);
   --color-border:   var(--border);
+  --color-outline:  var(--outline);
   --color-income:   var(--income);
   --color-expense:  var(--expense);
   --color-debt:     var(--debt);
@@ -109,10 +112,10 @@ body {
   box-shadow: var(--shadow-card);
 }
 
-/* Ghost glass pill (bottom nav) */
+/* Floating pill nav: outlined, no shadow (Livello spec) */
 .pill-nav {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--bg);
+  border: 1px solid var(--outline);
   border-radius: 9999px;
   box-shadow: var(--shadow-pill);
   backdrop-filter: blur(16px);
@@ -126,3 +129,56 @@ body {
 .safe-b { padding-bottom: max(env(safe-area-inset-bottom), 10px); }
 .safe-t { padding-top:    max(env(safe-area-inset-top),    0px);  }
 
+
+/* ── Liquid layer (Livello spec) ───────────────────────────── */
+/* One wave period is 195px. Layers are masks tiled along x, so any width is covered. */
+.liquid-wave {
+  position: absolute; left: 0; right: 0; height: 24px;
+  -webkit-mask-repeat: repeat-x; mask-repeat: repeat-x;
+  -webkit-mask-size: 195px 24px; mask-size: 195px 24px;
+}
+.liquid-wave-fill {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='195' height='24' viewBox='0 0 195 24'%3E%3Cpath d='M0 12 Q48.75 2 97.5 12 T195 12 V24 H0Z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='195' height='24' viewBox='0 0 195 24'%3E%3Cpath d='M0 12 Q48.75 2 97.5 12 T195 12 V24 H0Z'/%3E%3C/svg%3E");
+}
+.liquid-wave-line {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='195' height='24' viewBox='0 0 195 24'%3E%3Cpath d='M0 12 Q48.75 2 97.5 12 T195 12' fill='none' stroke='black' stroke-width='1.5'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='195' height='24' viewBox='0 0 195 24'%3E%3Cpath d='M0 12 Q48.75 2 97.5 12 T195 12' fill='none' stroke='black' stroke-width='1.5'/%3E%3C/svg%3E");
+}
+.liquid-wave-back { background: color-mix(in srgb, var(--income) 22%, transparent); animation: liquid-drift-r 9s linear infinite; }
+.liquid-wave-front { background: var(--elevated); animation: liquid-drift 6s linear infinite; }
+.liquid-wave-stroke { background: var(--income); animation: liquid-drift 6s linear infinite; }
+.liquid-offline .liquid-wave-stroke {
+  -webkit-mask-image: none; mask-image: none; height: 0; background: none;
+  border-top: 1.5px dashed var(--income); animation: none; top: 12px;
+}
+.liquid-bubble {
+  position: absolute; bottom: 24px; width: 10px; height: 10px; border-radius: 9999px;
+  border: 1px solid var(--outline); opacity: 0;
+  animation: liquid-rise 7s ease-in infinite;
+}
+.liquid-top { transition: top 1.2s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.tank-bob { animation: tank-bob 5s ease-in-out infinite; }
+.gauge-fill { transition: height 1.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
+
+@keyframes liquid-drift { from { -webkit-mask-position-x: 0; mask-position-x: 0; } to { -webkit-mask-position-x: -195px; mask-position-x: -195px; } }
+@keyframes liquid-drift-r { from { -webkit-mask-position-x: -195px; mask-position-x: -195px; } to { -webkit-mask-position-x: 0; mask-position-x: 0; } }
+@keyframes liquid-rise { 0% { transform: translateY(0); opacity: 0.8; } 100% { transform: translateY(-420px); opacity: 0; } }
+@keyframes tank-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+
+/* Reduced motion: everything static, the level changes instantly */
+@media (prefers-reduced-motion: reduce) {
+  .liquid-wave-back, .liquid-wave-front, .liquid-wave-stroke, .liquid-bubble, .tank-bob { animation: none; }
+  .liquid-bubble { display: none; }
+  .liquid-top, .gauge-fill { transition: none; }
+}
+
+/* ── Flow diagram (Analisi) ───────────────────────────────── */
+.flow-pour { animation: flow-pour 1.3s cubic-bezier(0.3, 0.7, 0.2, 1) both; }
+.flow-dash-kept { animation: flow-dash 1.4s linear infinite; }
+.flow-dash-spent { animation: flow-dash 1s linear infinite; }
+@keyframes flow-pour { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes flow-dash { to { stroke-dashoffset: -16; } }
+@media (prefers-reduced-motion: reduce) {
+  .flow-pour, .flow-dash-kept, .flow-dash-spent { animation: none; }
+}

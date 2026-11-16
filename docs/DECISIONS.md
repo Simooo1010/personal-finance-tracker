@@ -2,6 +2,12 @@
 
 A running log of design decisions, newest first. A decision taken in chat is written here the same day. Each line: what was decided, why, what it replaced. The design system itself is in [`DESIGN-SYSTEM.md`](./DESIGN-SYSTEM.md).
 
+## 2026-11-16
+
+- **Livello redesign, first slice (Notion task "Integrate into app new UI # 2").** Added the liquid layer (`components/Liquid.tsx`, `lib/level.ts`), the new Home (tanks with gauges and wallet filter, month pills, level label), the floating nav with a white + circle that opens one shared transaction sheet (`TransactionSheetContext`), a white active pill in nav and sidebar, and the Flow diagram on Analisi (`components/Flow.tsx`). Reason: the spec's build order starts with the liquid layer and Home.
+- **Shadows removed, `outline` token added.** The spec bans shadows; `--shadow-card`/`--shadow-pill` are now `none`. New `--outline` (#2c2c30 dark, #c7c7cc light) is used where an outline must be seen.
+- **Deviations on purpose.** The strip on non-Home screens shows the waves at a fixed height, not the level. Flow on Analisi uses all-time totals until the period chips are built. Theme toggle stays in the Home header instead of a menu.
+
 ## 2026-10-31 (night)
 
 - **Independent review fixes.** (1) The first paint no longer shows a dimmed, shifted page: the 60% start state and the inner slides were written into the server HTML and stayed until JavaScript loaded. The layout now skips its start state during the first render (`useSyncExternalStore`: false on the server and during hydration), and the page blocks' small slides were removed, so only later section changes ease in. (2) The inline theme script also sets the browser bar colour, so it is right after a reload in light mode. (3) A theme change in one tab reaches the other open tabs (`storage` event). (4) `proxy.ts` validates the session with Supabase only on `/login` and `/register`, so a session revoked elsewhere no longer bounces people to the dashboard; all other navigation stays network-free. (5) Muted icons are `muted/80` (see above).
