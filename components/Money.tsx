@@ -8,6 +8,10 @@ type MoneyProps = {
   intWeight?: number
   /** Weight of the cents. Always the lightest, 200. */
   centsWeight?: number
+  /** Size of the euro sign relative to the parent size. Default 0.5. */
+  euroScale?: number
+  /** Size of the cents relative to the parent size. Default 1. */
+  centsScale?: number
   className?: string
 }
 
@@ -16,6 +20,8 @@ export default function Money({
   sign,
   intWeight = 700,
   centsWeight = 200,
+  euroScale = 0.5,
+  centsScale = 1,
   className = '',
 }: MoneyProps) {
   if (!Number.isFinite(amount)) {
@@ -30,9 +36,9 @@ export default function Money({
   return (
     <span className={`font-display ${className}`}>
       {sign && <span style={{ fontWeight: 400, marginRight: '0.1em' }}>{sign}</span>}
-      <span style={{ fontWeight: 300, fontSize: '0.5em', marginRight: '0.2em' }}>€</span>
+      <span style={{ fontWeight: 300, fontSize: `${euroScale}em`, marginRight: '0.2em' }}>€</span>
       <span style={{ fontWeight: intWeight }}>{whole}</span>
-      <span style={{ fontWeight: centsWeight }}>,{cents}</span>
+      <span style={{ fontWeight: centsWeight, fontSize: centsScale === 1 ? undefined : `${centsScale}em` }}>,{cents}</span>
     </span>
   )
 }

@@ -2,229 +2,229 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
-import { TrendingUp, TrendingDown, Plus, ArrowUpRight, ArrowDownRight, History } from 'lucide-react'
-import { Transaction } from '@/lib/supabase'
-import TransactionForm from '@/components/TransactionForm'
+import { ArrowUpRight, ArrowDownRight, History } from 'lucide-react'
 import Money from '@/components/Money'
 import ThemeToggle from '@/components/ThemeToggle'
-import { getTransactionEffect, parseTransaction } from '@/lib/transactions'
+import Liquid from '@/components/Liquid'
+import { SparkleIcon } from '@/components/SparkleIcon'
+import { useAi } from '@/components/AiContext'
+import { clampLevel, computeLevelRatio } from '@/lib/level'
+import { getTransactionEffect, getWalletBalances, parseTransaction } from '@/lib/transactions'
 import { useWallets } from '@/components/WalletContext'
 import { useTransactions } from '@/components/TransactionsContext'
+import { useTransactionSheet } from '@/components/TransactionSheetContext'
+
+const fmt = (n: number) => n.toLocaleString('it-IT', { minimumFractionDigits: 2 })
 
 export default function DashboardHome() {
   const router = useRouter()
-  const { walletMap, defaultWallet } = useWallets()
-  const { transactions, loading, upsertTransaction } = useTransactions()
-  const [showForm, setShowForm] = useState(false)
-  const [formType, setFormType] = useState<'income' | 'expense'>('income')
+  const { wallets, walletMap, defaultWallet } = useWallets()
+  const { transactions, loading } = useTransactions()
+  const { isAiEnabled } = useAi()
+  const { open: openSheet } = useTransactionSheet()
+  const [selectedWallet, setSelectedWallet] = useState<string | null>(null)
 
-  // Derived once per data change, not on every render (keeps section switches instant).
-  const { realTransactions, totalIncome, totalExpense, totalToRedeem, totalToPay } = useMemo(() => {
+  const data = useMemo(() => {
     const real = transactions.filter(t => !t.title.endsWith('-transfer]'))
-    let income = 0
-    let expense = 0
+    const now = new Date()
+    const inMonth = (iso: string) => {
+      const d = new Date(iso)
+      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
+    }
+    const balances = getWalletBalances(transactions, wallets.map(w => w.slug), defaultWallet)
+    let total = 0
     real.forEach(t => {
-      const effect = getTransactionEffect(t, defaultWallet)
-      income += effect.income
-      expense += effect.expense
+      const e = getTransactionEffect(t, defaultWallet)
+      total += e.income - e.expense
     })
 
     let toRedeem = 0
     let toPay = 0
+    let hasDebts = false
     transactions.forEach(t => {
       const parsed = parseTransaction(t, defaultWallet)
       if (!parsed.isDebt || parsed.debtInfo === null || parsed.debtInfo.status !== 'active') return
-      const amount = Number(t.amount)
-      if (parsed.debtInfo.type === 'to_me') toRedeem += amount
-      else if (parsed.debtInfo.type === 'by_me') toPay += amount
+      hasDebts = true
+      if (parsed.debtInfo.type === 'to_me') toRedeem += Number(t.amount)
+      else toPay += Number(t.amount)
     })
 
-    return { realTransactions: real, totalIncome: income, totalExpense: expense, totalToRedeem: toRedeem, totalToPay: toPay }
-  }, [transactions, defaultWallet])
+    return { real, inMonth, balances, total, toRedeem, toPay, hasDebts }
+  }, [transactions, wallets, defaultWallet])
 
-  const balance = totalIncome - totalExpense
-  const recent = useMemo(() => realTransactions.slice(0, 6), [realTransactions])
+  const ratio = useMemo(() => computeLevelRatio(transactions, defaultWallet), [transactions, defaultWallet])
+  const level = clampLevel(ratio)
 
-  const fmt = (n: number) => n.toLocaleString('it-IT', { minimumFractionDigits: 2 })
+  // The selected wallet filters the balance, the month pills and the list.
+  const scoped = useMemo(
+    () => (selectedWallet ? data.real.filter(t => parseTransaction(t, defaultWallet).wallet === selectedWallet) : data.real),
+    [data.real, selectedWallet, defaultWallet],
+  )
+  const { monthIn, monthOut } = useMemo(() => {
+    let i = 0
+    let o = 0
+    scoped.filter(t => data.inMonth(t.created_at)).forEach(t => {
+      const e = getTransactionEffect(t, defaultWallet)
+      i += e.income
+      o += e.expense
+    })
+    return { monthIn: i, monthOut: o }
+  }, [scoped, data, defaultWallet])
+
+  const balance = selectedWallet ? (data.balances[selectedWallet] ?? 0) : data.total
+  const recent = useMemo(() => scoped.slice(0, 8), [scoped])
+  const largest = Math.max(1, ...wallets.map(w => Math.max(0, data.balances[w.slug] ?? 0)))
+  const empty = !loading && data.real.length === 0
 
   return (
-    <div className="space-y-12 py-4">
+    <div className="relative z-10 space-y-8 py-4">
+      <Liquid level={level} variant="full" />
 
-      {/* Hero Balance Section */}
-      <motion.div
-       
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.06 }}
-        className="space-y-6"
-      >
-        <div className="flex justify-between items-start">
-          <div>
-            <span className="text-[10px] tracking-[0.3em] uppercase text-muted font-semibold block mb-2">
-              Disponibilità Attuale
-            </span>
-            <h1 className={`text-4xl sm:text-6xl tracking-tight text-fg ${balance < 0 ? 'text-expense' : ''}`}>
-              <Money amount={balance} intWeight={700} centsWeight={200} />
-            </h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <button 
-              onClick={() => router.push('/dashboard/log')}
-              className="p-3 rounded-full bg-surface border border-border/10 text-fg hover:bg-elevated transition-colors"
-              title="Registro Attività"
+      <header className="flex items-center justify-between">
+        <span className="text-sm font-light uppercase tracking-[0.3em]">Finance</span>
+        <div className="flex items-center gap-2">
+          <ThemeToggle className="!p-0 w-11 h-11 flex items-center justify-center !bg-bg !border-outline" />
+          <button
+            onClick={() => router.push('/dashboard/log')}
+            className="w-11 h-11 flex items-center justify-center rounded-full bg-bg border border-outline text-fg cursor-pointer"
+            aria-label="Registro attività"
+            title="Registro attività"
+          >
+            <History className="w-5 h-5" strokeWidth={1.5} />
+          </button>
+          {isAiEnabled && (
+            <button
+              onClick={() => router.push('/dashboard/ai-chat')}
+              className="w-11 h-11 flex items-center justify-center rounded-full bg-bg border border-outline text-fg cursor-pointer"
+              aria-label="Assistente"
+              title="Assistente"
             >
-              <History className="w-5 h-5" strokeWidth={1.5} />
+              <SparkleIcon className="w-5 h-5" />
             </button>
-          </div>
+          )}
         </div>
+      </header>
 
-        {/* Quick Stats Grid */}
-        <div className="grid grid-cols-2 gap-8 border-t border-border/10 pt-8">
-          <div className="space-y-1">
-            <div className="flex items-center gap-1.5 text-muted">
-              <TrendingUp className="w-3.5 h-3.5 text-income" strokeWidth={1.5} />
-              <span className="text-[9px] tracking-[0.25em] uppercase font-light">Entrate</span>
-            </div>
-            <p className="text-lg text-income"><Money amount={totalIncome} intWeight={600} centsWeight={200} /></p>
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-1.5 text-muted">
-              <TrendingDown className="w-3.5 h-3.5 text-expense" strokeWidth={1.5} />
-              <span className="text-[9px] tracking-[0.25em] uppercase font-light">Uscite</span>
-            </div>
-            <p className="text-lg text-expense"><Money amount={totalExpense} intWeight={600} centsWeight={200} /></p>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Quick Actions Buttons */}
-      <div className="grid grid-cols-2 gap-4">
-        <motion.button
-         
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.06, ease: 'easeOut', delay: 0.01 }}
-          whileTap={{ scale: 0.96 }}
-          onClick={() => { setFormType('income'); setShowForm(true) }}
-          className="flex items-center justify-center gap-2 py-4 rounded-full bg-income/10 text-income hover:bg-income hover:text-bg text-xs tracking-wider uppercase font-bold t cursor-pointer"
-        >
-          <Plus className="w-4 h-4" strokeWidth={1.5} />
-          Entrata
-        </motion.button>
-        <motion.button
-         
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.06, ease: 'easeOut', delay: 0.01 }}
-          whileTap={{ scale: 0.96 }}
-          onClick={() => { setFormType('expense'); setShowForm(true) }}
-          className="flex items-center justify-center gap-2 py-4 rounded-full bg-expense/10 text-expense hover:bg-expense hover:text-bg text-xs tracking-wider uppercase font-bold t cursor-pointer"
-        >
-          <Plus className="w-4 h-4" strokeWidth={1.5} />
-          Uscita
-        </motion.button>
-      </div>
-
-      {/* Debts Summary Card */}
-      <motion.div
-       
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.06, ease: 'easeOut', delay: 0.01 }}
-        onClick={() => router.push('/dashboard/debts')}
-        className="card p-5 cursor-pointer hover:border-border/20 t flex flex-col justify-between"
-      >
-        <span className="text-[10px] tracking-[0.3em] uppercase text-muted font-semibold block mb-4">
-          Situazione Debiti
+      <section className="space-y-4">
+        <span className="text-[11px] uppercase tracking-[0.25em] text-muted block">
+          {selectedWallet ? `Saldo · ${walletMap[selectedWallet] ?? selectedWallet}` : 'Saldo totale'}
         </span>
-        <div className="grid grid-cols-2 gap-4 divide-x divide-border/5">
-          <div>
-            <span className="text-[9px] tracking-[0.25em] uppercase text-muted block mb-1">Da ricevere</span>
-            <p className="text-lg text-income"><Money amount={totalToRedeem} intWeight={600} centsWeight={200} /></p>
-          </div>
-          <div className="pl-4">
-            <span className="text-[9px] tracking-[0.25em] uppercase text-muted block mb-1">Da pagare</span>
-            <p className="text-lg text-expense"><Money amount={totalToPay} intWeight={600} centsWeight={200} /></p>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Recent Ledger List */}
-      <motion.div
-       
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.06, ease: 'easeOut', delay: 0.01 }}
-        className="space-y-6"
-      >
-        <div className="flex items-center justify-between pb-3 border-b border-border/10">
-          <span className="text-[10px] tracking-[0.3em] uppercase text-muted font-semibold">
-            Ledger Recente
+        <h1 className={`tracking-tight text-[40px] sm:text-[58px] leading-none ${balance < 0 ? 'text-expense' : 'text-fg'}`}>
+          <Money amount={balance} intWeight={700} centsWeight={200} euroScale={0.38} centsScale={0.52} />
+        </h1>
+        <div className="flex flex-wrap gap-2">
+          <span className="inline-flex items-center gap-1.5 min-h-11 px-4 rounded-full border border-outline text-income font-display text-xs font-medium whitespace-nowrap">
+            <ArrowUpRight className="w-4 h-4" strokeWidth={1.5} aria-hidden="true" />
+            <span className="font-sans font-light text-muted">Entrate</span> +{fmt(monthIn)}
+          </span>
+          <span className="inline-flex items-center gap-1.5 min-h-11 px-4 rounded-full border border-outline text-expense font-display text-xs font-medium whitespace-nowrap">
+            <ArrowDownRight className="w-4 h-4" strokeWidth={1.5} aria-hidden="true" />
+            <span className="font-sans font-light text-muted">Uscite</span> -{fmt(monthOut)}
           </span>
         </div>
+      </section>
 
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="w-5 h-5 border border-muted/20 border-t-muted/80 rounded-full animate-spin" />
-          </div>
-        ) : recent.length === 0 ? (
-          <div className="py-12 text-center">
-            <p className="text-sm text-muted font-light">Nessuna operazione registrata</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-border/5">
-            {recent.map((t, i) => {
-              const parsed = parseTransaction(t, defaultWallet)
-              const walletLabel = walletMap[parsed.wallet] || parsed.wallet
-              
+      <section className="space-y-6 pb-24">
+        <p className="text-[11px] uppercase tracking-[0.25em] text-muted">
+          Livello {ratio === null ? '—' : `${Math.round(ratio * 100)}%`} · del massimo a 90 giorni
+        </p>
+
+        {wallets.length > 0 && (
+          <div className="grid grid-cols-2 gap-3" role="group" aria-label="Portafogli">
+            {wallets.map((w, i) => {
+              const bal = data.balances[w.slug] ?? 0
+              const selected = selectedWallet === w.slug
               return (
-                <motion.div
-                  key={t.id}
-                 
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.06, ease: 'easeOut', delay: Math.min(i, 5) * 0.006 }}
-                  className="flex items-center justify-between py-4 group"
+                <button
+                  key={w.slug}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => setSelectedWallet(selected ? null : w.slug)}
+                  className={`tank-bob card flex items-stretch gap-3 p-4 min-h-[88px] text-left cursor-pointer !border-[1.5px] ${selected ? '!border-fg' : '!border-outline'}`}
+                  style={{ animationDelay: `${i * 0.6}s` }}
                 >
-                  <div className="flex items-center gap-3.5 min-w-0">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                      t.type === 'income' ? 'bg-income/5 text-income' : 'bg-expense/5 text-expense'
-                    }`}>
-                      {t.type === 'income' ? (
-                        <ArrowUpRight className="w-4 h-4" strokeWidth={1.5} />
-                      ) : (
-                        <ArrowDownRight className="w-4 h-4" strokeWidth={1.5} />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <p className="text-sm font-light text-fg truncate">{parsed.cleanTitle}</p>
-                        {parsed.isDebt && (
-                          <span className="px-1.5 py-0.5 rounded text-[8px] tracking-wide uppercase font-semibold bg-debt/10 text-debt">
-                            {parsed.debtInfo?.type === 'to_me' ? 'Credito' : 'Debito'}
-                          </span>
-                        )}
-                        <span className="px-1.5 py-0.5 rounded text-[8px] tracking-wide uppercase font-light bg-elevated text-muted">
-                          {walletLabel}
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-muted tracking-wider mt-0.5">
-                        {new Date(t.created_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })} • {new Date(t.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
-                  </div>
-                  <span className={`font-display text-xs font-medium whitespace-nowrap ${t.type === 'income' ? 'text-income' : 'text-expense'}`}>
-                    {t.type === 'income' ? '+' : '-'}€{fmt(Number(t.amount))}
+                  <span className="w-2.5 rounded-full bg-elevated border border-outline relative overflow-hidden shrink-0" aria-hidden="true">
+                    <span
+                      className="gauge-fill absolute inset-x-0 bottom-0 bg-income"
+                      style={{ height: `${Math.round((Math.max(0, bal) / largest) * 100)}%` }}
+                    />
                   </span>
-                </motion.div>
+                  <span className="min-w-0 flex flex-col justify-between">
+                    <span className="text-xs text-muted truncate">{w.name}</span>
+                    <Money amount={bal} intWeight={600} centsWeight={200} euroScale={0.6} className="text-[15px] truncate" />
+                  </span>
+                </button>
               )
             })}
           </div>
         )}
-      </motion.div>
 
-      <TransactionForm
-        isOpen={showForm}
-        onClose={() => setShowForm(false)}
-        onSaved={(saved) => saved && upsertTransaction(saved)}
-        defaultType={formType}
-      />
+        {data.hasDebts && (
+          <button
+            type="button"
+            onClick={() => router.push('/dashboard/debts')}
+            className="card grid grid-cols-2 gap-4 p-5 w-full text-left cursor-pointer"
+            aria-label="Apri debiti"
+          >
+            <span>
+              <span className="text-[11px] uppercase tracking-[0.25em] text-muted block mb-1">Da ricevere</span>
+              <Money amount={data.toRedeem} intWeight={600} centsWeight={200} className="text-base text-debt" />
+            </span>
+            <span>
+              <span className="text-[11px] uppercase tracking-[0.25em] text-muted block mb-1">Da pagare</span>
+              <Money amount={data.toPay} intWeight={600} centsWeight={200} className="text-base text-debt" />
+            </span>
+          </button>
+        )}
+
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.25em] text-muted pb-3">Ultime operazioni</p>
+          {loading ? (
+            <div className="space-y-px" aria-busy="true" aria-label="Caricamento">
+              {[0, 1, 2, 3].map(i => <div key={i} className="h-[52px] rounded-2xl bg-surface mb-2" />)}
+            </div>
+          ) : empty ? (
+            <div className="py-10 text-center space-y-4">
+              <p className="text-sm text-muted">Nessuna operazione registrata</p>
+              <button
+                type="button"
+                onClick={() => openSheet('income')}
+                className="min-h-11 px-6 rounded-full bg-fg text-bg font-bold text-sm cursor-pointer"
+              >
+                Aggiungi la prima
+              </button>
+            </div>
+          ) : recent.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted">Nessuna operazione per questo portafoglio</p>
+          ) : (
+            <ul className="divide-y divide-outline/60">
+              {recent.map(t => {
+                const parsed = parseTransaction(t, defaultWallet)
+                const walletLabel = walletMap[parsed.wallet] || parsed.wallet
+                const income = t.type === 'income'
+                return (
+                  <li key={t.id} className="flex items-center justify-between gap-3 min-h-[52px] py-2">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${income ? 'text-income' : 'text-expense'}`}>
+                        {income ? <ArrowUpRight className="w-4 h-4" strokeWidth={1.5} /> : <ArrowDownRight className="w-4 h-4" strokeWidth={1.5} />}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-[15px] font-light truncate">{parsed.cleanTitle}</p>
+                        <p className="text-xs text-muted truncate">
+                          {walletLabel} · {new Date(t.created_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}
+                        </p>
+                      </div>
+                    </div>
+                    <span className={`font-display text-xs font-medium whitespace-nowrap tabular-nums ${income ? 'text-income' : 'text-expense'}`}>
+                      {income ? '+' : '-'}€{fmt(Number(t.amount))}
+                    </span>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+      </section>
     </div>
   )
 }

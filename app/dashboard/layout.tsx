@@ -6,6 +6,8 @@ import { WalletProvider } from '@/components/WalletContext'
 import { TransactionsProvider } from '@/components/TransactionsContext'
 import { AiProvider } from '@/components/AiContext'
 import { AiChatProvider } from '@/components/ai-chat/AiChatContext'
+import { TransactionSheetProvider } from '@/components/TransactionSheetContext'
+import Liquid from '@/components/Liquid'
 import { useSyncExternalStore } from 'react'
 import { usePathname } from 'next/navigation'
 import { motion, MotionConfig } from 'framer-motion'
@@ -26,9 +28,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <TransactionsProvider>
           <AiProvider>
             <AiChatProvider>
+              <TransactionSheetProvider>
               <div className="min-h-dvh bg-bg text-fg flex">
+                {pathname !== '/dashboard' && <Liquid variant="strip" />}
                 <Sidebar />
-                <main className={`flex-1 pb-36 sm:pb-12 pt-4 sm:pt-6 lg:ml-64 w-full ${
+                <main className={`relative z-10 flex-1 pb-36 sm:pb-12 pt-4 sm:pt-6 lg:ml-64 w-full ${
                   isFullWidth ? 'px-2 sm:px-6 max-w-none' : 'px-6 sm:px-12 max-w-3xl mx-auto'
                 }`}>
                   {/* No exit animation and no waiting: the new section replaces the old one at once.
@@ -44,6 +48,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </main>
                 <BottomNav />
               </div>
+              </TransactionSheetProvider>
             </AiChatProvider>
           </AiProvider>
         </TransactionsProvider>

@@ -1,5 +1,6 @@
 'use client'
 
+import Flow from '@/components/Flow'
 import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Transaction } from '@/lib/supabase'
@@ -633,6 +634,12 @@ export default function AnalyticsPage() {
       {activeTab === 'panoramica' ? (
         /* ───── TAB 1: PREVIOUS ANALYTICS MODULES VIEW ───── */
         <div className="space-y-12">
+          {/* Flow: income pours in, spending bends away, savings fall into the level */}
+          <section aria-label="Flusso del periodo" className="space-y-3">
+            <p className="text-[11px] uppercase tracking-[0.25em] text-muted">Flusso · tutto il periodo</p>
+            <Flow income={totalIncome} expense={totalExpense} />
+          </section>
+
           {/* Summary Row */}
           <div className="grid grid-cols-2 gap-8 border-b border-border/10 pb-8">
             <motion.div
